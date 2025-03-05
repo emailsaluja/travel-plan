@@ -9,6 +9,8 @@ import Dashboard from './pages/Dashboard';
 import { ItineraryDetails } from './pages/ItineraryDetails';
 import ProtectedRoute from './components/ProtectedRoute';
 import SavedItineraries from './pages/SavedItineraries';
+import MyItineraries from './pages/MyItineraries';
+import CreateItinerary from './pages/CreateItinerary';
 
 export const router = createBrowserRouter([
   {
@@ -33,6 +35,22 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <SavedItineraries />
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: 'my-itineraries',
+        element: (
+          <ProtectedRoute>
+            <MyItineraries />
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: 'create-itinerary',
+        element: (
+          <ProtectedRoute>
+            <CreateItinerary />
           </ProtectedRoute>
         )
       },
