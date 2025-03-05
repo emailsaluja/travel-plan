@@ -1,6 +1,8 @@
 import React from 'react';
 import { Heart } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { LikesService } from '../services/likes.service';
 
 interface ItineraryTileProps {
   id: string;
@@ -24,11 +26,43 @@ const ItineraryTile: React.FC<ItineraryTileProps> = ({
   createdAt = "Recently"
 }) => {
   const [isLiked, setIsLiked] = React.useState(false);
+  const [likesCount, setLikesCount] = React.useState(likes);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  const toggleLike = (e: React.MouseEvent) => {
+  React.useEffect(() => {
+    const checkLikeStatus = async () => {
+      if (!isAuthenticated) return;
+      const { isLiked } = await LikesService.checkIfLiked(id);
+      setIsLiked(isLiked);
+    };
+    checkLikeStatus();
+  }, [id, isAuthenticated]);
+
+  const handleLikeClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsLiked(!isLiked);
+    
+    if (!isAuthenticated) {
+      navigate('/signin');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      if (isLiked) {
+        await LikesService.unlikeItinerary(id);
+        setLikesCount(prev => prev - 1);
+      } else {
+        await LikesService.likeItinerary(id);
+        setLikesCount(prev => prev + 1);
+      }
+      setIsLiked(!isLiked);
+    } catch (error) {
+      console.error('Error toggling like:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleClick = () => {
@@ -47,8 +81,13 @@ const ItineraryTile: React.FC<ItineraryTileProps> = ({
           className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
         />
         <button 
-          className={`absolute top-2 right-2 p-2 rounded-full ${isLiked ? 'bg-rose-500 text-white' : 'bg-white text-gray-500'}`}
-          onClick={toggleLike}
+          className={`absolute top-2 right-2 p-2 rounded-full 
+            ${isLiked ? 'bg-rose-500 text-white' : 'bg-white text-gray-500'}
+            ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
+            hover:scale-110 transition-all duration-200
+          `}
+          onClick={handleLikeClick}
+          disabled={isLoading}
         >
           <Heart className="h-4 w-4" fill={isLiked ? 'currentColor' : 'none'} />
         </button>
@@ -60,9 +99,8 @@ const ItineraryTile: React.FC<ItineraryTileProps> = ({
         <div className="mt-1 flex items-center">
           <div className="flex items-center">
             <Heart className="h-3 w-3 text-rose-500" fill="currentColor" />
-            <span className="ml-1 text-xs text-gray-500">{likes}</span>
+            <span className="ml-1 text-xs text-gray-500">{likesCount}</span>
           </div>
-          
         </div>
       </div>
     </div>
