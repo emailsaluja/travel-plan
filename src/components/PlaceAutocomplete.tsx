@@ -21,6 +21,28 @@ const COUNTRY_CODES: { [key: string]: string } = {
   // Add more countries as needed
 };
 
+// Add this interface to handle date display
+interface DateDisplayProps {
+  startDate: string;
+  nights: number;
+}
+
+const DateDisplay: React.FC<DateDisplayProps> = ({ startDate, nights }) => {
+  const formatDate = (date: Date) => {
+    return `${date.getDate()} ${date.toLocaleString('default', { month: 'short' })}`;
+  };
+
+  const start = new Date(startDate);
+  const end = new Date(startDate);
+  end.setDate(end.getDate() + nights);
+
+  return (
+    <div className="text-sm text-gray-500 mt-1">
+      {formatDate(start)} - {formatDate(end)}
+    </div>
+  );
+};
+
 interface PlaceAutocompleteProps {
   country: string;
   value: string;
@@ -28,6 +50,8 @@ interface PlaceAutocompleteProps {
   onPlaceSelect: (place: google.maps.places.PlaceResult) => void;
   placeholder?: string;
   className?: string;
+  startDate: string;  // Add this
+  nights: number;     // Add this
 }
 
 const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
@@ -37,6 +61,8 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
   onPlaceSelect,
   placeholder = 'Add destination',
   className = '',
+  startDate,
+  nights,
 }) => {
   const isGoogleMapsLoaded = useGoogleMapsScript();
   const [predictions, setPredictions] = useState<google.maps.places.AutocompletePrediction[]>([]);
@@ -92,6 +118,14 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
   }, [country, isInitialized]);
 
   const fetchPredictions = (input: string) => {
+    // Add minimum character check
+    if (input.length < 3) {
+      console.log('Skipping predictions: Input less than 3 characters');
+      setPredictions([]);
+      setShowPredictions(false);
+      return;
+    }
+
     if (!input || !isInitialized || !autocompleteService.current) {
       console.log('Skipping predictions:', { 
         input, 
@@ -138,6 +172,7 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
           setShowPredictions(true);
         } else {
           setPredictions([]);
+          setShowPredictions(false);
         }
       }
     );
@@ -199,6 +234,8 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
         placeholder={placeholder}
         className={`w-full border-none focus:ring-0 bg-transparent ${className}`}
       />
+      
+      {value && <DateDisplay startDate={startDate} nights={nights} />}
       
       {showPredictions && predictions.length > 0 && (
         <div 

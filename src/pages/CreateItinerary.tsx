@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { Globe2, MapPin, Moon, Bed, Compass, Bus, Plus } from 'lucide-react';
 import { countries } from '../data/countries';
 import PlaceAutocomplete from '../components/PlaceAutocomplete';
+import DayByDayGrid from '../components/DayByDayGrid';
 
 interface ItineraryDay {
   destination: string;
@@ -140,6 +141,18 @@ const CreateItinerary: React.FC = () => {
   };
 
   const renderDestinationsGrid = () => {
+    // Calculate cumulative nights to determine start date for each destination
+    let cumulativeNights = 0;
+    const destinationsWithDates = itineraryDays.map((day, index) => {
+      const startDate = new Date(tripSummary.startDate);
+      startDate.setDate(startDate.getDate() + cumulativeNights);
+      cumulativeNights += day.nights;
+      return {
+        ...day,
+        startDate: startDate.toISOString().split('T')[0]
+      };
+    });
+
     return (
       <div className="flex-1 overflow-auto">
         {/* Grid Header */}
@@ -168,7 +181,7 @@ const CreateItinerary: React.FC = () => {
 
         {/* Grid Rows */}
         <div className="space-y-4">
-          {itineraryDays.map((day, index) => (
+          {destinationsWithDates.map((day, index) => (
             <div key={index} className="grid grid-cols-5 gap-4 bg-white rounded-lg p-4 shadow-sm">
               <div>
                 <PlaceAutocomplete
@@ -179,12 +192,9 @@ const CreateItinerary: React.FC = () => {
                     console.log('Selected place:', place);
                     handleDayUpdate(index, 'destination', place.formatted_address || place.name || '');
                   }}
+                  startDate={day.startDate}
+                  nights={day.nights}
                 />
-                {day.destination && (
-                  <div className="text-sm text-gray-500 mt-1">
-                    Thu 10 Apr - Sat 12 Apr
-                  </div>
-                )}
               </div>
               <div className="flex items-center space-x-2">
                 <button 
@@ -338,7 +348,14 @@ const CreateItinerary: React.FC = () => {
           </div>
 
           {/* Tab Content */}
-          {activeTab === 'destinations' ? renderDestinationsGrid() : <div>Day by day view coming soon...</div>}
+          {activeTab === 'destinations' ? (
+            renderDestinationsGrid()
+          ) : (
+            <DayByDayGrid
+              tripStartDate={tripSummary.startDate}
+              destinations={itineraryDays}
+            />
+          )}
         </div>
 
         {/* Right side - Map placeholder */}
