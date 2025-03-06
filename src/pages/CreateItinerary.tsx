@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Globe2, MapPin, Moon, Bed, Compass, Bus, Plus } from 'lucide-react';
 import { countries } from '../data/countries';
+import PlaceAutocomplete from '../components/PlaceAutocomplete';
 
 interface ItineraryDay {
   destination: string;
@@ -67,7 +68,11 @@ const CreateItinerary: React.FC = () => {
       setError('Trip name is required');
       return;
     }
-    initializeItineraryDays(); // Initialize with one row
+    if (!tripSummary.country) {
+      setError('Please select a country');
+      return;
+    }
+    initializeItineraryDays();
     setShowSummaryPopup(false);
     setError(null);
   };
@@ -166,16 +171,17 @@ const CreateItinerary: React.FC = () => {
           {itineraryDays.map((day, index) => (
             <div key={index} className="grid grid-cols-5 gap-4 bg-white rounded-lg p-4 shadow-sm">
               <div>
-                <input
-                  type="text"
+                <PlaceAutocomplete
+                  country={tripSummary.country}
                   value={day.destination}
-                  onChange={(e) => handleDayUpdate(index, 'destination', e.target.value)}
-                  className="w-full border-none focus:ring-0 bg-transparent"
-                  placeholder="Add destination"
+                  onChange={(value) => handleDayUpdate(index, 'destination', value)}
+                  onPlaceSelect={(place) => {
+                    console.log('Selected place:', place);
+                    handleDayUpdate(index, 'destination', place.formatted_address || place.name || '');
+                  }}
                 />
                 {day.destination && (
                   <div className="text-sm text-gray-500 mt-1">
-                    {/* Format the date range for this destination */}
                     Thu 10 Apr - Sat 12 Apr
                   </div>
                 )}
