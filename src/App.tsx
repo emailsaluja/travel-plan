@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import SavedItineraries from './pages/SavedItineraries';
+import MyItineraries from './pages/MyItineraries';
 
 const App = () => {
   return (

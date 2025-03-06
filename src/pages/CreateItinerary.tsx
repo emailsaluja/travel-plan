@@ -7,6 +7,7 @@ import { countries } from '../data/countries';
 import PlaceAutocomplete from '../components/PlaceAutocomplete';
 import DayByDayGrid from '../components/DayByDayGrid';
 import DiscoverPopup from '../components/DiscoverPopup';
+import { ItineraryService } from '../services/itinerary.service';
 
 interface ItineraryDay {
   destination: string;
@@ -99,8 +100,20 @@ const CreateItinerary: React.FC = () => {
   };
 
   const handleSave = async () => {
-    // Implementation for saving the itinerary will come later
-    console.log('Saving itinerary:', { tripSummary, itineraryDays });
+    try {
+      setLoading(true);
+      await ItineraryService.saveItinerary({
+        tripSummary,
+        destinations: itineraryDays,
+        dayAttractions
+      });
+      navigate('/my-itineraries');
+    } catch (error) {
+      console.error('Error saving itinerary:', error);
+      // Add error handling/notification here
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Calculate total nights from sleeping entries
