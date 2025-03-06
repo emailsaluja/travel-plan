@@ -190,6 +190,14 @@ const Header: React.FC<HeaderProps> = ({ setSelectedCountry, isAuthenticated }) 
           </div>
         </div>
       </header>
+      <main>
+        {/* ... main content ... */}
+      </main>
+      {!isAuthenticated && (
+        <footer>
+          {/* ... footer content ... */}
+        </footer>
+      )}
     </>
   );
 };

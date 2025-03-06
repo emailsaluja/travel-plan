@@ -1,8 +1,14 @@
 import React from 'react';
 import { Globe } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 const Footer: React.FC = () => {
+  const { isAuthenticated } = useAuth();
   const currentYear = new Date().getFullYear();
+
+  if (isAuthenticated) {
+    return null;
+  }
 
   return (
     <footer className="bg-gray-100 border-t border-gray-200">
