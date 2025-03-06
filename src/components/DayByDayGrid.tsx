@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, Bed, Compass } from 'lucide-react';
+import DayDiscoverPopup from './DayDiscoverPopup';
 
 interface DayByDayProps {
   tripStartDate: string;
@@ -9,44 +10,46 @@ interface DayByDayProps {
     sleeping: string;
     discover: string;
   }[];
+  onDestinationsUpdate: (destinations: {
+    destination: string;
+    nights: number;
+    sleeping: string;
+    discover: string;
+  }[]) => void;
+  dayAttractions: DayAttractions[];
+  onDayAttractionsUpdate: (dayIndex: number, attractions: string[]) => void;
 }
 
-const DayByDayGrid: React.FC<DayByDayProps> = ({ tripStartDate, destinations }) => {
-  // Generate array of days based on destinations
-  const generateDays = () => {
-    const days: {
-      date: Date;
-      dayNumber: number;
-      destination: string;
-      isFirstDay: boolean;
-      sleeping: string;
-      discover: string;
-      notes?: string;
-    }[] = [];
+interface DayAttractions {
+  dayIndex: number;
+  selectedAttractions: string[];
+}
 
-    let currentDate = new Date(tripStartDate);
-    let dayNumber = 1;
-    
-    destinations.forEach((dest) => {
-      for (let i = 0; i < (dest.nights || 1); i++) {
-        days.push({
-          date: new Date(currentDate),
-          dayNumber,
-          destination: dest.destination,
-          isFirstDay: i === 0,
-          sleeping: dest.sleeping,
-          discover: dest.discover,
-          notes: i === 0 ? 'Start of your adventure!' : 'Spend the day in ' + dest.destination
-        });
-        currentDate.setDate(currentDate.getDate() + 1);
-        dayNumber++;
-      }
-    });
+interface ExpandedDay {
+  destination: string;
+  nights: number;
+  sleeping: string;
+  discover: string;
+  dayIndex: number;
+  isFirstDay: boolean;
+  date: Date;
+}
 
-    return days;
-  };
-
-  const days = generateDays();
+const DayByDayGrid: React.FC<DayByDayProps> = ({
+  tripStartDate,
+  destinations,
+  onDestinationsUpdate,
+  dayAttractions,
+  onDayAttractionsUpdate
+}) => {
+  const [showDiscoverPopup, setShowDiscoverPopup] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<{
+    date: string;
+    destination: string;
+    discover: string;
+    dayIndex: number;
+    allAttractions: string[];
+  } | null>(null);
 
   const formatDate = (date: Date) => {
     const weekday = date.toLocaleString('default', { weekday: 'short' });
@@ -55,6 +58,60 @@ const DayByDayGrid: React.FC<DayByDayProps> = ({ tripStartDate, destinations }) 
     const year = date.getFullYear();
     return `${weekday} ${day} ${month} ${year}`;
   };
+
+  const handleDiscoverClick = (day: ExpandedDay, index: number) => {
+    const destinationData = destinations.find(d => d.destination === day.destination);
+    const destinationAttractions = destinationData?.discover.split(', ').filter(Boolean) || [];
+    
+    // Get the current attractions for this specific day
+    const currentDayAttractions = dayAttractions.find(da => da.dayIndex === day.dayIndex);
+    console.log('Opening popup for day:', day.dayIndex, 'Current attractions:', currentDayAttractions);
+
+    setSelectedDay({
+      date: formatDate(day.date),
+      destination: day.destination,
+      discover: currentDayAttractions?.selectedAttractions.join(', ') || '',
+      dayIndex: day.dayIndex,
+      allAttractions: destinationAttractions
+    });
+    setShowDiscoverPopup(true);
+  };
+
+  const handleUpdateDayAttractions = (attractions: string[]) => {
+    if (selectedDay) {
+      console.log('Updating attractions for day:', selectedDay.dayIndex, attractions);
+      onDayAttractionsUpdate(selectedDay.dayIndex, attractions);
+    }
+  };
+
+  const generateExpandedDays = () => {
+    let expandedDays: ExpandedDay[] = [];
+    let dayIndex = 0;
+    let currentDate = new Date(tripStartDate);
+    
+    for (const destination of destinations) {
+      // Skip if nights is not a valid number
+      const nights = destination.nights || 0;
+      if (nights <= 0) continue;
+
+      // Create a day entry for each night
+      for (let i = 0; i < nights; i++) {
+        expandedDays.push({
+          ...destination,
+          dayIndex,
+          isFirstDay: i === 0,
+          date: new Date(currentDate) // Store the date for each day
+        });
+        dayIndex++;
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    }
+
+    console.log('Expanded days:', expandedDays); // Debug log
+    return expandedDays;
+  };
+
+  const expandedDays = generateExpandedDays();
 
   return (
     <div className="flex-1 overflow-auto">
@@ -79,35 +136,61 @@ const DayByDayGrid: React.FC<DayByDayProps> = ({ tripStartDate, destinations }) 
 
       {/* Grid Rows */}
       <div className="space-y-4">
-        {days.map((day, index) => (
-          <div key={index} className="grid grid-cols-4 gap-4 bg-white rounded-lg p-4 shadow-sm">
-            <div className="flex flex-col">
-              <span>{formatDate(day.date)}</span>
-              <span className="text-sm text-gray-500">Day {day.dayNumber}</span>
-            </div>
-            <div className="flex flex-col">
-              <span>{day.destination}</span>
-              {day.notes && (
-                <span className="text-sm text-gray-500">{day.notes}</span>
-              )}
-            </div>
-            <div>
-              {day.sleeping && (
-                <button className="text-emerald-500 hover:bg-emerald-50 p-2 rounded-full">
-                  {day.sleeping}
+        {expandedDays.map((day, index) => {
+          // Find attractions for this specific day
+          const currentDayAttractions = dayAttractions.find(da => da.dayIndex === day.dayIndex);
+          console.log('Rendering day:', day.dayIndex, 'Attractions:', currentDayAttractions);
+          
+          return (
+            <div key={index} className="grid grid-cols-4 gap-4 bg-white rounded-lg p-4 shadow-sm">
+              <div className="flex flex-col">
+                <span>{formatDate(day.date)}</span>
+                <span className="text-sm text-gray-500">Day {index + 1}</span>
+              </div>
+              <div className="flex flex-col">
+                <span>{day.destination}</span>
+                {day.isFirstDay && <span className="text-sm text-gray-500">Arrival day</span>}
+              </div>
+              <div>
+                {day.sleeping && (
+                  <button className="text-emerald-500 hover:bg-emerald-50 p-2 rounded-full">
+                    {day.sleeping}
+                  </button>
+                )}
+              </div>
+              <div>
+                <button
+                  onClick={() => handleDiscoverClick(day, day.dayIndex)}
+                  className="w-full text-left text-amber-500 hover:bg-amber-50 p-2 rounded-lg transition-colors"
+                >
+                  {currentDayAttractions?.selectedAttractions.length 
+                    ? currentDayAttractions.selectedAttractions.join(', ') 
+                    : 'Add attractions'}
                 </button>
-              )}
+              </div>
             </div>
-            <div>
-              {day.discover && (
-                <button className="text-amber-500 hover:bg-amber-50 p-2 rounded-full">
-                  {day.discover}
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
+
+      {/* Day Discover Popup */}
+      {showDiscoverPopup && selectedDay && (
+        <DayDiscoverPopup
+          isOpen={showDiscoverPopup}
+          onClose={() => {
+            console.log('Closing popup for day:', selectedDay.dayIndex);
+            setShowDiscoverPopup(false);
+            setSelectedDay(null);
+          }}
+          date={selectedDay.date}
+          destination={selectedDay.destination}
+          selectedAttractions={dayAttractions.find(da => 
+            da.dayIndex === selectedDay.dayIndex
+          )?.selectedAttractions || []}
+          allDestinationAttractions={selectedDay.allAttractions}
+          onAttractionsUpdate={handleUpdateDayAttractions}
+        />
+      )}
     </div>
   );
 };

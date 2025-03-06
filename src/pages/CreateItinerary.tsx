@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -6,6 +6,7 @@ import { Globe2, MapPin, Moon, Bed, Compass, Bus, Plus } from 'lucide-react';
 import { countries } from '../data/countries';
 import PlaceAutocomplete from '../components/PlaceAutocomplete';
 import DayByDayGrid from '../components/DayByDayGrid';
+import DiscoverPopup from '../components/DiscoverPopup';
 
 interface ItineraryDay {
   destination: string;
@@ -26,6 +27,11 @@ interface TripSummary {
 
 type TabType = 'destinations' | 'day-by-day';
 
+interface DayAttractions {
+  dayIndex: number;
+  selectedAttractions: string[];
+}
+
 const CreateItinerary: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -43,6 +49,11 @@ const CreateItinerary: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('destinations');
   const [countrySearch, setCountrySearch] = useState('');
   const [showCountries, setShowCountries] = useState(false);
+  const [showDiscoverPopup, setShowDiscoverPopup] = useState(false);
+  const [activeDestinationIndex, setActiveDestinationIndex] = useState<number | null>(null);
+  const [dayAttractions, setDayAttractions] = useState<DayAttractions[]>([]);
+  const [isDayAttractionsInitialized, setIsDayAttractionsInitialized] = useState(false);
+  const [shouldUpdateDayAttractions, setShouldUpdateDayAttractions] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -116,17 +127,35 @@ const CreateItinerary: React.FC = () => {
     setItineraryDays(prev => [...prev, newDay]);
   };
 
-  // Add this new function to handle nights increment/decrement
-  const handleNightsChange = (index: number, change: 'increment' | 'decrement') => {
-    const updatedDays = [...itineraryDays];
-    if (change === 'increment') {
-      updatedDays[index].nights += 1;
-    } else {
-      // Ensure nights don't go below 0
-      updatedDays[index].nights = Math.max(0, updatedDays[index].nights - 1);
+  // Update the useEffect that initializes dayAttractions
+  useEffect(() => {
+    if ((!isDayAttractionsInitialized || shouldUpdateDayAttractions) && itineraryDays.length > 0) {
+      let dayIndex = 0;
+      const newDayAttractions: DayAttractions[] = [];
+      
+      // First, create a day entry for each night of each destination
+      itineraryDays.forEach((dest) => {
+        const destinationAttractions = dest.discover.split(', ').filter(Boolean);
+        
+        // Make sure we create entries for all nights
+        for (let i = 0; i < dest.nights; i++) {
+          // Always create a new entry for each day
+          newDayAttractions.push({
+            dayIndex,
+            // If we have existing attractions for this day, use them, otherwise use destination attractions
+            selectedAttractions: dayAttractions.find(da => da.dayIndex === dayIndex)?.selectedAttractions || 
+                               [...destinationAttractions]
+          });
+          dayIndex++;
+        }
+      });
+      
+      console.log('Initializing day attractions:', newDayAttractions);
+      setDayAttractions(newDayAttractions);
+      setIsDayAttractionsInitialized(true);
+      setShouldUpdateDayAttractions(false);
     }
-    setItineraryDays(updatedDays);
-  };
+  }, [itineraryDays, isDayAttractionsInitialized, shouldUpdateDayAttractions]);
 
   // Filter countries based on search
   const filteredCountries = countries.filter(country => 
@@ -138,6 +167,42 @@ const CreateItinerary: React.FC = () => {
     setTripSummary(prev => ({ ...prev, country }));
     setShowCountries(false);
     setCountrySearch('');
+  };
+
+  const handleDiscoverSelect = (index: number, attractions: string[]) => {
+    const updatedDays = [...itineraryDays];
+    updatedDays[index].discover = attractions.join(', ');
+    setItineraryDays(updatedDays);
+  };
+
+  const handleDestinationsUpdate = (updatedDestinations: typeof itineraryDays) => {
+    setItineraryDays(updatedDestinations);
+  };
+
+  // Update handleDayAttractionsUpdate to preserve state
+  const handleDayAttractionsUpdate = (dayIndex: number, attractions: string[]) => {
+    console.log('Updating attractions for day:', dayIndex, attractions); // Debug log
+    setDayAttractions(prev => {
+      const newState = prev.map(da => 
+        da.dayIndex === dayIndex
+          ? { ...da, selectedAttractions: attractions }
+          : da
+      );
+      console.log('New day attractions state:', newState); // Debug log
+      return newState;
+    });
+  };
+
+  // Update handleNightsChange to trigger recalculation
+  const handleNightsChange = (index: number, change: 'increment' | 'decrement') => {
+    const updatedDays = [...itineraryDays];
+    if (change === 'increment') {
+      updatedDays[index].nights += 1;
+    } else {
+      updatedDays[index].nights = Math.max(0, updatedDays[index].nights - 1);
+    }
+    setItineraryDays(updatedDays);
+    setShouldUpdateDayAttractions(true);
   };
 
   const renderDestinationsGrid = () => {
@@ -226,9 +291,23 @@ const CreateItinerary: React.FC = () => {
                 </button>
               </div>
               <div>
-                <button className="text-amber-500 hover:bg-amber-50 p-2 rounded-full">
+                <button 
+                  className="text-amber-500 hover:bg-amber-50 p-2 rounded-full"
+                  onClick={() => {
+                    if (day.destination) {  // Only open if destination is selected
+                      setActiveDestinationIndex(index);
+                      setShowDiscoverPopup(true);
+                    } else {
+                      // Maybe show a toast or alert that destination needs to be selected first
+                      alert('Please select a destination first');
+                    }
+                  }}
+                >
                   <Plus className="w-4 h-4" />
                 </button>
+                {day.discover && (
+                  <span className="ml-2 text-sm text-gray-500">{day.discover}</span>
+                )}
               </div>
               <div className="flex items-center">
                 <button className="text-rose-500 hover:bg-rose-50 p-2 rounded-full">
@@ -354,6 +433,9 @@ const CreateItinerary: React.FC = () => {
             <DayByDayGrid
               tripStartDate={tripSummary.startDate}
               destinations={itineraryDays}
+              onDestinationsUpdate={handleDestinationsUpdate}
+              dayAttractions={dayAttractions}
+              onDayAttractionsUpdate={handleDayAttractionsUpdate}
             />
           )}
         </div>
@@ -364,6 +446,22 @@ const CreateItinerary: React.FC = () => {
             Map will be implemented later
           </div>
         </div>
+
+        {/* Add this popup component */}
+        {showDiscoverPopup && activeDestinationIndex !== null && (
+          <DiscoverPopup
+            isOpen={showDiscoverPopup}
+            onClose={() => {
+              setShowDiscoverPopup(false);
+              setActiveDestinationIndex(null);
+            }}
+            destination={itineraryDays[activeDestinationIndex].destination}
+            selectedAttractions={itineraryDays[activeDestinationIndex].discover.split(', ').filter(Boolean)}
+            onAttractionsSelect={(attractions) => {
+              handleDiscoverSelect(activeDestinationIndex, attractions);
+            }}
+          />
+        )}
       </div>
     );
   }
