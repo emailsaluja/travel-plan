@@ -199,11 +199,20 @@ export const UserItineraryService = {
 
       // Insert updated day attractions if they exist
       if (data.dayAttractions && data.dayAttractions.length > 0) {
+        let currentDestIndex = 0;
+        let daysAccumulated = 0;
+        
         const attractionsToInsert = data.dayAttractions.map(day => {
-          const destinationIndex = Math.floor(day.dayIndex / data.destinations.length);
+          // Find the correct destination based on accumulated days
+          while (currentDestIndex < data.destinations.length && 
+                 daysAccumulated + data.destinations[currentDestIndex].nights <= day.dayIndex) {
+            daysAccumulated += data.destinations[currentDestIndex].nights;
+            currentDestIndex++;
+          }
+          
           return {
             itinerary_id: id,
-            destination_id: destinations[destinationIndex].id,
+            destination_id: destinations[Math.min(currentDestIndex, destinations.length - 1)].id,
             day_index: day.dayIndex,
             attractions: day.selectedAttractions
           };

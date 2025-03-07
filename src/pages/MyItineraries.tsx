@@ -143,7 +143,7 @@ const MyItineraries: React.FC = () => {
                   to={`/create-itinerary?id=${itinerary.id}`}
                   className="text-rose-500 hover:text-rose-600 text-sm font-medium"
                 >
-                  View Details →
+                  Update →
                 </Link>
               </div>
             </div>
