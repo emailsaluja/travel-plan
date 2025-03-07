@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Globe2, MapPin, Moon, Bed, Compass, Bus, Plus } from 'lucide-react';
@@ -8,6 +8,7 @@ import PlaceAutocomplete from '../components/PlaceAutocomplete';
 import DayByDayGrid from '../components/DayByDayGrid';
 import DiscoverPopup from '../components/DiscoverPopup';
 import { ItineraryService } from '../services/itinerary.service';
+import { UserItineraryService } from '../services/user-itinerary.service';
 
 interface ItineraryDay {
   destination: string;
@@ -36,7 +37,9 @@ interface DayAttractions {
 const CreateItinerary: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const [showSummaryPopup, setShowSummaryPopup] = useState(true);
+  const [searchParams] = useSearchParams();
+  const itineraryId = searchParams.get('id');
+  const [showSummaryPopup, setShowSummaryPopup] = useState(!itineraryId);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tripSummary, setTripSummary] = useState<TripSummary>({
@@ -55,6 +58,52 @@ const CreateItinerary: React.FC = () => {
   const [dayAttractions, setDayAttractions] = useState<DayAttractions[]>([]);
   const [isDayAttractionsInitialized, setIsDayAttractionsInitialized] = useState(false);
   const [shouldUpdateDayAttractions, setShouldUpdateDayAttractions] = useState(false);
+
+  useEffect(() => {
+    const loadExistingItinerary = async () => {
+      if (itineraryId) {
+        try {
+          setLoading(true);
+          const { data } = await UserItineraryService.getItineraryById(itineraryId);
+          if (data) {
+            // Set trip summary
+            setTripSummary({
+              tripName: data.trip_name,
+              country: data.country,
+              duration: data.duration,
+              startDate: data.start_date,
+              passengers: data.passengers
+            });
+
+            // Set destinations
+            setItineraryDays(data.destinations.map(dest => ({
+              destination: dest.destination,
+              nights: dest.nights,
+              sleeping: dest.sleeping,
+              discover: dest.discover,
+              transport: dest.transport,
+              notes: dest.notes
+            })));
+
+            // Set day attractions
+            if (data.day_attractions) {
+              setDayAttractions(data.day_attractions.map(da => ({
+                dayIndex: da.day_index,
+                selectedAttractions: da.attractions
+              })));
+              setIsDayAttractionsInitialized(true);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading itinerary:', error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadExistingItinerary();
+  }, [itineraryId]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -102,7 +151,7 @@ const CreateItinerary: React.FC = () => {
   const handleSave = async () => {
     try {
       setLoading(true);
-      await ItineraryService.saveItinerary({
+      await UserItineraryService.saveItinerary({
         tripSummary,
         destinations: itineraryDays,
         dayAttractions

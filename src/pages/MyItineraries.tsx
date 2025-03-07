@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Calendar, Users, MapPin } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { UserItineraryService } from '../services/user-itinerary.service';
 
 interface Itinerary {
   id: string;
@@ -27,20 +27,8 @@ const MyItineraries: React.FC = () => {
 
   const loadItineraries = async () => {
     try {
-      // Get itineraries with their destinations
-      const { data: itinerariesData, error: itinerariesError } = await supabase
-        .from('user_itineraries')
-        .select(`
-          *,
-          destinations:user_itinerary_destinations(
-            destination,
-            nights
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (itinerariesError) throw itinerariesError;
-      setItineraries(itinerariesData || []);
+      const { data: itineraries } = await UserItineraryService.getUserItineraries();
+      setItineraries(itineraries || []);
     } catch (error) {
       console.error('Error loading itineraries:', error);
     } finally {
@@ -124,7 +112,7 @@ const MyItineraries: React.FC = () => {
               </div>
               <div className="bg-gray-50 px-6 py-3 rounded-b-lg border-t">
                 <Link
-                  to={`/itinerary/${itinerary.id}`}
+                  to={`/create-itinerary?id=${itinerary.id}`}
                   className="text-rose-500 hover:text-rose-600 text-sm font-medium"
                 >
                   View Details →

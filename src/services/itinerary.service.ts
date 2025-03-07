@@ -79,5 +79,33 @@ export const ItineraryService = {
       console.error('Error saving itinerary:', error);
       throw error;
     }
+  },
+
+  async getItineraryById(id: string) {
+    try {
+      const { data: itinerary, error } = await supabase
+        .from('user_itineraries')
+        .select(`
+          *,
+          destinations:user_itinerary_destinations (
+            id,
+            destination,
+            nights,
+            sleeping,
+            discover,
+            transport,
+            notes,
+            order_index
+          )
+        `)
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      return { data: itinerary };
+    } catch (error) {
+      console.error('Error fetching itinerary:', error);
+      throw error;
+    }
   }
 }; 

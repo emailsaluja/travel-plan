@@ -1,15 +1,17 @@
+import type { User as SupabaseUser } from '@supabase/supabase-js';
+
 export interface Itinerary {
   id: string;
   title: string;
   duration: number;
-  country: string;
+  country?: string;
   cities: string[];
   imageUrl: string;
   description: string;
   likes: number;
   createdAt: string;
-  tags: string[];
-  dayByDay: DayPlan[];
+  tags?: string[];
+  dayByDay?: DayPlan[];
 }
 
 export interface DayPlan {
@@ -20,10 +22,10 @@ export interface DayPlan {
   imageUrl?: string;
 }
 
-export interface User {
+export interface User extends Omit<SupabaseUser, 'email'> {
+  email: string;
   id: string;
   name: string;
-  email: string;
   profilePicture?: string;
   savedItineraries: string[];
   createdItineraries: string[];

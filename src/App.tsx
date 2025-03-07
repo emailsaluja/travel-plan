@@ -4,6 +4,8 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import SavedItineraries from './pages/SavedItineraries';
 import MyItineraries from './pages/MyItineraries';
+import ItineraryDetails from './pages/ItineraryDetails';
+import { Route } from 'react-router-dom';
 
 const App = () => {
   return (

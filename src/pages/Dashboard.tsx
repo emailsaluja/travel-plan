@@ -23,12 +23,12 @@ const Dashboard: React.FC = () => {
       try {
         // Get user data
         const { user } = await AuthService.getCurrentUser();
-        setUser(user);
+        setUser(user as User);
 
         // Get liked itineraries
         const { data: itineraries } = await LikesService.getLikedItineraries();
         if (itineraries) {
-          setLikedItineraries(itineraries);
+          setLikedItineraries(itineraries as unknown as Itinerary[]);
         }
       } catch (error) {
         console.error('Error loading dashboard data:', error);
