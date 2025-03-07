@@ -166,15 +166,24 @@ const CreateItinerary: React.FC = () => {
   const handleSave = async () => {
     try {
       setLoading(true);
-      await UserItineraryService.saveItinerary({
-        tripSummary,
-        destinations: itineraryDays,
-        dayAttractions
-      });
+      if (itineraryId) {
+        // Update existing itinerary
+        await UserItineraryService.updateItinerary(itineraryId, {
+          tripSummary,
+          destinations: itineraryDays,
+          dayAttractions
+        });
+      } else {
+        // Create new itinerary
+        await UserItineraryService.saveItinerary({
+          tripSummary,
+          destinations: itineraryDays,
+          dayAttractions
+        });
+      }
       navigate('/my-itineraries');
     } catch (error) {
       console.error('Error saving itinerary:', error);
-      // Add error handling/notification here
     } finally {
       setLoading(false);
     }
@@ -458,6 +467,9 @@ const CreateItinerary: React.FC = () => {
     );
   };
 
+  // Update the save button text based on mode
+  const saveButtonText = itineraryId ? 'Update Itinerary' : 'Save Itinerary';
+
   if (!showSummaryPopup) {
     return (
       <div className="flex h-[calc(100vh-64px)]">
@@ -509,8 +521,9 @@ const CreateItinerary: React.FC = () => {
               <button
                 onClick={handleSave}
                 className="px-4 py-2 bg-rose-500 text-white rounded-md hover:bg-rose-600 transition-colors"
+                disabled={loading}
               >
-                Save Itinerary
+                {loading ? 'Saving...' : saveButtonText}
               </button>
             </div>
           </div>

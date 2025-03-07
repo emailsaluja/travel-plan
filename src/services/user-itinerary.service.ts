@@ -175,8 +175,8 @@ export const UserItineraryService = {
       if (itineraryError) throw itineraryError;
 
       // Delete existing destinations and attractions
-      await supabase.from('user_itinerary_destinations').delete().eq('itinerary_id', id);
       await supabase.from('user_itinerary_day_attractions').delete().eq('itinerary_id', id);
+      await supabase.from('user_itinerary_destinations').delete().eq('itinerary_id', id);
 
       // Insert updated destinations
       const destinationsToInsert = data.destinations.map((dest, index) => ({
@@ -197,19 +197,24 @@ export const UserItineraryService = {
 
       if (destinationsError) throw destinationsError;
 
-      // Insert updated day attractions
-      const attractionsToInsert = data.dayAttractions.map(day => ({
-        itinerary_id: id,
-        destination_id: destinations[Math.floor(day.dayIndex / destinations.length)].id,
-        day_index: day.dayIndex,
-        attractions: day.selectedAttractions
-      }));
+      // Insert updated day attractions if they exist
+      if (data.dayAttractions && data.dayAttractions.length > 0) {
+        const attractionsToInsert = data.dayAttractions.map(day => {
+          const destinationIndex = Math.floor(day.dayIndex / data.destinations.length);
+          return {
+            itinerary_id: id,
+            destination_id: destinations[destinationIndex].id,
+            day_index: day.dayIndex,
+            attractions: day.selectedAttractions
+          };
+        });
 
-      const { error: attractionsError } = await supabase
-        .from('user_itinerary_day_attractions')
-        .insert(attractionsToInsert);
+        const { error: attractionsError } = await supabase
+          .from('user_itinerary_day_attractions')
+          .insert(attractionsToInsert);
 
-      if (attractionsError) throw attractionsError;
+        if (attractionsError) throw attractionsError;
+      }
 
       return { success: true };
     } catch (error) {
