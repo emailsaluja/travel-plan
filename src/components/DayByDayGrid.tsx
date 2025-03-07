@@ -2,27 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Bed, Compass } from 'lucide-react';
 import DayDiscoverPopup from './DayDiscoverPopup';
 
-interface DayByDayProps {
+interface DayByDayGridProps {
   tripStartDate: string;
   destinations: {
     destination: string;
     nights: number;
     sleeping: string;
     discover: string;
+    transport: string;
+    notes: string;
   }[];
   onDestinationsUpdate: (destinations: {
     destination: string;
     nights: number;
     sleeping: string;
     discover: string;
+    transport: string;
+    notes: string;
   }[]) => void;
-  dayAttractions: DayAttractions[];
+  dayAttractions: {
+    dayIndex: number;
+    selectedAttractions: string[];
+  }[];
   onDayAttractionsUpdate: (dayIndex: number, attractions: string[]) => void;
-}
-
-interface DayAttractions {
-  dayIndex: number;
-  selectedAttractions: string[];
 }
 
 interface ExpandedDay {
@@ -35,7 +37,7 @@ interface ExpandedDay {
   date: Date;
 }
 
-const DayByDayGrid: React.FC<DayByDayProps> = ({
+const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   tripStartDate,
   destinations,
   onDestinationsUpdate,

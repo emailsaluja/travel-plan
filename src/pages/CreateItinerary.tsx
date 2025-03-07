@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Globe2, MapPin, Moon, Bed, Compass, Bus, Plus } from 'lucide-react';
+import { Globe2, MapPin, Moon, Bed, Compass, Bus, Plus, Trash2 } from 'lucide-react';
 import { countries } from '../data/countries';
 import PlaceAutocomplete from '../components/PlaceAutocomplete';
 import DayByDayGrid from '../components/DayByDayGrid';
@@ -32,6 +32,21 @@ type TabType = 'destinations' | 'day-by-day';
 interface DayAttractions {
   dayIndex: number;
   selectedAttractions: string[];
+}
+
+// Add interface for destination data from API
+interface DestinationData {
+  destination: string;
+  nights: number;
+  sleeping: string;
+  discover: string;
+  transport: string;
+  notes: string;
+}
+
+interface DayAttractionData {
+  day_index: number;
+  attractions: string[];
 }
 
 const CreateItinerary: React.FC = () => {
@@ -76,7 +91,7 @@ const CreateItinerary: React.FC = () => {
             });
 
             // Set destinations
-            setItineraryDays(data.destinations.map(dest => ({
+            setItineraryDays(data.destinations.map((dest: DestinationData) => ({
               destination: dest.destination,
               nights: dest.nights,
               sleeping: dest.sleeping,
@@ -87,7 +102,7 @@ const CreateItinerary: React.FC = () => {
 
             // Set day attractions
             if (data.day_attractions) {
-              setDayAttractions(data.day_attractions.map(da => ({
+              setDayAttractions(data.day_attractions.map((da: DayAttractionData) => ({
                 dayIndex: da.day_index,
                 selectedAttractions: da.attractions
               })));
@@ -267,6 +282,27 @@ const CreateItinerary: React.FC = () => {
     setShouldUpdateDayAttractions(true);
   };
 
+  const handleDeleteDestination = (indexToDelete: number) => {
+    // Don't allow deletion if only one destination remains
+    if (itineraryDays.length <= 1) {
+      return;
+    }
+
+    setItineraryDays(prev => prev.filter((_, index) => index !== indexToDelete));
+    
+    // Update day attractions after deletion
+    setDayAttractions(prev => {
+      const newDayAttractions = [...prev];
+      // Recalculate day indices after deletion
+      return newDayAttractions.filter(da => 
+        Math.floor(da.dayIndex / itineraryDays.length) !== indexToDelete
+      ).map(da => ({
+        ...da,
+        dayIndex: da.dayIndex > indexToDelete ? da.dayIndex - 1 : da.dayIndex
+      }));
+    });
+  };
+
   const renderDestinationsGrid = () => {
     // Calculate cumulative nights to determine start date for each destination
     let cumulativeNights = 0;
@@ -283,7 +319,8 @@ const CreateItinerary: React.FC = () => {
     return (
       <div className="flex-1 overflow-auto">
         {/* Grid Header */}
-        <div className="grid grid-cols-5 gap-4 mb-4">
+        <div className="grid grid-cols-[auto,2fr,1fr,1fr,1fr,1fr] gap-4 mb-4">
+          <div className="w-10"></div> {/* Space for delete button */}
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4" />
             <span className="font-medium">DESTINATION</span>
@@ -309,7 +346,19 @@ const CreateItinerary: React.FC = () => {
         {/* Grid Rows */}
         <div className="space-y-4">
           {destinationsWithDates.map((day, index) => (
-            <div key={index} className="grid grid-cols-5 gap-4 bg-white rounded-lg p-4 shadow-sm">
+            <div key={index} className="grid grid-cols-[auto,2fr,1fr,1fr,1fr,1fr] gap-4 bg-white rounded-lg p-4 shadow-sm">
+              <div className="flex items-center">
+                <button
+                  onClick={() => handleDeleteDestination(index)}
+                  disabled={itineraryDays.length <= 1}
+                  className={`p-2 rounded-full hover:bg-gray-100 ${
+                    itineraryDays.length <= 1 ? 'text-gray-300' : 'text-gray-500 hover:text-red-500'
+                  }`}
+                  title={itineraryDays.length <= 1 ? "Can't delete the only destination" : "Delete destination"}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
               <div>
                 <PlaceAutocomplete
                   country={tripSummary.country}
@@ -372,12 +421,16 @@ const CreateItinerary: React.FC = () => {
                 )}
               </div>
               <div className="flex items-center">
-                <button className="text-rose-500 hover:bg-rose-50 p-2 rounded-full">
-                  <Plus className="w-4 h-4" />
+                <button
+                  onClick={() => handleDeleteDestination(index)}
+                  disabled={itineraryDays.length <= 1}
+                  className={`p-2 rounded-full hover:bg-gray-100 ${
+                    itineraryDays.length <= 1 ? 'text-gray-300' : 'text-gray-500 hover:text-red-500'
+                  }`}
+                  title={itineraryDays.length <= 1 ? "Can't delete the only destination" : "Delete destination"}
+                >
+                  <Trash2 className="w-4 h-4" />
                 </button>
-                {day.transport && (
-                  <span className="ml-2 text-sm text-gray-500">402 km</span>
-                )}
               </div>
             </div>
           ))}

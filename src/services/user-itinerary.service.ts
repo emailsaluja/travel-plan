@@ -62,19 +62,24 @@ export const UserItineraryService = {
 
       if (destinationsError) throw destinationsError;
 
-      // Finally, insert day attractions
-      const attractionsToInsert = data.dayAttractions.map(day => ({
-        itinerary_id: itinerary.id,
-        destination_id: destinations[Math.floor(day.dayIndex / destinations.length)].id,
-        day_index: day.dayIndex,
-        attractions: day.selectedAttractions
-      }));
+      // Finally, insert day attractions if they exist
+      if (data.dayAttractions && data.dayAttractions.length > 0) {
+        const attractionsToInsert = data.dayAttractions.map(day => {
+          const destinationIndex = Math.floor(day.dayIndex / data.destinations.length);
+          return {
+            itinerary_id: itinerary.id,
+            destination_id: destinations[destinationIndex].id,
+            day_index: day.dayIndex,
+            attractions: day.selectedAttractions
+          };
+        });
 
-      const { error: attractionsError } = await supabase
-        .from('user_itinerary_day_attractions')
-        .insert(attractionsToInsert);
+        const { error: attractionsError } = await supabase
+          .from('user_itinerary_day_attractions')
+          .insert(attractionsToInsert);
 
-      if (attractionsError) throw attractionsError;
+        if (attractionsError) throw attractionsError;
+      }
 
       return { itinerary, destinations };
     } catch (error) {
@@ -123,12 +128,29 @@ export const UserItineraryService = {
 
   async deleteItinerary(id: string) {
     try {
-      const { error } = await supabase
+      // Delete in correct order to handle foreign key constraints
+      const { error: attractionsError } = await supabase
+        .from('user_itinerary_day_attractions')
+        .delete()
+        .eq('itinerary_id', id);
+      
+      if (attractionsError) throw attractionsError;
+
+      const { error: destinationsError } = await supabase
+        .from('user_itinerary_destinations')
+        .delete()
+        .eq('itinerary_id', id);
+      
+      if (destinationsError) throw destinationsError;
+
+      const { error: itineraryError } = await supabase
         .from('user_itineraries')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (itineraryError) throw itineraryError;
+
+      console.log('Successfully deleted itinerary:', id);
       return { success: true };
     } catch (error) {
       console.error('Error deleting itinerary:', error);

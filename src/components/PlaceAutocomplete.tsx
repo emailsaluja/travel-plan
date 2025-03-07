@@ -3,22 +3,143 @@ import { useGoogleMapsScript } from '../hooks/useGoogleMapsScript';
 
 // Add country code mapping
 const COUNTRY_CODES: { [key: string]: string } = {
-  'Japan': 'JP',
-  'United States': 'US',
-  'United Kingdom': 'GB',
+  'Afghanistan': 'AF',
+  'Albania': 'AL',
+  'Algeria': 'DZ',
+  'Andorra': 'AD',
+  'Angola': 'AO',
+  'Argentina': 'AR',
+  'Armenia': 'AM',
   'Australia': 'AU',
-  'Canada': 'CA',
-  'China': 'CN',
-  'India': 'IN',
-  'France': 'FR',
-  'Germany': 'DE',
-  'Italy': 'IT',
-  'Spain': 'ES',
+  'Austria': 'AT',
+  'Azerbaijan': 'AZ',
+  'Bahamas': 'BS',
+  'Bahrain': 'BH',
+  'Bangladesh': 'BD',
+  'Barbados': 'BB',
+  'Belarus': 'BY',
+  'Belgium': 'BE',
+  'Belize': 'BZ',
+  'Bhutan': 'BT',
+  'Bolivia': 'BO',
+  'Bosnia and Herzegovina': 'BA',
+  'Botswana': 'BW',
   'Brazil': 'BR',
+  'Brunei': 'BN',
+  'Bulgaria': 'BG',
+  'Cambodia': 'KH',
+  'Cameroon': 'CM',
+  'Canada': 'CA',
+  'Chile': 'CL',
+  'China': 'CN',
+  'Colombia': 'CO',
+  'Costa Rica': 'CR',
+  'Croatia': 'HR',
+  'Cuba': 'CU',
+  'Cyprus': 'CY',
+  'Czech Republic': 'CZ',
+  'Denmark': 'DK',
+  'Dominican Republic': 'DO',
+  'Ecuador': 'EC',
+  'Egypt': 'EG',
+  'El Salvador': 'SV',
+  'Estonia': 'EE',
+  'Ethiopia': 'ET',
+  'Fiji': 'FJ',
+  'Finland': 'FI',
+  'France': 'FR',
+  'Georgia': 'GE',
+  'Germany': 'DE',
+  'Ghana': 'GH',
+  'Greece': 'GR',
+  'Guatemala': 'GT',
+  'Haiti': 'HT',
+  'Honduras': 'HN',
+  'Hong Kong': 'HK',
+  'Hungary': 'HU',
+  'Iceland': 'IS',
+  'India': 'IN',
+  'Indonesia': 'ID',
+  'Iran': 'IR',
+  'Iraq': 'IQ',
+  'Ireland': 'IE',
+  'Israel': 'IL',
+  'Italy': 'IT',
+  'Jamaica': 'JM',
+  'Japan': 'JP',
+  'Jordan': 'JO',
+  'Kazakhstan': 'KZ',
+  'Kenya': 'KE',
+  'Kuwait': 'KW',
+  'Kyrgyzstan': 'KG',
+  'Laos': 'LA',
+  'Latvia': 'LV',
+  'Lebanon': 'LB',
+  'Libya': 'LY',
+  'Liechtenstein': 'LI',
+  'Lithuania': 'LT',
+  'Luxembourg': 'LU',
+  'Macau': 'MO',
+  'Madagascar': 'MG',
+  'Malaysia': 'MY',
+  'Maldives': 'MV',
+  'Malta': 'MT',
   'Mexico': 'MX',
+  'Monaco': 'MC',
+  'Mongolia': 'MN',
+  'Montenegro': 'ME',
+  'Morocco': 'MA',
+  'Myanmar': 'MM',
+  'Nepal': 'NP',
+  'Netherlands': 'NL',
+  'New Zealand': 'NZ',
+  'Nicaragua': 'NI',
+  'Nigeria': 'NG',
+  'North Korea': 'KP',
+  'Norway': 'NO',
+  'Oman': 'OM',
+  'Pakistan': 'PK',
+  'Panama': 'PA',
+  'Papua New Guinea': 'PG',
+  'Paraguay': 'PY',
+  'Peru': 'PE',
+  'Philippines': 'PH',
+  'Poland': 'PL',
+  'Portugal': 'PT',
+  'Qatar': 'QA',
+  'Romania': 'RO',
   'Russia': 'RU',
+  'Saudi Arabia': 'SA',
+  'Serbia': 'RS',
+  'Singapore': 'SG',
+  'Slovakia': 'SK',
+  'Slovenia': 'SI',
+  'South Africa': 'ZA',
   'South Korea': 'KR',
-  // Add more countries as needed
+  'Spain': 'ES',
+  'Sri Lanka': 'LK',
+  'Sweden': 'SE',
+  'Switzerland': 'CH',
+  'Syria': 'SY',
+  'Taiwan': 'TW',
+  'Tajikistan': 'TJ',
+  'Tanzania': 'TZ',
+  'Thailand': 'TH',
+  'Tunisia': 'TN',
+  'Turkey': 'TR',
+  'Turkmenistan': 'TM',
+  'Uganda': 'UG',
+  'Ukraine': 'UA',
+  'United Arab Emirates': 'AE',
+  'United Kingdom': 'GB',
+  'United States': 'US',
+  'Uruguay': 'UY',
+  'Uzbekistan': 'UZ',
+  'Vatican City': 'VA',
+  'Venezuela': 'VE',
+  'Vietnam': 'VN',
+  'Yemen': 'YE',
+  'Zimbabwe': 'ZW'
 };
 
 // Add this interface to handle date display
@@ -28,6 +149,9 @@ interface DateDisplayProps {
 }
 
 const DateDisplay: React.FC<DateDisplayProps> = ({ startDate, nights }) => {
+  // Don't render if no startDate
+  if (!startDate) return null;
+
   const formatDate = (date: Date) => {
     return `${date.getDate()} ${date.toLocaleString('default', { month: 'short' })}`;
   };
@@ -72,6 +196,7 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
   const [isInitialized, setIsInitialized] = useState(false);
   const componentMounted = useRef(true);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [isUserInteracted, setIsUserInteracted] = useState(false);
 
   // Initialize services when Google Maps is loaded
   useEffect(() => {
@@ -87,13 +212,6 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
           placesService.current = new window.google.maps.places.PlacesService(dummyElement);
           setIsInitialized(true);
           console.log('Google Maps services initialized');
-
-          // Try to fetch predictions for existing value after initialization
-          if (value && country) {
-            setTimeout(() => {
-              fetchPredictions(value);
-            }, 100);
-          }
         }
       } catch (error) {
         console.error('Error initializing Google Maps services:', error);
@@ -107,20 +225,19 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
     return () => {
       componentMounted.current = false;
     };
-  }, [isGoogleMapsLoaded, country, value]);
+  }, [isGoogleMapsLoaded]);
 
-  // Watch for country changes
+  // Remove the country change effect that was triggering predictions
   useEffect(() => {
-    if (isInitialized && country && value) {
-      console.log('Country changed, refetching predictions');
+    if (isInitialized && country && value && isUserInteracted) {
       fetchPredictions(value);
     }
-  }, [country, isInitialized]);
+  }, [country, isInitialized, value, isUserInteracted]);
 
   const fetchPredictions = (input: string) => {
-    // Add minimum character check
-    if (input.length < 3) {
-      console.log('Skipping predictions: Input less than 3 characters');
+    // Change minimum character check to 2
+    if (input.length < 2) {
+      console.log('Skipping predictions: Input less than 2 characters');
       setPredictions([]);
       setShowPredictions(false);
       return;
@@ -215,27 +332,20 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
         value={value}
         onChange={(e) => {
           onChange(e.target.value);
+          setIsUserInteracted(true);
           if (isInitialized) {
             fetchPredictions(e.target.value);
           }
         }}
-        onFocus={() => {
-          console.log('Input focused, current value:', value);
-          if (value && isInitialized) {
-            fetchPredictions(value);
-          }
-        }}
         onClick={(e) => {
           e.stopPropagation();
-          if (value && isInitialized) {
-            fetchPredictions(value);
-          }
         }}
         placeholder={placeholder}
         className={`w-full border-none focus:ring-0 bg-transparent ${className}`}
       />
       
-      {value && <DateDisplay startDate={startDate} nights={nights} />}
+      {/* Only show DateDisplay when both value and startDate exist */}
+      {value && startDate && <DateDisplay startDate={startDate} nights={nights} />}
       
       {showPredictions && predictions.length > 0 && (
         <div 

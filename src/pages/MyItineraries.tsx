@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Calendar, Users, MapPin } from 'lucide-react';
+import { Plus, Calendar, Users, MapPin, Trash2 } from 'lucide-react';
 import { UserItineraryService } from '../services/user-itinerary.service';
 
 interface Itinerary {
@@ -45,6 +45,25 @@ const MyItineraries: React.FC = () => {
     });
   };
 
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event bubbling
+    
+    if (window.confirm('Are you sure you want to delete this itinerary?')) {
+      try {
+        setLoading(true);
+        await UserItineraryService.deleteItinerary(id);
+        // Remove from local state immediately
+        setItineraries(prev => prev.filter(item => item.id !== id));
+        // Then refresh from server
+        await loadItineraries();
+      } catch (error) {
+        console.error('Error deleting itinerary:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-8">
@@ -79,9 +98,18 @@ const MyItineraries: React.FC = () => {
               className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
             >
               <div className="p-6">
-                <h3 className="text-xl font-medium text-gray-900 mb-2">
-                  {itinerary.trip_name}
-                </h3>
+                <div className="flex justify-between items-start">
+                  <h3 className="text-xl font-medium text-gray-900 mb-2">
+                    {itinerary.trip_name}
+                  </h3>
+                  <button
+                    onClick={(e) => handleDelete(itinerary.id, e)}
+                    className="p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-gray-100"
+                    title="Delete itinerary"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
                 <div className="flex items-center gap-2 text-gray-500 mb-4">
                   <MapPin className="w-4 h-4" />
                   <span>{itinerary.country}</span>
