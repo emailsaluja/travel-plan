@@ -1,15 +1,36 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Calendar, Users, MapPin } from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Calendar, Users, MapPin, Clock, Navigation, Bed, Car, StickyNote, Share2, Heart, ArrowLeft, Edit, Train, ArrowRight } from 'lucide-react';
 import { UserItineraryView, UserItineraryViewService } from '../services/user-itinerary-view.service';
+import { GoogleMapsService, DistanceInfo } from '../services/google-maps.service';
 import UserItineraryMap from '../components/UserItineraryMap';
 import UserDayByDayView from '../components/UserDayByDayView';
+import countryImages from '../data/country-images.json';
+
+interface CountryImages {
+  [key: string]: string[];
+  Japan: string[];
+  "South Korea": string[];
+  Thailand: string[];
+  Vietnam: string[];
+  Singapore: string[];
+  Indonesia: string[];
+  Malaysia: string[];
+  Philippines: string[];
+  China: string[];
+  Taiwan: string[];
+  India: string[];
+  default: string[];
+}
 
 const ViewUserItinerary: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [itinerary, setItinerary] = useState<UserItineraryView | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'dayByDay'>('overview');
+  const [isLiked, setIsLiked] = useState(false);
+  const [distanceInfo, setDistanceInfo] = useState<(DistanceInfo | null)[]>([]);
 
   useEffect(() => {
     const loadItinerary = async () => {
@@ -30,6 +51,36 @@ const ViewUserItinerary: React.FC = () => {
     loadItinerary();
   }, [id]);
 
+  useEffect(() => {
+    const fetchDistanceInfo = async () => {
+      if (!itinerary || itinerary.destinations.length <= 1) return;
+
+      const distances = [];
+      for (let i = 0; i < itinerary.destinations.length - 1; i++) {
+        const origin = itinerary.destinations[i].destination;
+        const destination = itinerary.destinations[i + 1].destination;
+        try {
+          const info = await GoogleMapsService.getDistanceAndDuration(origin, destination);
+          distances.push(info);
+        } catch (error) {
+          console.error('Error fetching distance info:', error);
+          distances.push(null);
+        }
+      }
+      setDistanceInfo(distances);
+    };
+
+    fetchDistanceInfo();
+  }, [itinerary]);
+
+  // Get a random image URL for the country
+  const getCountryImage = (country: string) => {
+    const typedCountryImages = countryImages as unknown as CountryImages;
+    const images = typedCountryImages[country] || typedCountryImages.default;
+    const randomIndex = Math.floor(Math.random() * images.length);
+    return images[randomIndex];
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -37,6 +88,22 @@ const ViewUserItinerary: React.FC = () => {
       day: 'numeric',
       year: 'numeric'
     });
+  };
+
+  const handleShare = async () => {
+    try {
+      await navigator.share({
+        title: itinerary?.trip_name,
+        text: `Check out this ${itinerary?.duration}-day trip to ${itinerary?.country}!`,
+        url: window.location.href,
+      });
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  };
+
+  const handleLike = () => {
+    setIsLiked(!isLiked);
   };
 
   if (loading) {
@@ -58,23 +125,73 @@ const ViewUserItinerary: React.FC = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <div className="bg-rose-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">
-            {itinerary.trip_name}
-          </h1>
-          <div className="flex flex-wrap gap-6 text-gray-600">
-            <div className="flex items-center gap-2">
-              <MapPin className="w-5 h-5" />
-              <span>{itinerary.country}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5" />
-              <span>{formatDate(itinerary.start_date)} • {itinerary.duration} days</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              <span>{itinerary.passengers} travelers</span>
+      <div className="relative h-[400px] mt-16">
+        {/* Dynamic country image */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-gray-800 transition-opacity duration-300"
+          style={{
+            backgroundImage: itinerary ? `url(${getCountryImage(itinerary.country)})` : undefined,
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/20 to-black/50" />
+
+        {/* Back button */}
+        <div className="absolute top-4 left-4 z-10">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-2 bg-white/90 rounded-full text-gray-700 hover:bg-white transition-colors shadow-lg"
+            title="Go back"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Action buttons */}
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-3">
+          <button
+            onClick={handleShare}
+            className="p-2 bg-white/90 rounded-full text-gray-700 hover:bg-white transition-colors shadow-lg"
+            title="Share itinerary"
+          >
+            <Share2 className="w-5 h-5" />
+          </button>
+          <button
+            onClick={handleLike}
+            className={`p-2 rounded-full transition-colors shadow-lg ${
+              isLiked ? 'bg-rose-500 text-white' : 'bg-white/90 text-gray-700 hover:bg-white'
+            }`}
+            title={isLiked ? 'Unlike' : 'Like'}
+          >
+            <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
+          </button>
+          <Link
+            to={`/create-itinerary?id=${id}`}
+            className="p-2 bg-white/90 rounded-full text-gray-700 hover:bg-white transition-colors shadow-lg"
+            title="Edit itinerary"
+          >
+            <Edit className="w-5 h-5" />
+          </Link>
+        </div>
+
+        {/* Trip summary overlay */}
+        <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+          <div className="max-w-7xl mx-auto">
+            <h1 className="text-4xl font-bold mb-4 text-white">
+              {itinerary.trip_name}
+            </h1>
+            <div className="flex flex-wrap gap-6 text-white">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-5 h-5" />
+                <span>{itinerary.country}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                <span>{formatDate(itinerary.start_date)} • {itinerary.duration} days</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                <span>{itinerary.passengers} travelers</span>
+              </div>
             </div>
           </div>
         </div>
@@ -111,60 +228,86 @@ const ViewUserItinerary: React.FC = () => {
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'overview' ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="flex flex-col lg:flex-row gap-8">
             {/* Left Column - Destinations */}
-            <div className="lg:col-span-2">
-              <h2 className="text-xl font-semibold mb-6">Destinations</h2>
-              <div className="space-y-6">
-                {itinerary.destinations.map((dest, index) => (
-                  <div key={index} className="bg-white rounded-lg border p-6">
-                    <h3 className="text-lg font-medium mb-4">{dest.destination}</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">Nights</p>
-                        <p>{dest.nights}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">Accommodation</p>
-                        <p>{dest.sleeping || 'Not specified'}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <p className="text-sm font-medium text-gray-500">Activities</p>
-                        <p>{dest.discover || 'Not specified'}</p>
-                      </div>
-                      {dest.transport && (
-                        <div className="col-span-2">
-                          <p className="text-sm font-medium text-gray-500">Transport</p>
-                          <p>{dest.transport}</p>
+            <div className="w-full lg:w-2/5 space-y-6">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+                <div className="p-6">
+                  <h2 className="text-xl font-semibold mb-6">Destinations</h2>
+                  <div className="space-y-6">
+                    {itinerary.destinations.map((dest, index) => (
+                      <div key={index} className="relative">
+                        {/* Vertical line */}
+                        {index < itinerary.destinations.length - 1 && (
+                          <div className="absolute left-3.5 top-12 bottom-0 w-[2px] bg-rose-100" />
+                        )}
+                        
+                        <div className="relative">
+                          <h3 className="text-lg font-medium mb-2 flex items-center gap-2">
+                            <span className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-semibold text-white
+                              ${index === 0 ? 'bg-rose-500' : 
+                                index === itinerary.destinations.length - 1 ? 'bg-rose-500' : 
+                                'bg-rose-500'}`}
+                            >
+                              {index + 1}
+                            </span>
+                            <div>
+                              <div className="font-semibold">{dest.destination}</div>
+                              <div className="text-sm text-gray-500">{dest.nights} days</div>
+                            </div>
+                          </h3>
+                          
+                          {dest.discover && (
+                            <div className="text-sm text-gray-600 ml-9">
+                              {dest.discover}
+                            </div>
+                          )}
+
+                          {/* Distance info to next destination */}
+                          {index < itinerary.destinations.length - 1 && distanceInfo[index] && (
+                            <div className="mt-4 ml-9">
+                              <div className="flex items-center gap-2 text-sm text-gray-500">
+                                <Train className="w-4 h-4" />
+                                <ArrowRight className="w-4 h-4" />
+                                <span>{itinerary.destinations[index + 1].destination}</span>
+                                <span className="mx-2">•</span>
+                                <span>{distanceInfo[index]?.duration}</span>
+                                <span className="mx-2">•</span>
+                                <span>{distanceInfo[index]?.distance}</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
-                      {dest.notes && (
-                        <div className="col-span-2">
-                          <p className="text-sm font-medium text-gray-500">Notes</p>
-                          <p>{dest.notes}</p>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
               </div>
             </div>
 
             {/* Right Column - Map */}
-            <div className="lg:col-span-1">
-              <UserItineraryMap 
-                destinations={itinerary.destinations.map(d => ({
-                  destination: d.destination,
-                  nights: d.nights
-                }))}
-              />
+            <div className="w-full lg:w-3/5">
+              <div className="sticky top-8">
+                <UserItineraryMap 
+                  destinations={itinerary.destinations.map(d => ({
+                    destination: d.destination,
+                    nights: d.nights
+                  }))}
+                />
+              </div>
             </div>
           </div>
         ) : (
           <UserDayByDayView
             startDate={itinerary.start_date}
             destinations={itinerary.destinations}
-            dayAttractions={itinerary.day_attractions}
+            dayAttractions={itinerary.day_attractions.map(da => {
+              console.log('Raw day attraction data:', da);
+              return {
+                day_index: da.day_index,
+                attractions: Array.isArray(da.attractions) ? da.attractions : []
+              };
+            })}
           />
         )}
       </div>

@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Globe2, MapPin, Moon, Bed, Compass, Bus, Plus, Trash2 } from 'lucide-react';
+import { Globe2, MapPin, Moon, Bed, Compass, Bus, Plus, Trash2, ArrowLeft, Edit } from 'lucide-react';
 import { countries } from '../data/countries';
 import PlaceAutocomplete from '../components/PlaceAutocomplete';
 import DayByDayGrid from '../components/DayByDayGrid';
 import DiscoverPopup from '../components/DiscoverPopup';
+import TripSummaryEdit from '../components/TripSummaryEdit';
 import { ItineraryService } from '../services/itinerary.service';
 import { UserItineraryService } from '../services/user-itinerary.service';
+import { Calendar, Users, Clock, Navigation } from 'lucide-react';
 
 interface ItineraryDay {
   destination: string;
@@ -73,6 +75,7 @@ const CreateItinerary: React.FC = () => {
   const [dayAttractions, setDayAttractions] = useState<DayAttractions[]>([]);
   const [isDayAttractionsInitialized, setIsDayAttractionsInitialized] = useState(false);
   const [shouldUpdateDayAttractions, setShouldUpdateDayAttractions] = useState(false);
+  const [showTripSummaryEdit, setShowTripSummaryEdit] = useState(false);
 
   useEffect(() => {
     const loadExistingItinerary = async () => {
@@ -470,14 +473,38 @@ const CreateItinerary: React.FC = () => {
   // Update the save button text based on mode
   const saveButtonText = itineraryId ? 'Update Itinerary' : 'Save Itinerary';
 
+  const handleTripSummaryUpdate = (updatedSummary: typeof tripSummary) => {
+    setTripSummary(updatedSummary);
+    setShowTripSummaryEdit(false);
+    setShouldUpdateDayAttractions(true);
+  };
+
   if (!showSummaryPopup) {
     return (
       <div className="flex h-[calc(100vh-64px)]">
         <div className="flex-1 p-6">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex flex-col">
-              <h1 className="text-2xl font-medium text-gray-900">{tripSummary.tripName}</h1>
+          <div className="flex items-center justify-between mb-8 mt-16">
+            {/* Back button */}
+            <button
+              onClick={() => navigate(-1)}
+              className="absolute top-20 left-6 p-2 bg-white/90 rounded-full text-gray-700 hover:bg-white transition-colors shadow-lg"
+              title="Go back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+
+            <div className="flex flex-col ml-14">
+              <div className="flex items-center gap-4">
+                <h1 className="text-2xl font-medium text-gray-900">{tripSummary.tripName}</h1>
+                <button
+                  onClick={() => setShowTripSummaryEdit(true)}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+                  title="Edit trip summary"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+              </div>
               <span className="text-sm text-gray-500">{formatDateRange()}</span>
             </div>
             
@@ -574,6 +601,17 @@ const CreateItinerary: React.FC = () => {
             Map will be implemented later
           </div>
         </div>
+
+        {/* Trip Summary Edit Modal */}
+        {showTripSummaryEdit && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <TripSummaryEdit
+              tripSummary={tripSummary}
+              onSave={handleTripSummaryUpdate}
+              onCancel={() => setShowTripSummaryEdit(false)}
+            />
+          </div>
+        )}
 
         {/* Add this popup component */}
         {showDiscoverPopup && activeDestinationIndex !== null && (

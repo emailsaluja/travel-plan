@@ -62,12 +62,18 @@ export const UserItineraryViewService = {
       return { data: null, error: attractionsError };
     }
 
+    console.log('Fetched day attractions:', dayAttractions);
+
+    const formattedData = {
+      ...itinerary,
+      destinations: destinations || [],
+      day_attractions: dayAttractions || []
+    };
+
+    console.log('Formatted itinerary data:', formattedData);
+
     return {
-      data: {
-        ...itinerary,
-        destinations: destinations || [],
-        day_attractions: dayAttractions || []
-      },
+      data: formattedData,
       error: null
     };
   }

@@ -39,16 +39,15 @@ const UserItineraryMap: React.FC<UserItineraryMapProps> = ({ destinations }) => 
   }, [destinations]);
 
   return (
-    <div className="sticky top-8">
-      <h2 className="text-xl font-semibold mb-6">Route Map</h2>
-      <div className="relative rounded-xl overflow-hidden shadow-lg">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+      <div className="relative rounded-lg overflow-hidden shadow-sm h-[600px]">
         <img 
           src={mapUrl} 
           alt="Itinerary Map" 
-          className="w-full h-auto"
+          className="w-full h-full object-cover"
         />
         {/* Legend */}
-        <div className="absolute bottom-4 left-4 bg-white/90 p-4 rounded-lg shadow-lg">
+        <div className="absolute bottom-4 left-4 bg-white/95 p-4 rounded-lg shadow-lg">
           <div className="space-y-3 text-sm">
             {destinations.map((loc, index) => (
               <div 

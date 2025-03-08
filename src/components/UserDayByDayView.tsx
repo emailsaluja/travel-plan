@@ -1,5 +1,6 @@
 import React from 'react';
 import { Calendar, MapPin, Bed, Navigation } from 'lucide-react';
+import { getAttractionIcon } from '../data/attraction-types';
 
 interface Destination {
   destination: string;
@@ -12,14 +13,7 @@ interface Destination {
 
 interface DayAttraction {
   day_index: number;
-  attractions: {
-    name: string;
-    place_id: string;
-    types: string[];
-    rating?: number;
-    user_ratings_total?: number;
-    formatted_address?: string;
-  }[];
+  attractions: string[];
 }
 
 interface UserDayByDayViewProps {
@@ -33,17 +27,25 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
   destinations,
   dayAttractions
 }) => {
+  console.log('UserDayByDayView props:', { startDate, destinations, dayAttractions });
+
   const generateDayByDaySchedule = () => {
     const schedule = [];
     let currentDate = new Date(startDate);
     let currentDestIndex = 0;
     let nightsSpent = 0;
+    let totalDays = 0;
 
     while (currentDestIndex < destinations.length) {
       const currentDest = destinations[currentDestIndex];
-      const dayAttractionData = dayAttractions.find(da => 
-        da.day_index === schedule.length
-      );
+      console.log('Processing day:', totalDays, 'for destination:', currentDest.destination);
+      
+      const dayAttractionData = dayAttractions.find(da => {
+        console.log('Comparing day_index:', da.day_index, 'with totalDays:', totalDays);
+        return da.day_index === totalDays;
+      });
+      
+      console.log('Found attractions for day:', dayAttractionData);
 
       schedule.push({
         date: new Date(currentDate),
@@ -51,7 +53,6 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
         isArrivalDay: nightsSpent === 0,
         isDepartureDay: nightsSpent === currentDest.nights - 1,
         sleeping: currentDest.sleeping,
-        discover: currentDest.discover,
         transport: currentDest.transport,
         notes: currentDest.notes,
         attractions: dayAttractionData?.attractions || []
@@ -59,6 +60,7 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
 
       currentDate.setDate(currentDate.getDate() + 1);
       nightsSpent++;
+      totalDays++;
 
       if (nightsSpent === currentDest.nights) {
         currentDestIndex++;
@@ -66,6 +68,7 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
       }
     }
 
+    console.log('Generated schedule:', schedule);
     return schedule;
   };
 
@@ -124,16 +127,6 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
                 </div>
               </div>
 
-              {day.discover && (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-1">Activities Overview</h4>
-                  <div className="flex items-start gap-2">
-                    <Navigation className="w-4 h-4 text-gray-400 mt-1" />
-                    <p className="text-gray-700">{day.discover}</p>
-                  </div>
-                </div>
-              )}
-
               {day.notes && (
                 <div>
                   <h4 className="text-sm font-medium text-gray-500 mb-1">Notes</h4>
@@ -146,26 +139,29 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
             <div>
               <h4 className="text-sm font-medium text-gray-500 mb-3">Selected Attractions</h4>
               <div className="space-y-3">
-                {day.attractions.length > 0 ? (
-                  day.attractions.map((attraction, attrIndex) => (
-                    <div 
-                      key={attrIndex}
-                      className="bg-gray-50 rounded-lg p-3"
-                    >
-                      <h5 className="font-medium text-gray-900">{attraction.name}</h5>
-                      {attraction.rating && (
-                        <div className="flex items-center gap-1 text-sm text-gray-500">
-                          <span>★ {attraction.rating}</span>
-                          {attraction.user_ratings_total && (
-                            <span>({attraction.user_ratings_total} reviews)</span>
-                          )}
+                {day.attractions && day.attractions.length > 0 ? (
+                  day.attractions.map((attraction, attrIndex) => {
+                    if (!attraction) return null;
+                    console.log('Rendering attraction:', attraction);
+                    try {
+                      const attractionType = getAttractionIcon(attraction);
+                      const IconComponent = attractionType.icon;
+                      return (
+                        <div 
+                          key={attrIndex}
+                          className={`${attractionType.bgColor} rounded-lg p-3`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <IconComponent className={`w-5 h-5 ${attractionType.color}`} />
+                            <h5 className={`font-medium ${attractionType.color}`}>{attraction}</h5>
+                          </div>
                         </div>
-                      )}
-                      {attraction.formatted_address && (
-                        <p className="text-sm text-gray-600 mt-1">{attraction.formatted_address}</p>
-                      )}
-                    </div>
-                  ))
+                      );
+                    } catch (error) {
+                      console.error('Error rendering attraction:', error);
+                      return null;
+                    }
+                  })
                 ) : (
                   <p className="text-gray-500 text-sm">No attractions selected for this day</p>
                 )}
