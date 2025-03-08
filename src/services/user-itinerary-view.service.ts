@@ -17,14 +17,11 @@ export interface UserItineraryView {
   }[];
   day_attractions: {
     day_index: number;
-    attractions: {
-      name: string;
-      place_id: string;
-      types: string[];
-      rating?: number;
-      user_ratings_total?: number;
-      formatted_address?: string;
-    }[];
+    attractions: string[];
+  }[];
+  day_hotels: {
+    day_index: number;
+    hotel: string;
   }[];
 }
 
@@ -62,12 +59,25 @@ export const UserItineraryViewService = {
       return { data: null, error: attractionsError };
     }
 
+    // Get the day hotels
+    const { data: dayHotels, error: hotelsError } = await supabase
+      .from('user_itinerary_day_hotels')
+      .select('*')
+      .eq('itinerary_id', id)
+      .order('day_index', { ascending: true });
+
+    if (hotelsError) {
+      return { data: null, error: hotelsError };
+    }
+
     console.log('Fetched day attractions:', dayAttractions);
+    console.log('Fetched day hotels:', dayHotels);
 
     const formattedData = {
       ...itinerary,
       destinations: destinations || [],
-      day_attractions: dayAttractions || []
+      day_attractions: dayAttractions || [],
+      day_hotels: dayHotels || []
     };
 
     console.log('Formatted itinerary data:', formattedData);

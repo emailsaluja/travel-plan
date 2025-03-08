@@ -11,11 +11,27 @@ import TripSummaryEdit from '../components/TripSummaryEdit';
 import { ItineraryService } from '../services/itinerary.service';
 import { UserItineraryService } from '../services/user-itinerary.service';
 import { Calendar, Users, Clock, Navigation } from 'lucide-react';
+import HotelSearchPopup from '../components/HotelSearchPopup';
+
+interface DestinationData {
+  destination: string;
+  nights: number;
+  discover: string;
+  transport: string;
+  notes: string;
+}
+
+interface SaveDestinationData {
+  destination: string;
+  nights: number;
+  discover: string;
+  transport: string;
+  notes: string;
+}
 
 interface ItineraryDay {
   destination: string;
   nights: number;
-  sleeping: string;
   discover: string;
   transport: string;
   notes: string;
@@ -36,19 +52,19 @@ interface DayAttractions {
   selectedAttractions: string[];
 }
 
-// Add interface for destination data from API
-interface DestinationData {
-  destination: string;
-  nights: number;
-  sleeping: string;
-  discover: string;
-  transport: string;
-  notes: string;
-}
-
 interface DayAttractionData {
   day_index: number;
   attractions: string[];
+}
+
+interface DayHotel {
+  dayIndex: number;
+  hotel: string;
+}
+
+interface SaveDayHotel {
+  day_index: number;
+  hotel: string;
 }
 
 const CreateItinerary: React.FC = () => {
@@ -76,6 +92,10 @@ const CreateItinerary: React.FC = () => {
   const [isDayAttractionsInitialized, setIsDayAttractionsInitialized] = useState(false);
   const [shouldUpdateDayAttractions, setShouldUpdateDayAttractions] = useState(false);
   const [showTripSummaryEdit, setShowTripSummaryEdit] = useState(false);
+  const [isHotelSearchOpen, setIsHotelSearchOpen] = useState(false);
+  const [currentDestinationForHotel, setCurrentDestinationForHotel] = useState<string>('');
+  const [currentDestinationIndexForHotel, setCurrentDestinationIndexForHotel] = useState<number>(-1);
+  const [dayHotels, setDayHotels] = useState<DayHotel[]>([]);
 
   useEffect(() => {
     const loadExistingItinerary = async () => {
@@ -97,7 +117,6 @@ const CreateItinerary: React.FC = () => {
             setItineraryDays(data.destinations.map((dest: DestinationData) => ({
               destination: dest.destination,
               nights: dest.nights,
-              sleeping: dest.sleeping,
               discover: dest.discover,
               transport: dest.transport,
               notes: dest.notes
@@ -111,6 +130,14 @@ const CreateItinerary: React.FC = () => {
               })));
               setIsDayAttractionsInitialized(true);
             }
+
+            // Set day hotels
+            if (data.day_hotels) {
+              setDayHotels(data.day_hotels.map((dh: SaveDayHotel) => ({
+                dayIndex: dh.day_index,
+                hotel: dh.hotel
+              })));
+            }
           }
         } catch (error) {
           console.error('Error loading itinerary:', error);
@@ -122,6 +149,24 @@ const CreateItinerary: React.FC = () => {
 
     loadExistingItinerary();
   }, [itineraryId]);
+
+  // Add new useEffect to initialize dayHotels
+  useEffect(() => {
+    const initialDayHotels: DayHotel[] = [];
+    let dayIndex = 0;
+    
+    itineraryDays.forEach(destination => {
+      for (let i = 0; i < destination.nights; i++) {
+        initialDayHotels.push({
+          dayIndex,
+          hotel: destination.sleeping
+        });
+        dayIndex++;
+      }
+    });
+    
+    setDayHotels(initialDayHotels);
+  }, [itineraryDays.length]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -135,7 +180,6 @@ const CreateItinerary: React.FC = () => {
     const emptyDay = {
       destination: '',
       nights: 1,
-      sleeping: '',
       discover: '',
       transport: '',
       notes: ''
@@ -173,15 +217,35 @@ const CreateItinerary: React.FC = () => {
         // Update existing itinerary
         await UserItineraryService.updateItinerary(itineraryId, {
           tripSummary,
-          destinations: itineraryDays,
-          dayAttractions
+          destinations: itineraryDays.map(day => ({
+            destination: day.destination,
+            nights: day.nights,
+            discover: day.discover,
+            transport: day.transport,
+            notes: day.notes
+          })),
+          dayAttractions,
+          dayHotels: dayHotels.map(dh => ({
+            day_index: dh.dayIndex,
+            hotel: dh.hotel
+          }))
         });
       } else {
         // Create new itinerary
         await UserItineraryService.saveItinerary({
           tripSummary,
-          destinations: itineraryDays,
-          dayAttractions
+          destinations: itineraryDays.map(day => ({
+            destination: day.destination,
+            nights: day.nights,
+            discover: day.discover,
+            transport: day.transport,
+            notes: day.notes
+          })),
+          dayAttractions,
+          dayHotels: dayHotels.map(dh => ({
+            day_index: dh.dayIndex,
+            hotel: dh.hotel
+          }))
         });
       }
       navigate('/my-itineraries');
@@ -208,7 +272,6 @@ const CreateItinerary: React.FC = () => {
     const newDay = {
       destination: '',
       nights: 1,
-      sleeping: '',
       discover: '',
       transport: '',
       notes: ''
@@ -315,6 +378,72 @@ const CreateItinerary: React.FC = () => {
     });
   };
 
+  // Add new handler for day hotels update
+  const handleDayHotelsUpdate = (updatedHotels: DayHotel[]) => {
+    setDayHotels(updatedHotels);
+    
+    // Update the destinations array
+    const updatedDestinations = [...itineraryDays];
+    let currentDayCount = 0;
+    
+    for (let i = 0; i < updatedDestinations.length; i++) {
+      const dest = updatedDestinations[i];
+      const destDayIndices = Array.from(
+        { length: dest.nights },
+        (_, index) => currentDayCount + index
+      );
+      
+      // Get all hotels for this destination's days
+      const destHotels = updatedHotels.filter(h => 
+        destDayIndices.includes(h.dayIndex)
+      ).map(h => h.hotel);
+      
+      // If all days in this destination have the same hotel, update the destination's sleeping property
+      const uniqueHotels = new Set(destHotels);
+      if (uniqueHotels.size === 1) {
+        updatedDestinations[i] = {
+          ...dest,
+          sleeping: destHotels[0]
+        };
+      } else {
+        updatedDestinations[i] = {
+          ...dest,
+          sleeping: ''
+        };
+      }
+      
+      currentDayCount += dest.nights;
+    }
+    
+    setItineraryDays(updatedDestinations);
+  };
+
+  const handleHotelSelect = (index: number, hotel: string) => {
+    // Calculate the starting day index for this destination
+    let startDayIndex = 0;
+    for (let i = 0; i < index; i++) {
+      startDayIndex += itineraryDays[i].nights;
+    }
+
+    // Update hotels for all days of this destination
+    const nights = itineraryDays[index].nights;
+    const updatedHotels = [...dayHotels];
+    
+    for (let i = 0; i < nights; i++) {
+      const dayIndex = startDayIndex + i;
+      const existingHotelIndex = updatedHotels.findIndex(h => h.dayIndex === dayIndex);
+      
+      if (existingHotelIndex >= 0) {
+        updatedHotels[existingHotelIndex] = { dayIndex, hotel };
+      } else {
+        updatedHotels.push({ dayIndex, hotel });
+      }
+    }
+    
+    setDayHotels(updatedHotels);
+    setIsHotelSearchOpen(false);
+  };
+
   const renderDestinationsGrid = () => {
     // Calculate cumulative nights to determine start date for each destination
     let cumulativeNights = 0;
@@ -332,7 +461,7 @@ const CreateItinerary: React.FC = () => {
       <div className="flex-1 overflow-auto">
         {/* Grid Header */}
         <div className="grid grid-cols-[auto,2fr,1fr,1fr,1fr,1fr] gap-4 mb-4">
-          <div className="w-10"></div> {/* Space for delete button */}
+          <div className="w-10"></div>
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4" />
             <span className="font-medium">DESTINATION</span>
@@ -357,95 +486,123 @@ const CreateItinerary: React.FC = () => {
 
         {/* Grid Rows */}
         <div className="space-y-4">
-          {destinationsWithDates.map((day, index) => (
-            <div key={index} className="grid grid-cols-[auto,2fr,1fr,1fr,1fr,1fr] gap-4 bg-white rounded-lg p-4 shadow-sm">
-              <div className="flex items-center">
-                <button
-                  onClick={() => handleDeleteDestination(index)}
-                  disabled={itineraryDays.length <= 1}
-                  className={`p-2 rounded-full hover:bg-gray-100 ${
-                    itineraryDays.length <= 1 ? 'text-gray-300' : 'text-gray-500 hover:text-red-500'
-                  }`}
-                  title={itineraryDays.length <= 1 ? "Can't delete the only destination" : "Delete destination"}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+          {destinationsWithDates.map((day, index) => {
+            // Calculate the starting day index for this destination
+            let startDayIndex = 0;
+            for (let i = 0; i < index; i++) {
+              startDayIndex += itineraryDays[i].nights;
+            }
+            
+            // Get the hotel for this destination's first day
+            const destinationHotel = dayHotels.find(h => h.dayIndex === startDayIndex)?.hotel || '';
+
+            return (
+              <div key={index} className="grid grid-cols-[auto,2fr,1fr,1fr,1fr,1fr] gap-4 bg-white rounded-lg p-4 shadow-sm">
+                <div className="flex items-center">
+                  <button
+                    onClick={() => handleDeleteDestination(index)}
+                    disabled={itineraryDays.length <= 1}
+                    className={`p-2 rounded-full hover:bg-gray-100 ${
+                      itineraryDays.length <= 1 ? 'text-gray-300' : 'text-gray-500 hover:text-red-500'
+                    }`}
+                    title={itineraryDays.length <= 1 ? "Can't delete the only destination" : "Delete destination"}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                <div>
+                  <PlaceAutocomplete
+                    country={tripSummary.country}
+                    value={day.destination}
+                    onChange={(value) => handleDayUpdate(index, 'destination', value)}
+                    onPlaceSelect={(place) => {
+                      console.log('Selected place:', place);
+                      handleDayUpdate(index, 'destination', place.formatted_address || place.name || '');
+                    }}
+                    startDate={day.startDate}
+                    nights={day.nights}
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button 
+                    onClick={() => handleNightsChange(index, 'decrement')}
+                    className="text-gray-400 hover:text-gray-600 w-6 h-6 flex items-center justify-center"
+                    type="button"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    value={day.nights}
+                    onChange={(e) => handleDayUpdate(index, 'nights', parseInt(e.target.value) || 0)}
+                    className="w-16 text-center border-none focus:ring-0 bg-transparent"
+                    min="0"
+                    readOnly // Make it read-only since we're using buttons
+                  />
+                  <button 
+                    onClick={() => handleNightsChange(index, 'increment')}
+                    className="text-gray-400 hover:text-gray-600 w-6 h-6 flex items-center justify-center"
+                    type="button"
+                  >
+                    +
+                  </button>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={destinationHotel}
+                      readOnly
+                      placeholder="Where are you staying?"
+                      className="flex-1 p-2 border rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentDestinationForHotel(day.destination);
+                        setCurrentDestinationIndexForHotel(index);
+                        setIsHotelSearchOpen(true);
+                      }}
+                      className="p-2 text-gray-500 hover:text-gray-700"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <button 
+                    className="text-amber-500 hover:bg-amber-50 p-2 rounded-full"
+                    onClick={() => {
+                      if (day.destination) {  // Only open if destination is selected
+                        setActiveDestinationIndex(index);
+                        setShowDiscoverPopup(true);
+                      } else {
+                        // Maybe show a toast or alert that destination needs to be selected first
+                        alert('Please select a destination first');
+                      }
+                    }}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                  {day.discover && (
+                    <span className="ml-2 text-sm text-gray-500">{day.discover}</span>
+                  )}
+                </div>
+                <div className="flex items-center">
+                  <button
+                    onClick={() => handleDeleteDestination(index)}
+                    disabled={itineraryDays.length <= 1}
+                    className={`p-2 rounded-full hover:bg-gray-100 ${
+                      itineraryDays.length <= 1 ? 'text-gray-300' : 'text-gray-500 hover:text-red-500'
+                    }`}
+                    title={itineraryDays.length <= 1 ? "Can't delete the only destination" : "Delete destination"}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              <div>
-                <PlaceAutocomplete
-                  country={tripSummary.country}
-                  value={day.destination}
-                  onChange={(value) => handleDayUpdate(index, 'destination', value)}
-                  onPlaceSelect={(place) => {
-                    console.log('Selected place:', place);
-                    handleDayUpdate(index, 'destination', place.formatted_address || place.name || '');
-                  }}
-                  startDate={day.startDate}
-                  nights={day.nights}
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <button 
-                  onClick={() => handleNightsChange(index, 'decrement')}
-                  className="text-gray-400 hover:text-gray-600 w-6 h-6 flex items-center justify-center"
-                  type="button"
-                >
-                  -
-                </button>
-                <input
-                  type="number"
-                  value={day.nights}
-                  onChange={(e) => handleDayUpdate(index, 'nights', parseInt(e.target.value) || 0)}
-                  className="w-16 text-center border-none focus:ring-0 bg-transparent"
-                  min="0"
-                  readOnly // Make it read-only since we're using buttons
-                />
-                <button 
-                  onClick={() => handleNightsChange(index, 'increment')}
-                  className="text-gray-400 hover:text-gray-600 w-6 h-6 flex items-center justify-center"
-                  type="button"
-                >
-                  +
-                </button>
-              </div>
-              <div>
-                <button className="text-emerald-500 hover:bg-emerald-50 p-2 rounded-full">
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
-              <div>
-                <button 
-                  className="text-amber-500 hover:bg-amber-50 p-2 rounded-full"
-                  onClick={() => {
-                    if (day.destination) {  // Only open if destination is selected
-                      setActiveDestinationIndex(index);
-                      setShowDiscoverPopup(true);
-                    } else {
-                      // Maybe show a toast or alert that destination needs to be selected first
-                      alert('Please select a destination first');
-                    }
-                  }}
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-                {day.discover && (
-                  <span className="ml-2 text-sm text-gray-500">{day.discover}</span>
-                )}
-              </div>
-              <div className="flex items-center">
-                <button
-                  onClick={() => handleDeleteDestination(index)}
-                  disabled={itineraryDays.length <= 1}
-                  className={`p-2 rounded-full hover:bg-gray-100 ${
-                    itineraryDays.length <= 1 ? 'text-gray-300' : 'text-gray-500 hover:text-red-500'
-                  }`}
-                  title={itineraryDays.length <= 1 ? "Can't delete the only destination" : "Delete destination"}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Updated Add New Destination Button */}
@@ -591,6 +748,8 @@ const CreateItinerary: React.FC = () => {
               onDestinationsUpdate={handleDestinationsUpdate}
               dayAttractions={dayAttractions}
               onDayAttractionsUpdate={handleDayAttractionsUpdate}
+              dayHotels={dayHotels}
+              onDayHotelsUpdate={handleDayHotelsUpdate}
             />
           )}
         </div>
@@ -628,6 +787,26 @@ const CreateItinerary: React.FC = () => {
             }}
           />
         )}
+
+        <HotelSearchPopup
+          isOpen={isHotelSearchOpen}
+          onClose={() => setIsHotelSearchOpen(false)}
+          destination={currentDestinationForHotel}
+          selectedHotel={currentDestinationIndexForHotel >= 0 ? 
+            dayHotels.find(h => {
+              let startDayIndex = 0;
+              for (let i = 0; i < currentDestinationIndexForHotel; i++) {
+                startDayIndex += itineraryDays[i].nights;
+              }
+              return h.dayIndex === startDayIndex;
+            })?.hotel : undefined
+          }
+          onHotelSelect={(hotel) => {
+            if (currentDestinationIndexForHotel >= 0) {
+              handleHotelSelect(currentDestinationIndexForHotel, hotel);
+            }
+          }}
+        />
       </div>
     );
   }

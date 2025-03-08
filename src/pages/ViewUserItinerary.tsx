@@ -301,13 +301,14 @@ const ViewUserItinerary: React.FC = () => {
           <UserDayByDayView
             startDate={itinerary.start_date}
             destinations={itinerary.destinations}
-            dayAttractions={itinerary.day_attractions.map(da => {
-              console.log('Raw day attraction data:', da);
-              return {
-                day_index: da.day_index,
-                attractions: Array.isArray(da.attractions) ? da.attractions : []
-              };
-            })}
+            dayAttractions={itinerary.day_attractions.map(da => ({
+              day_index: da.day_index,
+              attractions: da.attractions
+            }))}
+            dayHotels={itinerary.day_hotels.map(dh => ({
+              dayIndex: dh.day_index,
+              hotel: dh.hotel
+            }))}
           />
         )}
       </div>

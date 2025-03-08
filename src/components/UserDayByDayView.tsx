@@ -16,18 +16,25 @@ interface DayAttraction {
   attractions: string[];
 }
 
+interface DayHotel {
+  dayIndex: number;
+  hotel: string;
+}
+
 interface UserDayByDayViewProps {
   startDate: string;
   destinations: Destination[];
   dayAttractions: DayAttraction[];
+  dayHotels: DayHotel[];
 }
 
 const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
   startDate,
   destinations,
-  dayAttractions
+  dayAttractions,
+  dayHotels
 }) => {
-  console.log('UserDayByDayView props:', { startDate, destinations, dayAttractions });
+  console.log('UserDayByDayView props:', { startDate, destinations, dayAttractions, dayHotels });
 
   const generateDayByDaySchedule = () => {
     const schedule = [];
@@ -44,15 +51,18 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
         console.log('Comparing day_index:', da.day_index, 'with totalDays:', totalDays);
         return da.day_index === totalDays;
       });
+
+      const dayHotelData = dayHotels.find(dh => dh.dayIndex === totalDays);
       
       console.log('Found attractions for day:', dayAttractionData);
+      console.log('Found hotel for day:', dayHotelData);
 
       schedule.push({
         date: new Date(currentDate),
         destination: currentDest.destination,
         isArrivalDay: nightsSpent === 0,
         isDepartureDay: nightsSpent === currentDest.nights - 1,
-        sleeping: currentDest.sleeping,
+        sleeping: dayHotelData?.hotel || currentDest.sleeping,
         transport: currentDest.transport,
         notes: currentDest.notes,
         attractions: dayAttractionData?.attractions || []

@@ -12,7 +12,6 @@ export interface UserItinerary {
     id: string;
     destination: string;
     nights: number;
-    sleeping: string;
     discover: string;
     transport: string;
     notes: string;
@@ -21,6 +20,35 @@ export interface UserItinerary {
   day_attractions: {
     day_index: number;
     attractions: string[];
+  }[];
+  day_hotels: {
+    day_index: number;
+    hotel: string;
+  }[];
+}
+
+export interface SaveItineraryData {
+  tripSummary: {
+    tripName: string;
+    country: string;
+    duration: number;
+    startDate: string;
+    passengers: number;
+  };
+  destinations: {
+    destination: string;
+    nights: number;
+    discover: string;
+    transport: string;
+    notes: string;
+  }[];
+  dayAttractions: {
+    dayIndex: number;
+    selectedAttractions: string[];
+  }[];
+  dayHotels: {
+    day_index: number;
+    hotel: string;
   }[];
 }
 
@@ -48,7 +76,6 @@ export const UserItineraryService = {
         itinerary_id: itinerary.id,
         destination: dest.destination,
         nights: dest.nights,
-        sleeping: dest.sleeping,
         discover: dest.discover,
         transport: dest.transport,
         notes: dest.notes,
@@ -62,7 +89,7 @@ export const UserItineraryService = {
 
       if (destinationsError) throw destinationsError;
 
-      // Finally, insert day attractions if they exist
+      // Insert day attractions if they exist
       if (data.dayAttractions && data.dayAttractions.length > 0) {
         const attractionsToInsert = data.dayAttractions.map(day => {
           const destinationIndex = Math.floor(day.dayIndex / data.destinations.length);
@@ -79,6 +106,21 @@ export const UserItineraryService = {
           .insert(attractionsToInsert);
 
         if (attractionsError) throw attractionsError;
+      }
+
+      // Insert day hotels if they exist
+      if (data.dayHotels && data.dayHotels.length > 0) {
+        const hotelsToInsert = data.dayHotels.map(day => ({
+          itinerary_id: itinerary.id,
+          day_index: day.day_index,
+          hotel: day.hotel
+        }));
+
+        const { error: hotelsError } = await supabase
+          .from('user_itinerary_day_hotels')
+          .insert(hotelsToInsert);
+
+        if (hotelsError) throw hotelsError;
       }
 
       return { itinerary, destinations };
@@ -113,7 +155,8 @@ export const UserItineraryService = {
         .select(`
           *,
           destinations:user_itinerary_destinations(*),
-          day_attractions:user_itinerary_day_attractions(*)
+          day_attractions:user_itinerary_day_attractions(*),
+          day_hotels:user_itinerary_day_hotels(*)
         `)
         .eq('id', id)
         .single();
@@ -136,6 +179,13 @@ export const UserItineraryService = {
       
       if (attractionsError) throw attractionsError;
 
+      const { error: hotelsError } = await supabase
+        .from('user_itinerary_day_hotels')
+        .delete()
+        .eq('itinerary_id', id);
+      
+      if (hotelsError) throw hotelsError;
+
       const { error: destinationsError } = await supabase
         .from('user_itinerary_destinations')
         .delete()
@@ -150,7 +200,6 @@ export const UserItineraryService = {
 
       if (itineraryError) throw itineraryError;
 
-      console.log('Successfully deleted itinerary:', id);
       return { success: true };
     } catch (error) {
       console.error('Error deleting itinerary:', error);
@@ -174,8 +223,9 @@ export const UserItineraryService = {
 
       if (itineraryError) throw itineraryError;
 
-      // Delete existing destinations and attractions
+      // Delete existing destinations, attractions, and hotels
       await supabase.from('user_itinerary_day_attractions').delete().eq('itinerary_id', id);
+      await supabase.from('user_itinerary_day_hotels').delete().eq('itinerary_id', id);
       await supabase.from('user_itinerary_destinations').delete().eq('itinerary_id', id);
 
       // Insert updated destinations
@@ -183,7 +233,6 @@ export const UserItineraryService = {
         itinerary_id: id,
         destination: dest.destination,
         nights: dest.nights,
-        sleeping: dest.sleeping,
         discover: dest.discover,
         transport: dest.transport,
         notes: dest.notes,
@@ -203,7 +252,6 @@ export const UserItineraryService = {
         let daysAccumulated = 0;
         
         const attractionsToInsert = data.dayAttractions.map(day => {
-          // Find the correct destination based on accumulated days
           while (currentDestIndex < data.destinations.length && 
                  daysAccumulated + data.destinations[currentDestIndex].nights <= day.dayIndex) {
             daysAccumulated += data.destinations[currentDestIndex].nights;
@@ -225,32 +273,25 @@ export const UserItineraryService = {
         if (attractionsError) throw attractionsError;
       }
 
+      // Insert updated day hotels if they exist
+      if (data.dayHotels && data.dayHotels.length > 0) {
+        const hotelsToInsert = data.dayHotels.map(day => ({
+          itinerary_id: id,
+          day_index: day.day_index,
+          hotel: day.hotel
+        }));
+
+        const { error: hotelsError } = await supabase
+          .from('user_itinerary_day_hotels')
+          .insert(hotelsToInsert);
+
+        if (hotelsError) throw hotelsError;
+      }
+
       return { success: true };
     } catch (error) {
       console.error('Error updating itinerary:', error);
       throw error;
     }
   }
-};
-
-export interface SaveItineraryData {
-  tripSummary: {
-    tripName: string;
-    country: string;
-    duration: number;
-    startDate: string;
-    passengers: number;
-  };
-  destinations: {
-    destination: string;
-    nights: number;
-    sleeping: string;
-    discover: string;
-    transport: string;
-    notes: string;
-  }[];
-  dayAttractions: {
-    dayIndex: number;
-    selectedAttractions: string[];
-  }[];
-} 
+}; 
