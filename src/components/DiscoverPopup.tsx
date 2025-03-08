@@ -9,6 +9,7 @@ interface Attraction {
   userRatingsTotal?: number;
   photoUrl?: string;
   isSelected?: boolean;
+  isManuallyAdded?: boolean;
 }
 
 interface DiscoverPopupProps {
@@ -23,24 +24,28 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
   isOpen,
   onClose,
   destination,
+  selectedAttractions = [],
   onAttractionsSelect,
-  selectedAttractions = []
 }) => {
   const [attractions, setAttractions] = useState<Attraction[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<google.maps.places.AutocompletePrediction[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [loading, setLoading] = useState(true);
   const placesService = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteService = useRef<google.maps.places.AutocompleteService | null>(null);
+  const searchDebounceTimeout = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     if (isOpen && destination && window.google) {
-      // Initialize Places Service with a dummy div (required by Google Maps)
+      setLoading(true);
+      
+      // Initialize Places Service with a map div (required by Google Maps API)
       const mapDiv = document.createElement('div');
-      placesService.current = new window.google.maps.places.PlacesService(mapDiv);
+      const map = new google.maps.Map(mapDiv);
+      placesService.current = new google.maps.places.PlacesService(map);
 
-      // Search for the destination first to get its location
+      // First, find the location of the destination
       const destinationRequest = {
         query: destination,
         fields: ['geometry']
@@ -54,26 +59,150 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
             // Now search for attractions near this location
             const attractionsRequest = {
               location: location,
-              radius: 5000, // 5km radius
-              type: 'tourist_attraction',
-              rankBy: google.maps.places.RankBy.RATING
+              radius: 50000, // 50km radius
+              rankBy: google.maps.places.RankBy.PROMINENCE // Use PROMINENCE with radius
             };
 
-            placesService.current?.nearbySearch(attractionsRequest, (places, searchStatus) => {
-              if (searchStatus === google.maps.places.PlacesServiceStatus.OK && places) {
-                const attractionsData: Attraction[] = places.map(place => ({
-                  id: place.place_id || '',
-                  name: place.name || '',
-                  rating: place.rating,
-                  userRatingsTotal: place.user_ratings_total,
-                  photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 }),
-                  isSelected: selectedAttractions.includes(place.name || ''),
-                  description: place.vicinity
+            // Perform multiple searches for different types of attractions
+            Promise.all([
+              // Major Tourist Attractions
+              new Promise((resolve) => {
+                placesService.current?.nearbySearch(
+                  { ...attractionsRequest, type: 'tourist_attraction' },
+                  (results, status) => resolve({ results, status })
+                );
+              }),
+              // Historical & Cultural Sites
+              new Promise((resolve) => {
+                placesService.current?.nearbySearch(
+                  { ...attractionsRequest, type: 'museum' },
+                  (results, status) => resolve({ results, status })
+                );
+              }),
+              // Religious Sites
+              new Promise((resolve) => {
+                placesService.current?.nearbySearch(
+                  { ...attractionsRequest, type: 'place_of_worship' },
+                  (results, status) => resolve({ results, status })
+                );
+              }),
+              // Parks and Nature
+              new Promise((resolve) => {
+                placesService.current?.nearbySearch(
+                  { ...attractionsRequest, type: 'park' },
+                  (results, status) => resolve({ results, status })
+                );
+              }),
+              // Landmarks
+              new Promise((resolve) => {
+                placesService.current?.nearbySearch(
+                  { ...attractionsRequest, type: 'landmark' },
+                  (results, status) => resolve({ results, status })
+                );
+              }),
+              // Amusement Parks
+              new Promise((resolve) => {
+                placesService.current?.nearbySearch(
+                  { ...attractionsRequest, type: 'amusement_park' },
+                  (results, status) => resolve({ results, status })
+                );
+              }),
+              // Art Galleries
+              new Promise((resolve) => {
+                placesService.current?.nearbySearch(
+                  { ...attractionsRequest, type: 'art_gallery' },
+                  (results, status) => resolve({ results, status })
+                );
+              }),
+              // Famous View Points
+              new Promise((resolve) => {
+                placesService.current?.textSearch({
+                  location: location,
+                  radius: 50000,
+                  query: `best viewpoints in ${destination}`
+                }, (results, status) => resolve({ results, status }));
+              }),
+              // Historical Sites
+              new Promise((resolve) => {
+                placesService.current?.textSearch({
+                  location: location,
+                  radius: 50000,
+                  query: `historical sites in ${destination}`
+                }, (results, status) => resolve({ results, status }));
+              }),
+              // Must Visit Places
+              new Promise((resolve) => {
+                placesService.current?.textSearch({
+                  location: location,
+                  radius: 50000,
+                  query: `must visit places in ${destination}`
+                }, (results, status) => resolve({ results, status }));
+              })
+            ]).then((responses) => {
+              const allPlaces = new Map();
+              
+              responses.forEach((response: any) => {
+                if (response.status === google.maps.places.PlacesServiceStatus.OK && response.results) {
+                  response.results.forEach((place: google.maps.places.PlaceResult) => {
+                    // Only include places with ratings above 3.5 or no rating (new places)
+                    if (!place.rating || place.rating >= 3.5) {
+                      if (!allPlaces.has(place.place_id)) {
+                        allPlaces.set(place.place_id, place);
+                      } else {
+                        // If place already exists, update it if the new one has better rating or more reviews
+                        const existingPlace = allPlaces.get(place.place_id);
+                        if ((place.rating || 0) > (existingPlace.rating || 0) || 
+                            (place.user_ratings_total || 0) > (existingPlace.user_ratings_total || 0)) {
+                          allPlaces.set(place.place_id, place);
+                        }
+                      }
+                    }
+                  });
+                }
+              });
+
+              const places = Array.from(allPlaces.values());
+              
+              // Sort places by rating and number of reviews
+              places.sort((a, b) => {
+                const ratingA = a.rating || 0;
+                const ratingB = b.rating || 0;
+                const reviewsA = a.user_ratings_total || 0;
+                const reviewsB = b.user_ratings_total || 0;
+                
+                // Prioritize highly rated places with significant number of reviews
+                const scoreA = ratingA * Math.log(reviewsA + 1);
+                const scoreB = ratingB * Math.log(reviewsB + 1);
+                
+                return scoreB - scoreA;
+              });
+
+              // Convert places to our Attraction format
+              const attractionsData: Attraction[] = places.map(place => ({
+                id: place.place_id || '',
+                name: place.name || '',
+                rating: place.rating,
+                userRatingsTotal: place.user_ratings_total,
+                photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 }),
+                isSelected: selectedAttractions.includes(place.name || ''),
+                description: place.vicinity || place.formatted_address,
+                isManuallyAdded: false
+              }));
+
+              // Add previously selected attractions that were manually added
+              const manuallyAddedAttractions = selectedAttractions
+                .filter(name => !attractionsData.some(a => a.name === name))
+                .map(name => ({
+                  id: `manual-${name}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  name,
+                  isSelected: true,
+                  isManuallyAdded: true,
+                  rating: 0,
+                  userRatingsTotal: 0
                 }));
 
-                setAttractions(attractionsData);
-                setLoading(false);
-              }
+              setAttractions([...manuallyAddedAttractions, ...attractionsData]);
+              setLoading(false);
             });
           }
         }
@@ -88,31 +217,37 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
     }
   }, []);
 
-  const handleSearch = (query: string) => {
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
     setSearchQuery(query);
-    if (!query || !autocompleteService.current) {
+
+    if (searchDebounceTimeout.current) {
+      clearTimeout(searchDebounceTimeout.current);
+    }
+
+    if (!query.trim()) {
       setSearchResults([]);
       setShowSearchResults(false);
       return;
     }
 
-    const request = {
-      input: query,
-      types: ['tourist_attraction', 'point_of_interest'],
-      location: new google.maps.LatLng(0, 0), // This will be replaced with actual destination coordinates
-      radius: 5000,
-      componentRestrictions: { country: 'JP' } // This should be dynamic based on the country
-    };
-
-    autocompleteService.current.getPlacePredictions(
-      request,
-      (predictions, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
-          setSearchResults(predictions);
-          setShowSearchResults(true);
-        }
+    searchDebounceTimeout.current = setTimeout(() => {
+      if (autocompleteService.current) {
+        autocompleteService.current.getPlacePredictions({
+          input: `${query} ${destination}`,
+          types: ['tourist_attraction', 'point_of_interest'],
+          locationBias: {
+            radius: 50000,
+            center: { lat: 0, lng: 0 } // This will be biased by the Places API automatically
+          }
+        }, (predictions, status) => {
+          if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+            setSearchResults(predictions);
+            setShowSearchResults(true);
+          }
+        });
       }
-    );
+    }, 300);
   };
 
   const handleAddCustomAttraction = (prediction: google.maps.places.AutocompletePrediction) => {
@@ -132,12 +267,13 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
       return;
     }
 
-    // Create temporary attraction without a placeholder image
+    // Create temporary attraction with the original place_id
     const tempAttraction: Attraction = {
-      id: prediction.place_id,
+      id: prediction.place_id,  // Use the original place_id instead of generating a manual one
       name: prediction.structured_formatting.main_text,
       description: prediction.structured_formatting.secondary_text,
       isSelected: true,
+      isManuallyAdded: true,
       rating: 0,
       userRatingsTotal: 0
     };
@@ -159,14 +295,15 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
       if (status === google.maps.places.PlacesServiceStatus.OK && place) {
         setAttractions(prevAttractions => {
           const updatedAttractions = prevAttractions.map(a => {
-            if (a.id === prediction.place_id) {
+            if (a.id === prediction.place_id) {  // This will now match because we're using the original place_id
               return {
                 ...a,
                 rating: place.rating || 0,
                 userRatingsTotal: place.user_ratings_total || 0,
-                photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 }) || a.photoUrl,
+                photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 }),
                 description: place.vicinity || place.formatted_address || a.description,
-                isSelected: true
+                isSelected: true,
+                isManuallyAdded: true
               };
             }
             return a;
@@ -196,65 +333,71 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
 
   // Sort attractions with selected ones at the top
   const sortedAttractions = [...attractions].sort((a, b) => {
+    // First priority: selected items
     if (a.isSelected && !b.isSelected) return -1;
     if (!a.isSelected && b.isSelected) return 1;
-    // If both are selected or both are not selected, sort by rating
-    return (b.rating || 0) - (a.rating || 0);
+    
+    // Second priority: manually added items
+    if (a.isManuallyAdded && !b.isManuallyAdded) return -1;
+    if (!a.isManuallyAdded && b.isManuallyAdded) return 1;
+    
+    // Third priority: number of reviews (for non-manual attractions)
+    if (!a.isManuallyAdded && !b.isManuallyAdded) {
+      return (b.userRatingsTotal || 0) - (a.userRatingsTotal || 0);
+    }
+    
+    // If both are manually added or other cases, maintain current order
+    return 0;
   });
-
-  // Add this effect near the top of the component
-  useEffect(() => {
-    console.log('Current attractions:', attractions);
-  }, [attractions]);
-
-  // Add this debug effect to monitor state changes
-  useEffect(() => {
-    console.log('Attractions updated:', attractions);
-  }, [attractions]);
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
-        <div className="p-6 border-b flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-amber-500" />
+        <div className="p-6 border-b">
+          <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">
-              Popular attractions in {destination}
+              Add Attractions in {destination}
             </h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-6 h-6" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
 
-        {/* Add search bar */}
-        <div className="p-4 border-b">
+          {/* Search Box */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Search for other attractions..."
-              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-            />
+            <div className="flex items-center border rounded-lg overflow-hidden">
+              <Search className="w-5 h-5 text-gray-400 ml-3" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={handleSearchChange}
+                placeholder="Search for attractions..."
+                className="w-full p-3 outline-none"
+              />
+            </div>
+
+            {/* Search Results Dropdown */}
             {showSearchResults && searchResults.length > 0 && (
-              <div className="absolute z-10 left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border max-h-60 overflow-auto">
+              <div className="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-lg border max-h-60 overflow-y-auto">
                 {searchResults.map((result) => (
                   <button
                     key={result.place_id}
                     onClick={() => handleAddCustomAttraction(result)}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2"
+                    className="w-full p-3 text-left hover:bg-gray-50 flex items-center gap-2"
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="w-4 h-4 text-gray-400" />
                     <div>
-                      <div className="font-medium">{result.structured_formatting.main_text}</div>
-                      <div className="text-sm text-gray-500">{result.structured_formatting.secondary_text}</div>
+                      <div className="font-medium">
+                        {result.structured_formatting.main_text}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {result.structured_formatting.secondary_text}
+                      </div>
                     </div>
                   </button>
                 ))}
@@ -286,25 +429,34 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
                       : 'bg-gray-50 hover:bg-gray-100'
                   }`}
                 >
-                  <div className="w-24 h-24 rounded-lg overflow-hidden">
-                    {attraction.photoUrl ? (
-                      <img
-                        src={attraction.photoUrl}
-                        alt={attraction.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                        <MapPin className="w-8 h-8 text-gray-400" />
-                      </div>
-                    )}
-                  </div>
+                  {!attraction.isManuallyAdded && (
+                    <div className="w-24 h-24 rounded-lg overflow-hidden">
+                      {attraction.photoUrl ? (
+                        <img
+                          src={attraction.photoUrl}
+                          alt={attraction.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                          <MapPin className="w-8 h-8 text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="flex-1">
-                    <h3 className="font-medium text-lg">{attraction.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-medium text-lg">{attraction.name}</h3>
+                      {attraction.isManuallyAdded && (
+                        <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
+                          Custom
+                        </span>
+                      )}
+                    </div>
                     {attraction.description && (
                       <p className="text-gray-600 text-sm mt-1">{attraction.description}</p>
                     )}
-                    {attraction.rating && (
+                    {attraction.rating !== undefined && attraction.rating > 0 && (
                       <div className="flex items-center gap-2 mt-2">
                         <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
                         <span className="text-sm font-medium">{attraction.rating}</span>
