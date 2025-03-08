@@ -13,6 +13,7 @@ import MyItineraries from './pages/MyItineraries';
 import CreateItinerary from './pages/CreateItinerary';
 import How from './pages/How';
 import WhyTravel from './pages/WhyTravel';
+import ViewUserItinerary from './pages/ViewUserItinerary';
 
 export const router = createBrowserRouter([
   {
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
       { path: 'email-confirmation', element: <EmailConfirmation /> },
       { path: 'how', element: <How /> },
       { path: 'whytravel', element: <WhyTravel /> },
+      { path: 'view-itinerary/:id', element: <ViewUserItinerary /> },
       { 
         path: 'dashboard', 
         element: <ProtectedRoute>

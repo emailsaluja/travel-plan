@@ -138,12 +138,18 @@ const MyItineraries: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <div className="bg-gray-50 px-6 py-3 rounded-b-lg border-t">
+              <div className="bg-gray-50 px-6 py-3 rounded-b-lg border-t flex justify-between items-center">
                 <Link
                   to={`/create-itinerary?id=${itinerary.id}`}
                   className="text-rose-500 hover:text-rose-600 text-sm font-medium"
                 >
                   Update →
+                </Link>
+                <Link
+                  to={`/view-itinerary/${itinerary.id}`}
+                  className="text-rose-500 hover:text-rose-600 text-sm font-medium"
+                >
+                  View →
                 </Link>
               </div>
             </div>
