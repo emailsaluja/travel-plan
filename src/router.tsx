@@ -11,6 +11,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import SavedItineraries from './pages/SavedItineraries';
 import MyItineraries from './pages/MyItineraries';
 import CreateItinerary from './pages/CreateItinerary';
+import How from './pages/How';
 
 export const router = createBrowserRouter([
   {
@@ -23,6 +24,7 @@ export const router = createBrowserRouter([
       { path: 'signup', element: <SignUp /> },
       { path: 'reset-password', element: <ResetPassword /> },
       { path: 'email-confirmation', element: <EmailConfirmation /> },
+      { path: 'how', element: <How /> },
       { 
         path: 'dashboard', 
         element: <ProtectedRoute>
