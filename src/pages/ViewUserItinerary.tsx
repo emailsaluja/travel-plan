@@ -31,6 +31,7 @@ const ViewUserItinerary: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'dayByDay'>('overview');
   const [isLiked, setIsLiked] = useState(false);
   const [distanceInfo, setDistanceInfo] = useState<(DistanceInfo | null)[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadItinerary = async () => {
@@ -43,6 +44,7 @@ const ViewUserItinerary: React.FC = () => {
         setItinerary(data);
       } catch (error) {
         console.error('Error loading itinerary:', error);
+        setError('Error loading itinerary');
       } finally {
         setLoading(false);
       }
@@ -123,7 +125,7 @@ const ViewUserItinerary: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
       <div className="relative h-[400px] mt-16">
         {/* Dynamic country image */}
@@ -227,89 +229,107 @@ const ViewUserItinerary: React.FC = () => {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === 'overview' ? (
-          <div className="flex flex-col lg:flex-row gap-8">
-            {/* Left Column - Destinations */}
-            <div className="w-full lg:w-2/5 space-y-6">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-                <div className="p-6">
-                  <h2 className="text-xl font-semibold mb-6">Destinations</h2>
-                  <div className="space-y-6">
-                    {itinerary.destinations.map((dest, index) => (
-                      <div key={index} className="relative">
-                        {/* Vertical line */}
-                        {index < itinerary.destinations.length - 1 && (
-                          <div className="absolute left-3.5 top-12 bottom-0 w-[2px] bg-rose-100" />
-                        )}
-                        
-                        <div className="relative">
-                          <h3 className="text-lg font-medium mb-2 flex items-center gap-2">
-                            <span className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-semibold text-white
-                              ${index === 0 ? 'bg-rose-500' : 
-                                index === itinerary.destinations.length - 1 ? 'bg-rose-500' : 
-                                'bg-rose-500'}`}
-                            >
-                              {index + 1}
-                            </span>
-                            <div>
-                              <div className="font-semibold">{dest.destination}</div>
-                              <div className="text-sm text-gray-500">{dest.nights} days</div>
-                            </div>
-                          </h3>
-                          
-                          {dest.discover && (
-                            <div className="text-sm text-gray-600 ml-9">
-                              {dest.discover}
-                            </div>
-                          )}
+        {loading ? (
+          <div>Loading...</div>
+        ) : error ? (
+          <div>Error: {error}</div>
+        ) : !itinerary ? (
+          <div>No itinerary found</div>
+        ) : (
+          <>
+            {/* Overview Tab */}
+            {activeTab === 'overview' && (
+              <div className="flex flex-col lg:flex-row gap-8">
+                {/* Left Column - Destinations */}
+                <div className="w-full lg:w-2/5 space-y-6">
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+                    <div className="p-6">
+                      <h2 className="text-xl font-semibold mb-6">Destinations</h2>
+                      <div className="space-y-6">
+                        {itinerary.destinations.map((dest, index) => (
+                          <div key={index} className="relative">
+                            {/* Vertical line */}
+                            {index < itinerary.destinations.length - 1 && (
+                              <div className="absolute left-3.5 top-12 bottom-0 w-[2px] bg-rose-100" />
+                            )}
+                            
+                            <div className="relative">
+                              <h3 className="text-lg font-medium mb-2 flex items-center gap-2">
+                                <span className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-semibold text-white
+                                  ${index === 0 ? 'bg-rose-500' : 
+                                    index === itinerary.destinations.length - 1 ? 'bg-rose-500' : 
+                                    'bg-rose-500'}`}
+                                >
+                                  {index + 1}
+                                </span>
+                                <div>
+                                  <div className="font-semibold">{dest.destination}</div>
+                                  <div className="text-sm text-gray-500">{dest.nights} days</div>
+                                </div>
+                              </h3>
+                              
+                              {dest.discover && (
+                                <div className="text-sm text-gray-600 ml-9">
+                                  {dest.discover}
+                                </div>
+                              )}
 
-                          {/* Distance info to next destination */}
-                          {index < itinerary.destinations.length - 1 && distanceInfo[index] && (
-                            <div className="mt-4 ml-9">
-                              <div className="flex items-center gap-2 text-sm text-gray-500">
-                                <Train className="w-4 h-4" />
-                                <ArrowRight className="w-4 h-4" />
-                                <span>{itinerary.destinations[index + 1].destination}</span>
-                                <span className="mx-2">•</span>
-                                <span>{distanceInfo[index]?.duration}</span>
-                                <span className="mx-2">•</span>
-                                <span>{distanceInfo[index]?.distance}</span>
-                              </div>
+                              {/* Distance info to next destination */}
+                              {index < itinerary.destinations.length - 1 && distanceInfo[index] && (
+                                <div className="mt-4 ml-9">
+                                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                                    <Train className="w-4 h-4" />
+                                    <ArrowRight className="w-4 h-4" />
+                                    <span>{itinerary.destinations[index + 1].destination}</span>
+                                    <span className="mx-2">•</span>
+                                    <span>{distanceInfo[index]?.duration}</span>
+                                    <span className="mx-2">•</span>
+                                    <span>{distanceInfo[index]?.distance}</span>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column - Map */}
+                <div className="w-full lg:w-3/5">
+                  <div className="sticky top-8">
+                    <UserItineraryMap 
+                      destinations={itinerary.destinations.map(d => ({
+                        destination: d.destination,
+                        nights: d.nights
+                      }))}
+                    />
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Right Column - Map */}
-            <div className="w-full lg:w-3/5">
-              <div className="sticky top-8">
-                <UserItineraryMap 
-                  destinations={itinerary.destinations.map(d => ({
-                    destination: d.destination,
-                    nights: d.nights
-                  }))}
-                />
-              </div>
-            </div>
-          </div>
-        ) : (
-          <UserDayByDayView
-            startDate={itinerary.start_date}
-            destinations={itinerary.destinations}
-            dayAttractions={itinerary.day_attractions.map(da => ({
-              day_index: da.day_index,
-              attractions: da.attractions
-            }))}
-            dayHotels={itinerary.day_hotels.map(dh => ({
-              dayIndex: dh.day_index,
-              hotel: dh.hotel
-            }))}
-          />
+            {/* Day by Day View */}
+            {activeTab === 'dayByDay' && (
+              <UserDayByDayView
+                startDate={itinerary.start_date}
+                destinations={itinerary.destinations}
+                dayAttractions={itinerary.day_attractions.map(da => ({
+                  dayIndex: da.day_index,
+                  attractions: da.attractions
+                }))}
+                dayHotels={itinerary.day_hotels.map(dh => ({
+                  dayIndex: dh.day_index,
+                  hotel: dh.hotel
+                }))}
+                dayNotes={itinerary.day_notes.map(dn => ({
+                  dayIndex: dn.day_index,
+                  notes: dn.notes
+                }))}
+              />
+            )}
+          </>
         )}
       </div>
     </div>

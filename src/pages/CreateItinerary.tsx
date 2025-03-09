@@ -12,6 +12,7 @@ import { ItineraryService } from '../services/itinerary.service';
 import { UserItineraryService } from '../services/user-itinerary.service';
 import { Calendar, Users, Clock, Navigation } from 'lucide-react';
 import HotelSearchPopup from '../components/HotelSearchPopup';
+import TransportPopup from '../components/TransportPopup';
 
 interface DestinationData {
   destination: string;
@@ -67,6 +68,16 @@ interface SaveDayHotel {
   hotel: string;
 }
 
+interface DayNote {
+  dayIndex: number;
+  notes: string;
+}
+
+interface SaveDayNote {
+  day_index: number;
+  notes: string;
+}
+
 const CreateItinerary: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -96,6 +107,13 @@ const CreateItinerary: React.FC = () => {
   const [currentDestinationForHotel, setCurrentDestinationForHotel] = useState<string>('');
   const [currentDestinationIndexForHotel, setCurrentDestinationIndexForHotel] = useState<number>(-1);
   const [dayHotels, setDayHotels] = useState<DayHotel[]>([]);
+  const [showTransportPopup, setShowTransportPopup] = useState(false);
+  const [currentDestinationForTransport, setCurrentDestinationForTransport] = useState<{
+    from: string;
+    to: string;
+    index: number;
+  } | null>(null);
+  const [dayNotes, setDayNotes] = useState<DayNote[]>([]);
 
   useEffect(() => {
     const loadExistingItinerary = async () => {
@@ -103,6 +121,7 @@ const CreateItinerary: React.FC = () => {
         try {
           setLoading(true);
           const { data } = await UserItineraryService.getItineraryById(itineraryId);
+          console.log('Loaded itinerary data:', data);
           if (data) {
             // Set trip summary
             setTripSummary({
@@ -124,6 +143,7 @@ const CreateItinerary: React.FC = () => {
 
             // Set day attractions
             if (data.day_attractions) {
+              console.log('Setting day attractions:', data.day_attractions);
               setDayAttractions(data.day_attractions.map((da: DayAttractionData) => ({
                 dayIndex: da.day_index,
                 selectedAttractions: da.attractions
@@ -133,10 +153,22 @@ const CreateItinerary: React.FC = () => {
 
             // Set day hotels
             if (data.day_hotels) {
+              console.log('Setting day hotels:', data.day_hotels);
               setDayHotels(data.day_hotels.map((dh: SaveDayHotel) => ({
                 dayIndex: dh.day_index,
                 hotel: dh.hotel
               })));
+            }
+
+            // Set day notes
+            if (data.day_notes) {
+              console.log('Setting day notes:', data.day_notes);
+              setDayNotes(data.day_notes.map((dn: SaveDayNote) => ({
+                dayIndex: dn.day_index,
+                notes: dn.notes
+              })));
+            } else {
+              console.log('No day notes found in data');
             }
           }
         } catch (error) {
@@ -149,24 +181,6 @@ const CreateItinerary: React.FC = () => {
 
     loadExistingItinerary();
   }, [itineraryId]);
-
-  // Add new useEffect to initialize dayHotels
-  useEffect(() => {
-    const initialDayHotels: DayHotel[] = [];
-    let dayIndex = 0;
-    
-    itineraryDays.forEach(destination => {
-      for (let i = 0; i < destination.nights; i++) {
-        initialDayHotels.push({
-          dayIndex,
-          hotel: destination.sleeping
-        });
-        dayIndex++;
-      }
-    });
-    
-    setDayHotels(initialDayHotels);
-  }, [itineraryDays.length]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -228,6 +242,10 @@ const CreateItinerary: React.FC = () => {
           dayHotels: dayHotels.map(dh => ({
             day_index: dh.dayIndex,
             hotel: dh.hotel
+          })),
+          dayNotes: dayNotes.map(dn => ({
+            day_index: dn.dayIndex,
+            notes: dn.notes
           }))
         });
       } else {
@@ -245,6 +263,10 @@ const CreateItinerary: React.FC = () => {
           dayHotels: dayHotels.map(dh => ({
             day_index: dh.dayIndex,
             hotel: dh.hotel
+          })),
+          dayNotes: dayNotes.map(dn => ({
+            day_index: dn.dayIndex,
+            notes: dn.notes
           }))
         });
       }
@@ -398,19 +420,10 @@ const CreateItinerary: React.FC = () => {
         destDayIndices.includes(h.dayIndex)
       ).map(h => h.hotel);
       
-      // If all days in this destination have the same hotel, update the destination's sleeping property
-      const uniqueHotels = new Set(destHotels);
-      if (uniqueHotels.size === 1) {
-        updatedDestinations[i] = {
-          ...dest,
-          sleeping: destHotels[0]
-        };
-      } else {
-        updatedDestinations[i] = {
-          ...dest,
-          sleeping: ''
-        };
-      }
+      // Update the destination
+      updatedDestinations[i] = {
+        ...dest
+      };
       
       currentDayCount += dest.nights;
     }
@@ -450,10 +463,27 @@ const CreateItinerary: React.FC = () => {
     const destinationsWithDates = itineraryDays.map((day, index) => {
       const startDate = new Date(tripSummary.startDate);
       startDate.setDate(startDate.getDate() + cumulativeNights);
+      
+      // Calculate the starting day index for this destination
+      let startDayIndex = 0;
+      for (let i = 0; i < index; i++) {
+        startDayIndex += itineraryDays[i].nights;
+      }
+      
+      // Get all hotels for this destination's days
+      const destHotels = dayHotels
+        .filter(h => h.dayIndex >= startDayIndex && h.dayIndex < startDayIndex + day.nights)
+        .map(h => h.hotel);
+      
+      // If all days have the same hotel, use that as the destination's hotel
+      const uniqueHotels = [...new Set(destHotels)];
+      const destinationHotel = uniqueHotels.length === 1 ? uniqueHotels[0] : '';
+      
       cumulativeNights += day.nights;
       return {
         ...day,
-        startDate: startDate.toISOString().split('T')[0]
+        startDate: startDate.toISOString().split('T')[0],
+        hotel: destinationHotel
       };
     });
 
@@ -487,15 +517,6 @@ const CreateItinerary: React.FC = () => {
         {/* Grid Rows */}
         <div className="space-y-4">
           {destinationsWithDates.map((day, index) => {
-            // Calculate the starting day index for this destination
-            let startDayIndex = 0;
-            for (let i = 0; i < index; i++) {
-              startDayIndex += itineraryDays[i].nights;
-            }
-            
-            // Get the hotel for this destination's first day
-            const destinationHotel = dayHotels.find(h => h.dayIndex === startDayIndex)?.hotel || '';
-
             return (
               <div key={index} className="grid grid-cols-[auto,2fr,1fr,1fr,1fr,1fr] gap-4 bg-white rounded-lg p-4 shadow-sm">
                 <div className="flex items-center">
@@ -549,13 +570,11 @@ const CreateItinerary: React.FC = () => {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={destinationHotel}
-                      readOnly
-                      placeholder="Where are you staying?"
-                      className="flex-1 p-2 border rounded-lg"
-                    />
+                    {day.hotel ? (
+                      <div className="flex-1 p-2 text-gray-700">{day.hotel}</div>
+                    ) : (
+                      <div className="flex-1 p-2"></div>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
@@ -568,6 +587,29 @@ const CreateItinerary: React.FC = () => {
                       <Plus className="w-5 h-5" />
                     </button>
                   </div>
+                  {(() => {
+                    // Calculate the starting day index for this destination
+                    let startDayIndex = 0;
+                    for (let i = 0; i < index; i++) {
+                      startDayIndex += itineraryDays[i].nights;
+                    }
+                    
+                    // Check if all days in this destination have hotels selected
+                    const hasAllDaysWithHotels = Array.from({ length: day.nights }, (_, i) => {
+                      const dayIndex = startDayIndex + i;
+                      return dayHotels.some(h => h.dayIndex === dayIndex && h.hotel);
+                    }).every(Boolean);
+
+                    // Only show "Already selected" if we don't have a hotel to show in the destinations tab
+                    if (hasAllDaysWithHotels && !day.hotel) {
+                      return (
+                        <div className="mt-1 text-sm text-emerald-600">
+                          Already selected
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
                 <div>
                   <button 
@@ -589,16 +631,30 @@ const CreateItinerary: React.FC = () => {
                   )}
                 </div>
                 <div className="flex items-center">
-                  <button
-                    onClick={() => handleDeleteDestination(index)}
-                    disabled={itineraryDays.length <= 1}
-                    className={`p-2 rounded-full hover:bg-gray-100 ${
-                      itineraryDays.length <= 1 ? 'text-gray-300' : 'text-gray-500 hover:text-red-500'
-                    }`}
-                    title={itineraryDays.length <= 1 ? "Can't delete the only destination" : "Delete destination"}
+                  <button 
+                    className="text-blue-500 hover:bg-blue-50 p-2 rounded-full"
+                    onClick={() => {
+                      if (day.destination) {
+                        // Find the next destination for transport options
+                        const nextDestination = destinationsWithDates[index + 1];
+                        if (nextDestination) {
+                          setCurrentDestinationForTransport({
+                            from: day.destination,
+                            to: nextDestination.destination,
+                            index
+                          });
+                          setShowTransportPopup(true);
+                        }
+                      } else {
+                        alert('Please select a destination first');
+                      }
+                    }}
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Plus className="w-4 h-4" />
                   </button>
+                  {day.transport && (
+                    <span className="ml-2 text-sm text-gray-500">{day.transport}</span>
+                  )}
                 </div>
               </div>
             );
@@ -634,6 +690,19 @@ const CreateItinerary: React.FC = () => {
     setTripSummary(updatedSummary);
     setShowTripSummaryEdit(false);
     setShouldUpdateDayAttractions(true);
+  };
+
+  // Add new handler for transport selection
+  const handleTransportSelect = (index: number, transportDetails: string) => {
+    const updatedDays = [...itineraryDays];
+    updatedDays[index].transport = transportDetails;
+    setItineraryDays(updatedDays);
+    setShowTransportPopup(false);
+    setCurrentDestinationForTransport(null);
+  };
+
+  const handleDayNotesUpdate = (updatedNotes: DayNote[]) => {
+    setDayNotes(updatedNotes);
   };
 
   if (!showSummaryPopup) {
@@ -750,6 +819,8 @@ const CreateItinerary: React.FC = () => {
               onDayAttractionsUpdate={handleDayAttractionsUpdate}
               dayHotels={dayHotels}
               onDayHotelsUpdate={handleDayHotelsUpdate}
+              dayNotes={dayNotes}
+              onDayNotesUpdate={handleDayNotesUpdate}
             />
           )}
         </div>
@@ -807,6 +878,22 @@ const CreateItinerary: React.FC = () => {
             }
           }}
         />
+
+        {/* Transport Popup */}
+        {showTransportPopup && currentDestinationForTransport && (
+          <TransportPopup
+            isOpen={showTransportPopup}
+            onClose={() => {
+              setShowTransportPopup(false);
+              setCurrentDestinationForTransport(null);
+            }}
+            fromDestination={currentDestinationForTransport.from}
+            toDestination={currentDestinationForTransport.to}
+            onTransportSelect={(transport) => {
+              handleTransportSelect(currentDestinationForTransport.index, transport);
+            }}
+          />
+        )}
       </div>
     );
   }

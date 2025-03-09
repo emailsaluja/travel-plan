@@ -50,6 +50,10 @@ export interface SaveItineraryData {
     day_index: number;
     hotel: string;
   }[];
+  dayNotes: {
+    day_index: number;
+    notes: string;
+  }[];
 }
 
 export const UserItineraryService = {
@@ -123,6 +127,21 @@ export const UserItineraryService = {
         if (hotelsError) throw hotelsError;
       }
 
+      // Insert day notes if they exist
+      if (data.dayNotes && data.dayNotes.length > 0) {
+        const notesToInsert = data.dayNotes.map(day => ({
+          itinerary_id: itinerary.id,
+          day_index: day.day_index,
+          notes: day.notes
+        }));
+
+        const { error: notesError } = await supabase
+          .from('user_itinerary_day_notes')
+          .insert(notesToInsert);
+
+        if (notesError) throw notesError;
+      }
+
       return { itinerary, destinations };
     } catch (error) {
       console.error('Error saving itinerary:', error);
@@ -156,7 +175,8 @@ export const UserItineraryService = {
           *,
           destinations:user_itinerary_destinations(*),
           day_attractions:user_itinerary_day_attractions(*),
-          day_hotels:user_itinerary_day_hotels(*)
+          day_hotels:user_itinerary_day_hotels(*),
+          day_notes:user_itinerary_day_notes(*)
         `)
         .eq('id', id)
         .single();
@@ -223,9 +243,10 @@ export const UserItineraryService = {
 
       if (itineraryError) throw itineraryError;
 
-      // Delete existing destinations, attractions, and hotels
+      // Delete existing destinations, attractions, hotels, and notes
       await supabase.from('user_itinerary_day_attractions').delete().eq('itinerary_id', id);
       await supabase.from('user_itinerary_day_hotels').delete().eq('itinerary_id', id);
+      await supabase.from('user_itinerary_day_notes').delete().eq('itinerary_id', id);
       await supabase.from('user_itinerary_destinations').delete().eq('itinerary_id', id);
 
       // Insert updated destinations
@@ -286,6 +307,21 @@ export const UserItineraryService = {
           .insert(hotelsToInsert);
 
         if (hotelsError) throw hotelsError;
+      }
+
+      // Insert updated day notes if they exist
+      if (data.dayNotes && data.dayNotes.length > 0) {
+        const notesToInsert = data.dayNotes.map(day => ({
+          itinerary_id: id,
+          day_index: day.day_index,
+          notes: day.notes
+        }));
+
+        const { error: notesError } = await supabase
+          .from('user_itinerary_day_notes')
+          .insert(notesToInsert);
+
+        if (notesError) throw notesError;
       }
 
       return { success: true };

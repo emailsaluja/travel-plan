@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Bed, Compass, Plus } from 'lucide-react';
+import { Calendar, Bed, Compass, Plus, StickyNote } from 'lucide-react';
 import DayDiscoverPopup from './DayDiscoverPopup';
 import HotelSearchPopup from './HotelSearchPopup';
+import NotesPopup from './NotesPopup';
 
 interface DayByDayGridProps {
   tripStartDate: string;
   destinations: {
     destination: string;
     nights: number;
-    sleeping: string;
     discover: string;
     transport: string;
     notes: string;
@@ -16,7 +16,6 @@ interface DayByDayGridProps {
   onDestinationsUpdate: (destinations: {
     destination: string;
     nights: number;
-    sleeping: string;
     discover: string;
     transport: string;
     notes: string;
@@ -28,12 +27,13 @@ interface DayByDayGridProps {
   onDayAttractionsUpdate: (dayIndex: number, attractions: string[]) => void;
   dayHotels: DayHotel[];
   onDayHotelsUpdate: (hotels: DayHotel[]) => void;
+  dayNotes: DayNote[];
+  onDayNotesUpdate: (notes: DayNote[]) => void;
 }
 
 interface ExpandedDay {
   destination: string;
   nights: number;
-  sleeping: string;
   discover: string;
   dayIndex: number;
   isFirstDay: boolean;
@@ -45,6 +45,11 @@ interface DayHotel {
   hotel: string;
 }
 
+interface DayNote {
+  dayIndex: number;
+  notes: string;
+}
+
 const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   tripStartDate,
   destinations,
@@ -52,10 +57,13 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   dayAttractions,
   onDayAttractionsUpdate,
   dayHotels,
-  onDayHotelsUpdate
+  onDayHotelsUpdate,
+  dayNotes,
+  onDayNotesUpdate
 }) => {
   const [showDiscoverPopup, setShowDiscoverPopup] = useState(false);
   const [showHotelPopup, setShowHotelPopup] = useState(false);
+  const [showNotesPopup, setShowNotesPopup] = useState(false);
   const [selectedDay, setSelectedDay] = useState<{
     date: string;
     destination: string;
@@ -67,6 +75,10 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
     dayIndex: number;
     destination: string;
     sleeping: string;
+  } | null>(null);
+  const [selectedDayForNotes, setSelectedDayForNotes] = useState<{
+    dayIndex: number;
+    notes: string;
   } | null>(null);
 
   const formatDate = (date: Date) => {
@@ -129,9 +141,41 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
     setSelectedDayForHotel({
       dayIndex: day.dayIndex,
       destination: day.destination,
-      sleeping: dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel || day.sleeping
+      sleeping: dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel || ''
     });
     setShowHotelPopup(true);
+  };
+
+  const handleNotesClick = (day: ExpandedDay) => {
+    const currentNotes = dayNotes.find(n => n.dayIndex === day.dayIndex)?.notes || '';
+    setSelectedDayForNotes({
+      dayIndex: day.dayIndex,
+      notes: currentNotes
+    });
+    setShowNotesPopup(true);
+  };
+
+  const handleNotesUpdate = (notes: string) => {
+    if (selectedDayForNotes) {
+      const newNotes = [...dayNotes];
+      const noteIndex = newNotes.findIndex(n => n.dayIndex === selectedDayForNotes.dayIndex);
+      
+      if (noteIndex !== -1) {
+        newNotes[noteIndex] = {
+          ...newNotes[noteIndex],
+          notes
+        };
+      } else {
+        newNotes.push({
+          dayIndex: selectedDayForNotes.dayIndex,
+          notes
+        });
+      }
+      
+      onDayNotesUpdate(newNotes);
+      setShowNotesPopup(false);
+      setSelectedDayForNotes(null);
+    }
   };
 
   const generateExpandedDays = () => {
@@ -149,11 +193,8 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
       
       for (let i = 0; i < nights; i++) {
         if (dayIndex < totalNights) {
-          const dayHotel = dayHotels.find(h => h.dayIndex === dayIndex);
-          
           expandedDays.push({
             ...destination,
-            sleeping: dayHotel?.hotel || destination.sleeping,
             dayIndex,
             isFirstDay: i === 0,
             date: new Date(currentDate)
@@ -172,7 +213,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Grid Header - Keep this fixed */}
-      <div className="grid grid-cols-4 gap-4 mb-4 px-4">
+      <div className="grid grid-cols-5 gap-4 mb-4 px-4">
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4" />
           <span className="font-medium">DATE</span>
@@ -188,6 +229,10 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
           <Compass className="w-4 h-4" />
           <span className="font-medium">DISCOVER</span>
         </div>
+        <div className="flex items-center gap-2">
+          <StickyNote className="w-4 h-4" />
+          <span className="font-medium">NOTES</span>
+        </div>
       </div>
 
       {/* Scrollable Grid Rows */}
@@ -196,9 +241,10 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
           {expandedDays.map((day, index) => {
             const currentDayAttractions = dayAttractions.find(da => da.dayIndex === day.dayIndex);
             const dayHotel = dayHotels.find(h => h.dayIndex === day.dayIndex);
+            const dayNote = dayNotes.find(n => n.dayIndex === day.dayIndex);
             
             return (
-              <div key={index} className="grid grid-cols-4 gap-4 bg-white rounded-lg p-4 shadow-sm">
+              <div key={index} className="grid grid-cols-5 gap-4 bg-white rounded-lg p-4 shadow-sm">
                 <div className="flex flex-col">
                   <span>{formatDate(day.date)}</span>
                   <span className="text-sm text-gray-500">Day {index + 1}</span>
@@ -230,6 +276,21 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
                     {currentDayAttractions?.selectedAttractions.length 
                       ? currentDayAttractions.selectedAttractions.join(', ') 
                       : 'Add attractions'}
+                  </button>
+                </div>
+                <div>
+                  <button
+                    onClick={() => handleNotesClick(day)}
+                    className="flex items-center gap-2 text-blue-500 hover:bg-blue-50 p-2 rounded-full transition-colors"
+                  >
+                    {dayNote?.notes ? (
+                      <span className="line-clamp-1">{dayNote.notes}</span>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4" />
+                        <span>Add notes</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -267,6 +328,20 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
           destination={selectedDayForHotel.destination}
           selectedHotel={selectedDayForHotel.sleeping}
           onHotelSelect={handleHotelSelect}
+        />
+      )}
+
+      {/* Notes Popup */}
+      {showNotesPopup && selectedDayForNotes && (
+        <NotesPopup
+          isOpen={showNotesPopup}
+          onClose={() => {
+            setShowNotesPopup(false);
+            setSelectedDayForNotes(null);
+          }}
+          dayNumber={selectedDayForNotes.dayIndex + 1}
+          initialNotes={selectedDayForNotes.notes}
+          onSave={handleNotesUpdate}
         />
       )}
     </div>
