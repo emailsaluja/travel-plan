@@ -1,8 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Globe2, MapPin, Moon, Bed, Compass, Bus, Plus, Trash2, ArrowLeft, Edit } from 'lucide-react';
+import { 
+  Globe2, 
+  MapPin, 
+  Moon, 
+  Bed, 
+  Compass, 
+  Bus, 
+  Plus, 
+  Trash2, 
+  ArrowLeft, 
+  Edit,
+  Calendar,
+  Users,
+  Clock,
+  Navigation,
+  Bell,
+  Globe,
+  ChevronRight,
+  Search,
+  Share2,
+  MoreHorizontal,
+  Settings,
+  ChevronLeft,
+  ChevronDown,
+  Sparkles,
+  Image,
+  Menu,
+  Car as Transport
+} from 'lucide-react';
 import { countries } from '../data/countries';
 import PlaceAutocomplete from '../components/PlaceAutocomplete';
 import DayByDayGrid from '../components/DayByDayGrid';
@@ -10,7 +38,6 @@ import DiscoverPopup from '../components/DiscoverPopup';
 import TripSummaryEdit from '../components/TripSummaryEdit';
 import { ItineraryService } from '../services/itinerary.service';
 import { UserItineraryService } from '../services/user-itinerary.service';
-import { Calendar, Users, Clock, Navigation } from 'lucide-react';
 import HotelSearchPopup from '../components/HotelSearchPopup';
 import TransportPopup from '../components/TransportPopup';
 
@@ -36,6 +63,7 @@ interface ItineraryDay {
   discover: string;
   transport: string;
   notes: string;
+  hotel?: string;
 }
 
 interface TripSummary {
@@ -131,6 +159,7 @@ const CreateItinerary: React.FC = () => {
               startDate: data.start_date,
               passengers: data.passengers
             });
+            setCountrySearch(data.country);
 
             // Set destinations
             setItineraryDays(data.destinations.map((dest: DestinationData) => ({
@@ -270,7 +299,7 @@ const CreateItinerary: React.FC = () => {
           }))
         });
       }
-      navigate('/my-itineraries');
+      navigate('/dashboard');
     } catch (error) {
       console.error('Error saving itinerary:', error);
     } finally {
@@ -282,12 +311,18 @@ const CreateItinerary: React.FC = () => {
   const totalNights = itineraryDays.reduce((sum, day) => sum + (day.nights || 0), 0);
 
   // Format date range (e.g., "10 April - 17 April")
-  const formatDateRange = () => {
-    const startDate = new Date(tripSummary.startDate);
-    const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + tripSummary.duration - 1);
+  const formatDateRange = (index: number) => {
+    if (!tripSummary.startDate) return '';
     
-    return `${startDate.getDate()} ${startDate.toLocaleString('default', { month: 'long' })} - ${endDate.getDate()} ${endDate.toLocaleString('default', { month: 'long' })}`;
+    let startDate = new Date(tripSummary.startDate);
+    for (let i = 0; i < index; i++) {
+      startDate.setDate(startDate.getDate() + itineraryDays[i].nights);
+    }
+    
+    let endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + itineraryDays[index].nights);
+    
+    return `${startDate.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' })} - ${endDate.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' })}`;
   };
 
   const handleAddDestination = () => {
@@ -431,256 +466,236 @@ const CreateItinerary: React.FC = () => {
     setItineraryDays(updatedDestinations);
   };
 
-  const handleHotelSelect = (index: number, hotel: string) => {
-    // Calculate the starting day index for this destination
-    let startDayIndex = 0;
-    for (let i = 0; i < index; i++) {
-      startDayIndex += itineraryDays[i].nights;
-    }
-
-    // Update hotels for all days of this destination
-    const nights = itineraryDays[index].nights;
-    const updatedHotels = [...dayHotels];
-    
-    for (let i = 0; i < nights; i++) {
-      const dayIndex = startDayIndex + i;
-      const existingHotelIndex = updatedHotels.findIndex(h => h.dayIndex === dayIndex);
+  const handleHotelSelect = (hotel: string) => {
+    if (currentDestinationIndexForHotel >= 0) {
+      // Update only the specific day's hotel
+      const updatedHotels = [...dayHotels];
+      const existingHotelIndex = updatedHotels.findIndex(h => h.dayIndex === currentDestinationIndexForHotel);
       
-      if (existingHotelIndex >= 0) {
-        updatedHotels[existingHotelIndex] = { dayIndex, hotel };
+      if (existingHotelIndex !== -1) {
+        // Update existing hotel entry
+        updatedHotels[existingHotelIndex] = {
+          dayIndex: currentDestinationIndexForHotel,
+          hotel: hotel
+        };
       } else {
-        updatedHotels.push({ dayIndex, hotel });
+        // Add new hotel entry
+        updatedHotels.push({
+          dayIndex: currentDestinationIndexForHotel,
+          hotel: hotel
+        });
       }
+      
+      handleDayHotelsUpdate(updatedHotels);
+      setIsHotelSearchOpen(false);
     }
-    
-    setDayHotels(updatedHotels);
-    setIsHotelSearchOpen(false);
   };
 
   const renderDestinationsGrid = () => {
-    // Calculate cumulative nights to determine start date for each destination
-    let cumulativeNights = 0;
-    const destinationsWithDates = itineraryDays.map((day, index) => {
-      const startDate = new Date(tripSummary.startDate);
-      startDate.setDate(startDate.getDate() + cumulativeNights);
-      
-      // Calculate the starting day index for this destination
-      let startDayIndex = 0;
-      for (let i = 0; i < index; i++) {
-        startDayIndex += itineraryDays[i].nights;
-      }
-      
-      // Get all hotels for this destination's days
-      const destHotels = dayHotels
-        .filter(h => h.dayIndex >= startDayIndex && h.dayIndex < startDayIndex + day.nights)
-        .map(h => h.hotel);
-      
-      // If all days have the same hotel, use that as the destination's hotel
-      const uniqueHotels = [...new Set(destHotels)];
-      const destinationHotel = uniqueHotels.length === 1 ? uniqueHotels[0] : '';
-      
-      cumulativeNights += day.nights;
-      return {
-        ...day,
-        startDate: startDate.toISOString().split('T')[0],
-        hotel: destinationHotel
-      };
-    });
-
     return (
-      <div className="flex-1 overflow-auto">
-        {/* Grid Header */}
-        <div className="grid grid-cols-[auto,2fr,1fr,1fr,1fr,1fr] gap-4 mb-4">
-          <div className="w-10"></div>
+      <div className="space-y-4">
+        {/* Column Headers */}
+        <div className="grid grid-cols-[1fr,180px,200px,120px,120px] gap-4 px-4 py-2 text-sm text-gray-500">
           <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4" />
-            <span className="font-medium">DESTINATION</span>
+            <div className="w-6 h-6 rounded-full bg-[#00C48C]/10 flex items-center justify-center">
+              <MapPin className="w-4 h-4 text-[#00C48C]" />
+            </div>
+            DESTINATION
           </div>
           <div className="flex items-center gap-2">
-            <Moon className="w-4 h-4" />
-            <span className="font-medium">NIGHTS</span>
+            <div className="w-6 h-6 rounded-full bg-[#6366F1]/10 flex items-center justify-center">
+              <Moon className="w-4 h-4 text-[#6366F1]" />
+            </div>
+            NIGHTS
           </div>
           <div className="flex items-center gap-2">
-            <Bed className="w-4 h-4" />
-            <span className="font-medium">SLEEPING</span>
+            <div className="w-6 h-6 rounded-full bg-[#F59E0B]/10 flex items-center justify-center">
+              <Bed className="w-4 h-4 text-[#F59E0B]" />
+            </div>
+            SLEEPING
           </div>
           <div className="flex items-center gap-2">
-            <Compass className="w-4 h-4" />
-            <span className="font-medium">DISCOVER</span>
+            <div className="w-6 h-6 rounded-full bg-[#EC4899]/10 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-[#EC4899]" />
+            </div>
+            DISCOVER
           </div>
           <div className="flex items-center gap-2">
-            <Bus className="w-4 h-4" />
-            <span className="font-medium">TRANSPORT</span>
+            <div className="w-6 h-6 rounded-full bg-[#14B8A6]/10 flex items-center justify-center">
+              <Transport className="w-4 h-4 text-[#14B8A6]" />
+            </div>
+            TRANSPORT
           </div>
         </div>
 
-        {/* Grid Rows */}
-        <div className="space-y-4">
-          {destinationsWithDates.map((day, index) => {
-            return (
-              <div key={index} className="grid grid-cols-[auto,2fr,1fr,1fr,1fr,1fr] gap-4 bg-white rounded-lg p-4 shadow-sm">
-                <div className="flex items-center">
-                  <button
-                    onClick={() => handleDeleteDestination(index)}
-                    disabled={itineraryDays.length <= 1}
-                    className={`p-2 rounded-full hover:bg-gray-100 ${
-                      itineraryDays.length <= 1 ? 'text-gray-300' : 'text-gray-500 hover:text-red-500'
-                    }`}
-                    title={itineraryDays.length <= 1 ? "Can't delete the only destination" : "Delete destination"}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-                <div>
-                  <PlaceAutocomplete
-                    country={tripSummary.country}
-                    value={day.destination}
-                    onChange={(value) => handleDayUpdate(index, 'destination', value)}
-                    onPlaceSelect={(place) => {
-                      console.log('Selected place:', place);
-                      handleDayUpdate(index, 'destination', place.formatted_address || place.name || '');
-                    }}
-                    startDate={day.startDate}
-                    nights={day.nights}
-                  />
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button 
-                    onClick={() => handleNightsChange(index, 'decrement')}
-                    className="text-gray-400 hover:text-gray-600 w-6 h-6 flex items-center justify-center"
-                    type="button"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="number"
-                    value={day.nights}
-                    onChange={(e) => handleDayUpdate(index, 'nights', parseInt(e.target.value) || 0)}
-                    className="w-16 text-center border-none focus:ring-0 bg-transparent"
-                    min="0"
-                    readOnly // Make it read-only since we're using buttons
-                  />
-                  <button 
-                    onClick={() => handleNightsChange(index, 'increment')}
-                    className="text-gray-400 hover:text-gray-600 w-6 h-6 flex items-center justify-center"
-                    type="button"
-                  >
-                    +
-                  </button>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    {day.hotel ? (
-                      <div className="flex-1 p-2 text-gray-700">{day.hotel}</div>
-                    ) : (
-                      <div className="flex-1 p-2"></div>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCurrentDestinationForHotel(day.destination);
-                        setCurrentDestinationIndexForHotel(index);
-                        setIsHotelSearchOpen(true);
-                      }}
-                      className="p-2 text-gray-500 hover:text-gray-700"
-                    >
-                      <Plus className="w-5 h-5" />
-                    </button>
+        {/* Destinations List */}
+        <div className="space-y-2">
+          {itineraryDays.map((day, index) => (
+            <div key={index} className="grid grid-cols-[1fr,180px,200px,120px,120px] gap-4 items-center bg-white rounded-lg px-4 py-3 hover:shadow-sm transition-shadow">
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-full bg-[#00C48C]/10 flex items-center justify-center text-sm font-medium text-[#00C48C]">
+                    {index + 1}
                   </div>
-                  {(() => {
-                    // Calculate the starting day index for this destination
-                    let startDayIndex = 0;
-                    for (let i = 0; i < index; i++) {
-                      startDayIndex += itineraryDays[i].nights;
-                    }
-                    
-                    // Check if all days in this destination have hotels selected
-                    const hasAllDaysWithHotels = Array.from({ length: day.nights }, (_, i) => {
-                      const dayIndex = startDayIndex + i;
-                      return dayHotels.some(h => h.dayIndex === dayIndex && h.hotel);
-                    }).every(Boolean);
-
-                    // Only show "Already selected" if we don't have a hotel to show in the destinations tab
-                    if (hasAllDaysWithHotels && !day.hotel) {
-                      return (
-                        <div className="mt-1 text-sm text-emerald-600">
-                          Already selected
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                </div>
-                <div>
-                  <button 
-                    className="text-amber-500 hover:bg-amber-50 p-2 rounded-full"
-                    onClick={() => {
-                      if (day.destination) {  // Only open if destination is selected
-                        setActiveDestinationIndex(index);
-                        setShowDiscoverPopup(true);
-                      } else {
-                        // Maybe show a toast or alert that destination needs to be selected first
-                        alert('Please select a destination first');
-                      }
-                    }}
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                  {day.discover && (
-                    <span className="ml-2 text-sm text-gray-500">{day.discover}</span>
-                  )}
-                </div>
-                <div className="flex items-center">
-                  <button 
-                    className="text-blue-500 hover:bg-blue-50 p-2 rounded-full"
-                    onClick={() => {
-                      if (day.destination) {
-                        // Find the next destination for transport options
-                        const nextDestination = destinationsWithDates[index + 1];
-                        if (nextDestination) {
-                          setCurrentDestinationForTransport({
-                            from: day.destination,
-                            to: nextDestination.destination,
-                            index
-                          });
-                          setShowTransportPopup(true);
-                        }
-                      } else {
-                        alert('Please select a destination first');
-                      }
-                    }}
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                  {day.transport && (
-                    <span className="ml-2 text-sm text-gray-500">{day.transport}</span>
-                  )}
+                  <div>
+                    <PlaceAutocomplete
+                      value={day.destination}
+                      onChange={(value) => handleDayUpdate(index, 'destination', value)}
+                      country={tripSummary.country}
+                      onPlaceSelect={(place) => {
+                        console.log('Selected place:', place);
+                        handleDayUpdate(index, 'destination', place.formatted_address || place.name || '');
+                      }}
+                      startDate={tripSummary.startDate}
+                      nights={day.nights}
+                    />
+                    {day.destination && (
+                      <div className="text-sm text-[#64748B] mt-1 font-normal">
+                        {formatDateRange(index)}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            );
-          })}
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => handleDayUpdate(index, 'nights', Math.max(1, day.nights - 1))}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[#64748B] hover:bg-gray-100 border border-gray-200"
+                >
+                  -
+                </button>
+                <span className="w-8 text-center font-medium text-[#1E293B]">{day.nights}</span>
+                <button 
+                  onClick={() => handleDayUpdate(index, 'nights', day.nights + 1)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[#64748B] hover:bg-gray-100 border border-gray-200"
+                >
+                  +
+                </button>
+              </div>
+              <div>
+                {day.hotel ? (
+                  <div className="text-sm">
+                    <div className="font-medium text-[#1E293B]">{day.hotel}</div>
+                    <div className="text-[#64748B]">To be booked</div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setCurrentDestinationForHotel(day.destination);
+                      setCurrentDestinationIndexForHotel(index);
+                      setIsHotelSearchOpen(true);
+                    }}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#00C48C] hover:bg-[#00C48C]/10 border border-dashed border-[#00C48C]"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+              <div>
+                {day.discover ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-[#1E293B]">{day.discover.split(',').length} to do's</span>
+                    <button
+                      onClick={() => {
+                        setActiveDestinationIndex(index);
+                        setShowDiscoverPopup(true);
+                      }}
+                      className="p-1 rounded-full hover:bg-gray-100"
+                    >
+                      <Edit className="w-4 h-4 text-[#64748B]" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setActiveDestinationIndex(index);
+                      setShowDiscoverPopup(true);
+                    }}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#00C48C] hover:bg-[#00C48C]/10 border border-dashed border-[#00C48C]"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+              <div>
+                {index > 0 && (
+                  <div className="flex items-center gap-2">
+                    {day.transport ? (
+                      <>
+                        <div className="text-sm font-medium text-[#1E293B]">{day.transport}</div>
+                        <button
+                          onClick={() => {
+                            setCurrentDestinationForTransport({
+                              from: itineraryDays[index - 1].destination,
+                              to: day.destination,
+                              index
+                            });
+                            setShowTransportPopup(true);
+                          }}
+                          className="p-1 rounded-full hover:bg-gray-100"
+                        >
+                          <Edit className="w-4 h-4 text-[#64748B]" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => {
+                            setCurrentDestinationForTransport({
+                              from: itineraryDays[index - 1].destination,
+                              to: day.destination,
+                              index
+                            });
+                            setShowTransportPopup(true);
+                          }}
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-[#00C48C] hover:bg-[#00C48C]/10 border border-dashed border-[#00C48C]"
+                        >
+                          <Plus className="w-5 h-5" />
+                        </button>
+                        {calculateDistance(itineraryDays[index - 1].destination, day.destination) && (
+                          <span className="text-sm font-medium text-[#F43F5E]">
+                            {calculateDistance(itineraryDays[index - 1].destination, day.destination)} km
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
 
-        {/* Updated Add New Destination Button */}
-        <button 
-          onClick={handleAddDestination}
-          className="mt-4 text-gray-500 hover:text-gray-700 flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Add new destination...
-        </button>
-
-        {/* Action Buttons */}
-        <div className="mt-4 flex gap-2">
-          <button className="px-4 py-2 bg-amber-100 text-amber-700 rounded-full text-sm">
+        {/* Add Destination Button */}
+        <div className="flex items-center justify-center">
+          <button
+            onClick={() => {
+              setItineraryDays([
+                ...itineraryDays,
+                { destination: '', nights: 1, discover: '', transport: '', notes: '' }
+              ]);
+            }}
+            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-[#00C48C] transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add new destination...
+          </button>
+          <button className="ml-2 px-4 py-2 text-sm text-gray-600 hover:text-[#00C48C] bg-gray-50 rounded-lg transition-colors">
             Discover
           </button>
-          <button className="px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm">
+          <button className="ml-2 px-4 py-2 text-sm text-gray-600 hover:text-[#00C48C] bg-gray-50 rounded-lg transition-colors">
             Collection
           </button>
         </div>
       </div>
     );
+  };
+
+  // Add this helper function to calculate distance (you'll need to implement the actual calculation)
+  const calculateDistance = (from: string, to: string) => {
+    // This is a placeholder. You'll need to implement actual distance calculation
+    // For now, returning random distances for demonstration
+    return Math.floor(Math.random() * 500);
   };
 
   // Update the save button text based on mode
@@ -707,143 +722,262 @@ const CreateItinerary: React.FC = () => {
 
   if (!showSummaryPopup) {
     return (
-      <div className="flex h-[calc(100vh-64px)]">
-        <div className="flex-1 p-6">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8 mt-16">
-            {/* Back button */}
-            <button
-              onClick={() => navigate(-1)}
-              className="absolute top-20 left-6 p-2 bg-white/90 rounded-full text-gray-700 hover:bg-white transition-colors shadow-lg"
-              title="Go back"
+      <div className="min-h-screen bg-[#f8fafc]">
+        {/* Top Navigation */}
+        <nav className="bg-white border-b border-gray-100 fixed top-0 left-0 right-0 z-50">
+          <div className="max-w-[1400px] mx-auto px-4 py-3">
+            <div className="flex items-center justify-between">
+              <Link to="/" className="flex-shrink-0">
+                <img src="/images/stippl-logo.svg" alt="Stippl" className="h-8" />
+              </Link>
+              
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-4">
+                  <Link to="/you" className="flex items-center gap-2 text-gray-700">
+                    <div className="w-6 h-6 rounded-full bg-[#00C48C] flex items-center justify-center">
+                      <Users className="w-4 h-4 text-white" />
+                    </div>
+                    <span>You</span>
+                  </Link>
+                  <Link to="/discover" className="flex items-center gap-2 text-gray-500">
+                    <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
+                      <Globe className="w-4 h-4 text-gray-500" />
+                    </div>
+                    <span>Discover</span>
+                  </Link>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                  <Link to="/invite" className="text-[#00C48C] hover:text-[#00B380] transition-colors">
+                    Invite a friend
+                  </Link>
+                  <button className="relative">
+                    <Bell className="w-5 h-5 text-gray-600" />
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#00C48C] rounded-full"></span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </nav>
+
+        <div className="max-w-[1400px] mx-auto px-4 py-6 pt-20">
+          {/* Back Button */}
+          <div className="mb-6">
+            <Link 
+              to="/dashboard"
+              className="inline-flex items-center gap-2 text-gray-600 hover:text-[#1e293b] transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
-            </button>
+              <span>Back to Dashboard</span>
+            </Link>
+          </div>
 
-            <div className="flex flex-col ml-14">
-              <div className="flex items-center gap-4">
-                <h1 className="text-2xl font-medium text-gray-900">{tripSummary.tripName}</h1>
-                <button
-                  onClick={() => setShowTripSummaryEdit(true)}
-                  className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
-                  title="Edit trip summary"
-                >
-                  <Edit className="w-4 h-4" />
-                </button>
-              </div>
-              <span className="text-sm text-gray-500">{formatDateRange()}</span>
-            </div>
-            
-            <div className="flex items-center space-x-6">
-              {/* Progress Circle */}
-              <div className="flex items-center space-x-2">
-                <div className="relative">
-                  <div className="h-12 w-12">
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-lg font-medium">
-                        {totalNights}/{tripSummary.duration}
-                      </span>
+          {/* Main Content */}
+          <div className="flex gap-8">
+            {/* Left Sidebar */}
+            <div className="w-[240px] flex-shrink-0">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
+                <h2 className="text-lg font-medium text-[#1e293b] mb-4">Trip Summary</h2>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Trip Name</label>
+                    <input
+                      type="text"
+                      name="tripName"
+                      value={tripSummary.tripName}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                      placeholder="Enter trip name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={countrySearch}
+                        onChange={(e) => setCountrySearch(e.target.value)}
+                        onFocus={() => setShowCountries(true)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                        placeholder="Select country"
+                      />
+                      {showCountries && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10">
+                          {filteredCountries.map(country => (
+                            <button
+                              key={country}
+                              className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 transition-colors"
+                              onClick={() => {
+                                setTripSummary(prev => ({ ...prev, country }));
+                                setCountrySearch(country);
+                                setShowCountries(false);
+                              }}
+                            >
+                              {country}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <svg className="transform -rotate-90" width="48" height="48">
-                      <circle
-                        cx="24"
-                        cy="24"
-                        r="20"
-                        stroke="#E5E7EB"
-                        strokeWidth="4"
-                        fill="none"
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+                      <input
+                        type="number"
+                        name="duration"
+                        value={tripSummary.duration}
+                        onChange={handleInputChange}
+                        min="1"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
                       />
-                      <circle
-                        cx="24"
-                        cy="24"
-                        r="20"
-                        stroke="#3B82F6"
-                        strokeWidth="4"
-                        fill="none"
-                        strokeDasharray={`${(totalNights / tripSummary.duration) * 125.6} 125.6`}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Travelers</label>
+                      <input
+                        type="number"
+                        name="passengers"
+                        value={tripSummary.passengers}
+                        onChange={handleInputChange}
+                        min="1"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
                       />
-                    </svg>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                    <input
+                      type="date"
+                      name="startDate"
+                      value={tripSummary.startDate}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                    />
                   </div>
                 </div>
-                <div className="flex flex-col">
-                  <span className="font-medium">Nights</span>
-                  <span className="text-sm text-gray-500">planned</span>
+              </div>
+            </div>
+
+            {/* Main Content Area */}
+            <div className="flex-1">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                {/* Header with Nights Planned and Tabs */}
+                <div className="border-b border-gray-200 pb-4">
+                  {/* Tabs and Nights Planned in same row */}
+                  <div className="flex items-center justify-between">
+                    {/* Tabs */}
+                    <div className="flex items-center">
+                      <button
+                        className={`px-6 py-3 text-sm font-medium border-b-2 -mb-[1px] ${
+                          activeTab === 'destinations'
+                            ? 'text-[#00C48C] border-[#00C48C]'
+                            : 'text-gray-500 border-transparent hover:text-[#1e293b]'
+                        } transition-colors`}
+                        onClick={() => setActiveTab('destinations')}
+                      >
+                        Destinations
+                      </button>
+                      <button
+                        className={`px-6 py-3 text-sm font-medium border-b-2 -mb-[1px] ${
+                          activeTab === 'day-by-day'
+                            ? 'text-[#00C48C] border-[#00C48C]'
+                            : 'text-gray-500 border-transparent hover:text-[#1e293b]'
+                        } transition-colors`}
+                        onClick={() => setActiveTab('day-by-day')}
+                      >
+                        Day by Day
+                      </button>
+                    </div>
+
+                    {/* Nights Planned Indicator */}
+                    <div className="flex items-center gap-2 pr-6">
+                      <div className="relative h-12 w-12">
+                        <svg className="transform -rotate-90" width="48" height="48">
+                          <circle
+                            cx="24"
+                            cy="24"
+                            r="20"
+                            stroke="#E5E7EB"
+                            strokeWidth="4"
+                            fill="none"
+                          />
+                          <circle
+                            cx="24"
+                            cy="24"
+                            r="20"
+                            stroke="#00C48C"
+                            strokeWidth="4"
+                            fill="none"
+                            strokeDasharray={`${(totalNights / tripSummary.duration) * 125.6} 125.6`}
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center text-lg font-medium">
+                          {totalNights}/{tripSummary.duration}
+                        </div>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-medium text-[#1e293b]">Nights</span>
+                        <span className="text-sm text-gray-500">planned</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+
+                {activeTab === 'destinations' ? (
+                  <div className="mt-6">
+                    {renderDestinationsGrid()}
+                  </div>
+                ) : (
+                  <div className="mt-6">
+                    <DayByDayGrid
+                      tripStartDate={tripSummary.startDate}
+                      destinations={itineraryDays}
+                      onDestinationsUpdate={handleDestinationsUpdate}
+                      dayAttractions={dayAttractions}
+                      onDayAttractionsUpdate={handleDayAttractionsUpdate}
+                      dayHotels={dayHotels}
+                      onDayHotelsUpdate={handleDayHotelsUpdate}
+                      dayNotes={dayNotes}
+                      onDayNotesUpdate={handleDayNotesUpdate}
+                      onHotelClick={(destination, dayIndex) => {
+                        setCurrentDestinationForHotel(destination);
+                        setCurrentDestinationIndexForHotel(dayIndex);
+                        setIsHotelSearchOpen(true);
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
-              <button
-                onClick={handleSave}
-                className="px-4 py-2 bg-rose-500 text-white rounded-md hover:bg-rose-600 transition-colors"
-                disabled={loading}
-              >
-                {loading ? 'Saving...' : saveButtonText}
-              </button>
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-4 mt-6">
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="px-6 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={loading}
+                  className="px-6 py-2 bg-[#00C48C] text-white rounded-lg hover:bg-[#00B380] transition-colors shadow-sm flex items-center gap-2"
+                >
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <span>{saveButtonText}</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
-
-          {/* Tabs */}
-          <div className="border-b mb-6">
-            <div className="flex space-x-8">
-              <button
-                className={`pb-4 px-1 ${
-                  activeTab === 'destinations'
-                    ? 'border-b-2 border-emerald-500 text-emerald-500'
-                    : 'text-gray-500'
-                }`}
-                onClick={() => setActiveTab('destinations')}
-              >
-                Destinations
-              </button>
-              <button
-                className={`pb-4 px-1 ${
-                  activeTab === 'day-by-day'
-                    ? 'border-b-2 border-emerald-500 text-emerald-500'
-                    : 'text-gray-500'
-                }`}
-                onClick={() => setActiveTab('day-by-day')}
-              >
-                Day by day
-              </button>
-            </div>
-          </div>
-
-          {/* Tab Content */}
-          {activeTab === 'destinations' ? (
-            renderDestinationsGrid()
-          ) : (
-            <DayByDayGrid
-              tripStartDate={tripSummary.startDate}
-              destinations={itineraryDays}
-              onDestinationsUpdate={handleDestinationsUpdate}
-              dayAttractions={dayAttractions}
-              onDayAttractionsUpdate={handleDayAttractionsUpdate}
-              dayHotels={dayHotels}
-              onDayHotelsUpdate={handleDayHotelsUpdate}
-              dayNotes={dayNotes}
-              onDayNotesUpdate={handleDayNotesUpdate}
-            />
-          )}
-        </div>
-
-        {/* Right side - Map placeholder */}
-        <div className="w-1/3 bg-gray-100 border-l">
-          <div className="h-full flex items-center justify-center text-gray-500">
-            Map will be implemented later
           </div>
         </div>
 
-        {/* Trip Summary Edit Modal */}
-        {showTripSummaryEdit && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <TripSummaryEdit
-              tripSummary={tripSummary}
-              onSave={handleTripSummaryUpdate}
-              onCancel={() => setShowTripSummaryEdit(false)}
-            />
-          </div>
-        )}
-
-        {/* Add this popup component */}
+        {/* Popups */}
         {showDiscoverPopup && activeDestinationIndex !== null && (
           <DiscoverPopup
             isOpen={showDiscoverPopup}
@@ -855,6 +989,21 @@ const CreateItinerary: React.FC = () => {
             selectedAttractions={itineraryDays[activeDestinationIndex].discover.split(', ').filter(Boolean)}
             onAttractionsSelect={(attractions) => {
               handleDiscoverSelect(activeDestinationIndex, attractions);
+            }}
+          />
+        )}
+
+        {showTransportPopup && currentDestinationForTransport && (
+          <TransportPopup
+            isOpen={showTransportPopup}
+            onClose={() => {
+              setShowTransportPopup(false);
+              setCurrentDestinationForTransport(null);
+            }}
+            fromDestination={currentDestinationForTransport.from}
+            toDestination={currentDestinationForTransport.to}
+            onTransportSelect={(transport) => {
+              handleTransportSelect(currentDestinationForTransport.index, transport);
             }}
           />
         )}
@@ -872,26 +1021,14 @@ const CreateItinerary: React.FC = () => {
               return h.dayIndex === startDayIndex;
             })?.hotel : undefined
           }
-          onHotelSelect={(hotel) => {
-            if (currentDestinationIndexForHotel >= 0) {
-              handleHotelSelect(currentDestinationIndexForHotel, hotel);
-            }
-          }}
+          onHotelSelect={handleHotelSelect}
         />
 
-        {/* Transport Popup */}
-        {showTransportPopup && currentDestinationForTransport && (
-          <TransportPopup
-            isOpen={showTransportPopup}
-            onClose={() => {
-              setShowTransportPopup(false);
-              setCurrentDestinationForTransport(null);
-            }}
-            fromDestination={currentDestinationForTransport.from}
-            toDestination={currentDestinationForTransport.to}
-            onTransportSelect={(transport) => {
-              handleTransportSelect(currentDestinationForTransport.index, transport);
-            }}
+        {showTripSummaryEdit && (
+          <TripSummaryEdit
+            tripSummary={tripSummary}
+            onSave={handleTripSummaryUpdate}
+            onCancel={() => setShowTripSummaryEdit(false)}
           />
         )}
       </div>

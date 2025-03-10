@@ -1,5 +1,5 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
-import Layout from './components/Layout';
+import { createBrowserRouter, Outlet } from 'react-router-dom';
+import Navigation1 from './components/Navigation1';
 import Home from './pages/Home';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
@@ -15,13 +15,22 @@ import How from './pages/How';
 import WhyTravel from './pages/WhyTravel';
 import ViewUserItinerary from './pages/ViewUserItinerary';
 
+const RootLayout = () => {
+  return (
+    <div className="flex flex-col min-h-screen">
+      <Navigation1 />
+      <main className="flex-grow">
+        <Outlet />
+      </main>
+    </div>
+  );
+};
+
 export const router = createBrowserRouter([
   {
-    path: '/',
-    element: <Layout />,
+    element: <RootLayout />,
     children: [
-      { index: true, element: <Home /> },
-      { path: 'home', element: <Home /> },
+      { path: '/', element: <Home /> },
       { path: 'signin', element: <SignIn /> },
       { path: 'signup', element: <SignUp /> },
       { path: 'reset-password', element: <ResetPassword /> },
@@ -31,36 +40,21 @@ export const router = createBrowserRouter([
       { path: 'view-itinerary/:id', element: <ViewUserItinerary /> },
       { 
         path: 'dashboard', 
-        element: <ProtectedRoute>
-          <Dashboard />
-        </ProtectedRoute>
+        element: <ProtectedRoute><Dashboard /></ProtectedRoute>
       },
       { path: 'itinerary/:id', element: <ItineraryDetails /> },
       {
         path: 'saved-itineraries',
-        element: (
-          <ProtectedRoute>
-            <SavedItineraries />
-          </ProtectedRoute>
-        )
+        element: <ProtectedRoute><SavedItineraries /></ProtectedRoute>
       },
       {
         path: 'my-itineraries',
-        element: (
-          <ProtectedRoute>
-            <MyItineraries />
-          </ProtectedRoute>
-        )
+        element: <ProtectedRoute><MyItineraries /></ProtectedRoute>
       },
       {
         path: 'create-itinerary',
-        element: (
-          <ProtectedRoute>
-            <CreateItinerary />
-          </ProtectedRoute>
-        )
-      },
-      { path: '*', element: <Navigate to="/" replace /> }
-    ],
-  },
+        element: <ProtectedRoute><CreateItinerary /></ProtectedRoute>
+      }
+    ]
+  }
 ]); 

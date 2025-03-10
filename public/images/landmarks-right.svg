@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Balinese Temple -->
+  <path d="M200 80 L240 120 L160 120 Z" fill="#00C48C"/>
+  <path d="M180 120 L220 160 L140 160 Z" fill="#00C48C"/>
+  <path d="M160 160 L200 200 L120 200 Z" fill="#00C48C"/>
+  <rect x="140" y="200" width="40" height="40" fill="#00C48C"/>
+  
+  <!-- Palm Trees -->
+  <path d="M280 180 C280 160 300 140 320 160 C340 180 300 220 280 180" fill="#00C48C"/>
+  <rect x="315" y="180" width="10" height="60" fill="#00C48C"/>
+  
+  <path d="M340 160 C340 140 360 120 380 140 C400 160 360 200 340 160" fill="#00C48C"/>
+  <rect x="375" y="160" width="10" height="60" fill="#00C48C"/>
+  
+  <path d="M60 200 C60 180 80 160 100 180 C120 200 80 240 60 200" fill="#00C48C"/>
+  <rect x="95" y="200" width="10" height="60" fill="#00C48C"/>
+</svg> 

@@ -1,34 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Bed, Compass, Plus, StickyNote } from 'lucide-react';
+import { Calendar, Bed, Compass, Plus, StickyNote, MapPin, Sparkles, Edit } from 'lucide-react';
 import DayDiscoverPopup from './DayDiscoverPopup';
 import HotelSearchPopup from './HotelSearchPopup';
 import NotesPopup from './NotesPopup';
 
 interface DayByDayGridProps {
   tripStartDate: string;
-  destinations: {
+  destinations: Array<{
     destination: string;
     nights: number;
     discover: string;
     transport: string;
     notes: string;
-  }[];
-  onDestinationsUpdate: (destinations: {
-    destination: string;
-    nights: number;
-    discover: string;
-    transport: string;
-    notes: string;
-  }[]) => void;
-  dayAttractions: {
+    hotel?: string;
+  }>;
+  onDestinationsUpdate: (destinations: any[]) => void;
+  dayAttractions: Array<{
     dayIndex: number;
     selectedAttractions: string[];
-  }[];
+  }>;
   onDayAttractionsUpdate: (dayIndex: number, attractions: string[]) => void;
-  dayHotels: DayHotel[];
-  onDayHotelsUpdate: (hotels: DayHotel[]) => void;
-  dayNotes: DayNote[];
-  onDayNotesUpdate: (notes: DayNote[]) => void;
+  dayHotels: Array<{
+    dayIndex: number;
+    hotel: string;
+  }>;
+  onDayHotelsUpdate: (hotels: Array<{ dayIndex: number; hotel: string }>) => void;
+  dayNotes: Array<{
+    dayIndex: number;
+    notes: string;
+  }>;
+  onDayNotesUpdate: (notes: Array<{ dayIndex: number; notes: string }>) => void;
+  onHotelClick?: (destination: string, dayIndex: number) => void;
 }
 
 interface ExpandedDay {
@@ -59,7 +61,8 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   dayHotels,
   onDayHotelsUpdate,
   dayNotes,
-  onDayNotesUpdate
+  onDayNotesUpdate,
+  onHotelClick
 }) => {
   const [showDiscoverPopup, setShowDiscoverPopup] = useState(false);
   const [showHotelPopup, setShowHotelPopup] = useState(false);
@@ -82,11 +85,12 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   } | null>(null);
 
   const formatDate = (date: Date) => {
-    const weekday = date.toLocaleString('default', { weekday: 'short' });
-    const day = date.getDate();
-    const month = date.toLocaleString('default', { month: 'short' });
-    const year = date.getFullYear();
-    return `${weekday} ${day} ${month} ${year}`;
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
   };
 
   const handleDiscoverClick = (day: ExpandedDay, index: number) => {
@@ -211,92 +215,122 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   const expandedDays = generateExpandedDays();
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden">
-      {/* Grid Header - Keep this fixed */}
-      <div className="grid grid-cols-5 gap-4 mb-4 px-4">
+    <div className="space-y-4">
+      {/* Column Headers */}
+      <div className="grid grid-cols-[200px,1fr,200px,120px,120px] gap-4 px-6 py-3 border-b border-gray-100">
         <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4" />
-          <span className="font-medium">DATE</span>
+          <div className="w-6 h-6 rounded-full bg-[#6366F1]/10 flex items-center justify-center">
+            <Calendar className="w-4 h-4 text-[#6366F1]" />
+          </div>
+          <span className="text-sm font-medium text-[#64748B]">DATE</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="font-medium">DESTINATION</span>
+          <div className="w-6 h-6 rounded-full bg-[#00C48C]/10 flex items-center justify-center">
+            <MapPin className="w-4 h-4 text-[#00C48C]" />
+          </div>
+          <span className="text-sm font-medium text-[#64748B]">DESTINATION</span>
         </div>
         <div className="flex items-center gap-2">
-          <Bed className="w-4 h-4" />
-          <span className="font-medium">SLEEPING</span>
+          <div className="w-6 h-6 rounded-full bg-[#F59E0B]/10 flex items-center justify-center">
+            <Bed className="w-4 h-4 text-[#F59E0B]" />
+          </div>
+          <span className="text-sm font-medium text-[#64748B]">SLEEPING</span>
         </div>
         <div className="flex items-center gap-2">
-          <Compass className="w-4 h-4" />
-          <span className="font-medium">DISCOVER</span>
+          <div className="w-6 h-6 rounded-full bg-[#EC4899]/10 flex items-center justify-center">
+            <Sparkles className="w-4 h-4 text-[#EC4899]" />
+          </div>
+          <span className="text-sm font-medium text-[#64748B]">DISCOVER</span>
         </div>
         <div className="flex items-center gap-2">
-          <StickyNote className="w-4 h-4" />
-          <span className="font-medium">NOTES</span>
+          <div className="w-6 h-6 rounded-full bg-[#3B82F6]/10 flex items-center justify-center">
+            <StickyNote className="w-4 h-4 text-[#3B82F6]" />
+          </div>
+          <span className="text-sm font-medium text-[#64748B]">NOTES</span>
         </div>
       </div>
 
-      {/* Scrollable Grid Rows */}
-      <div className="flex-1 overflow-y-auto px-4">
-        <div className="space-y-4">
-          {expandedDays.map((day, index) => {
-            const currentDayAttractions = dayAttractions.find(da => da.dayIndex === day.dayIndex);
-            const dayHotel = dayHotels.find(h => h.dayIndex === day.dayIndex);
-            const dayNote = dayNotes.find(n => n.dayIndex === day.dayIndex);
-            
-            return (
-              <div key={index} className="grid grid-cols-5 gap-4 bg-white rounded-lg p-4 shadow-sm">
-                <div className="flex flex-col">
-                  <span>{formatDate(day.date)}</span>
-                  <span className="text-sm text-gray-500">Day {index + 1}</span>
-                </div>
-                <div className="flex flex-col">
-                  <span>{day.destination}</span>
-                  {day.isFirstDay && <span className="text-sm text-gray-500">Arrival day</span>}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleHotelClick(day)}
-                    className="flex items-center gap-2 text-emerald-500 hover:bg-emerald-50 p-2 rounded-full transition-colors"
-                  >
-                    {dayHotel?.hotel ? (
-                      <span>{dayHotel.hotel}</span>
-                    ) : (
-                      <>
-                        <Plus className="w-4 h-4" />
-                        <span>Add hotel</span>
-                      </>
-                    )}
+      {/* Days List */}
+      <div className="space-y-1">
+        {expandedDays.map((day, index) => (
+          <div key={index} className="grid grid-cols-[200px,1fr,200px,120px,120px] gap-4 px-6 py-4 hover:bg-gray-50 border-b border-gray-100 last:border-b-0">
+            <div>
+              <div className="text-sm text-[#64748B]">Day {index + 1}</div>
+              <div className="text-sm font-medium text-[#1E293B]">{formatDate(day.date)}</div>
+            </div>
+            <div>
+              <div className="text-sm font-medium text-[#1E293B]">{day.destination}</div>
+              <div className="text-sm text-[#64748B]">{day.isFirstDay ? 'Start of your adventure!' : 'Spend the day in ' + day.destination}</div>
+            </div>
+            <div>
+              {dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel ? (
+                <div
+                  onClick={() => onHotelClick?.(day.destination, day.dayIndex)}
+                  className="flex items-center gap-2 cursor-pointer group"
+                >
+                  <div>
+                    <div className="text-sm font-medium text-[#1E293B] group-hover:text-[#00C48C]">{dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel}</div>
+                    <div className="text-sm text-[#64748B]">To be booked</div>
+                  </div>
+                  <button className="p-1 rounded-full opacity-0 group-hover:opacity-100 hover:bg-gray-100">
+                    <Edit className="w-4 h-4 text-[#64748B]" />
                   </button>
                 </div>
-                <div>
+              ) : (
+                <button
+                  onClick={() => onHotelClick?.(day.destination, day.dayIndex)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[#00C48C] hover:bg-[#00C48C]/10 border border-dashed border-[#00C48C]"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+            <div>
+              {dayAttractions.find(da => da.dayIndex === day.dayIndex)?.selectedAttractions.length ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-[#1E293B]">
+                    {dayAttractions.find(da => da.dayIndex === day.dayIndex)?.selectedAttractions.length} to do's
+                  </span>
                   <button
                     onClick={() => handleDiscoverClick(day, day.dayIndex)}
-                    className="w-full text-left text-amber-500 hover:bg-amber-50 p-2 rounded-lg transition-colors"
+                    className="p-1 rounded-full hover:bg-gray-100"
                   >
-                    {currentDayAttractions?.selectedAttractions.length 
-                      ? currentDayAttractions.selectedAttractions.join(', ') 
-                      : 'Add attractions'}
+                    <Edit className="w-4 h-4 text-[#64748B]" />
                   </button>
                 </div>
-                <div>
+              ) : (
+                <button
+                  onClick={() => handleDiscoverClick(day, day.dayIndex)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[#00C48C] hover:bg-[#00C48C]/10 border border-dashed border-[#00C48C]"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+            <div>
+              {dayNotes.find(n => n.dayIndex === day.dayIndex)?.notes ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-[#1E293B] truncate max-w-[80px]">
+                    {dayNotes.find(n => n.dayIndex === day.dayIndex)?.notes}
+                  </span>
                   <button
                     onClick={() => handleNotesClick(day)}
-                    className="flex items-center gap-2 text-blue-500 hover:bg-blue-50 p-2 rounded-full transition-colors"
+                    className="p-1 rounded-full hover:bg-gray-100"
                   >
-                    {dayNote?.notes ? (
-                      <span className="line-clamp-1">{dayNote.notes}</span>
-                    ) : (
-                      <>
-                        <Plus className="w-4 h-4" />
-                        <span>Add notes</span>
-                      </>
-                    )}
+                    <Edit className="w-4 h-4 text-[#64748B]" />
                   </button>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              ) : (
+                <button
+                  onClick={() => handleNotesClick(day)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[#00C48C] hover:bg-[#00C48C]/10 border border-dashed border-[#00C48C]"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Day Discover Popup */}
