@@ -14,6 +14,7 @@ export interface UserItineraryView {
     discover: string;
     transport: string;
     notes: string;
+    food: string;
   }[];
   day_attractions: {
     day_index: number;

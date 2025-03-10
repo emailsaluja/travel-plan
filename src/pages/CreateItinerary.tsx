@@ -30,7 +30,11 @@ import {
   Image,
   Menu,
   Car as Transport,
-  Utensils
+  Utensils,
+  Car,
+  Plane,
+  Train,
+  Bus as BusIcon
 } from 'lucide-react';
 import { countries } from '../data/countries';
 import PlaceAutocomplete from '../components/PlaceAutocomplete';
@@ -49,6 +53,7 @@ interface DestinationData {
   discover: string;
   transport: string;
   notes: string;
+  food: string;
 }
 
 interface SaveDestinationData {
@@ -65,8 +70,8 @@ interface ItineraryDay {
   discover: string;
   transport: string;
   notes: string;
+  food: string;
   hotel?: string;
-  food?: string;
 }
 
 interface TripSummary {
@@ -175,7 +180,8 @@ const CreateItinerary: React.FC = () => {
               nights: dest.nights,
               discover: dest.discover,
               transport: dest.transport,
-              notes: dest.notes
+              notes: dest.notes,
+              food: dest.food || ''
             })));
 
             // Set day attractions
@@ -233,7 +239,8 @@ const CreateItinerary: React.FC = () => {
       nights: 1,
       discover: '',
       transport: '',
-      notes: ''
+      notes: '',
+      food: ''
     };
     setItineraryDays([emptyDay]);
   };
@@ -249,6 +256,7 @@ const CreateItinerary: React.FC = () => {
     }
     initializeItineraryDays();
     setShowSummaryPopup(false);
+    setCountrySearch(tripSummary.country);
     setError(null);
   };
 
@@ -273,7 +281,8 @@ const CreateItinerary: React.FC = () => {
             nights: day.nights,
             discover: day.discover,
             transport: day.transport,
-            notes: day.notes
+            notes: day.notes,
+            food: day.food || ''
           })),
           dayAttractions,
           dayHotels: dayHotels.map(dh => ({
@@ -294,7 +303,8 @@ const CreateItinerary: React.FC = () => {
             nights: day.nights,
             discover: day.discover,
             transport: day.transport,
-            notes: day.notes
+            notes: day.notes,
+            food: day.food || ''
           })),
           dayAttractions,
           dayHotels: dayHotels.map(dh => ({
@@ -339,7 +349,8 @@ const CreateItinerary: React.FC = () => {
       nights: 1,
       discover: '',
       transport: '',
-      notes: ''
+      notes: '',
+      food: ''
     };
     setItineraryDays(prev => [...prev, newDay]);
   };
@@ -400,11 +411,21 @@ const CreateItinerary: React.FC = () => {
   const handleDayAttractionsUpdate = (dayIndex: number, attractions: string[]) => {
     console.log('Updating attractions for day:', dayIndex, attractions); // Debug log
     setDayAttractions(prev => {
-      const newState = prev.map(da =>
-        da.dayIndex === dayIndex
-          ? { ...da, selectedAttractions: attractions }
-          : da
-      );
+      const existingDayIndex = prev.findIndex(da => da.dayIndex === dayIndex);
+      let newState;
+
+      if (existingDayIndex >= 0) {
+        // Update existing day
+        newState = prev.map(da =>
+          da.dayIndex === dayIndex
+            ? { ...da, selectedAttractions: attractions }
+            : da
+        );
+      } else {
+        // Add new day
+        newState = [...prev, { dayIndex, selectedAttractions: attractions }];
+      }
+
       console.log('New day attractions state:', newState); // Debug log
       return newState;
     });
@@ -515,59 +536,107 @@ const CreateItinerary: React.FC = () => {
     }
   };
 
+  const handleDayFoodSelect = (destination: string, dayIndex: number) => {
+    if (activeTab === 'destinations') {
+      // In destinations tab, the dayIndex is already the correct destination index
+      setActiveDestinationIndexForFood(dayIndex);
+    } else {
+      // In day-by-day tab, we need to find the destination index based on the day index
+      let destinationIndex = 0;
+      let currentDayCount = 0;
+
+      for (let i = 0; i < itineraryDays.length; i++) {
+        currentDayCount += itineraryDays[i].nights;
+        if (dayIndex < currentDayCount) {
+          destinationIndex = i;
+          break;
+        }
+      }
+      setActiveDestinationIndexForFood(destinationIndex);
+    }
+    setShowFoodPopup(true);
+  };
+
   const handleFoodSelect = (index: number, foodItems: string[]) => {
-    const updatedDays = [...itineraryDays];
-    updatedDays[index].food = foodItems.join(', ');
-    setItineraryDays(updatedDays);
+    if (activeTab === 'destinations') {
+      // In destinations tab, directly update the destination
+      const updatedDays = [...itineraryDays];
+      updatedDays[index] = {
+        ...updatedDays[index],
+        food: foodItems.join(', ')
+      };
+      setItineraryDays(updatedDays);
+    } else {
+      // In day-by-day tab, find the destination index based on the day index
+      let destinationIndex = 0;
+      let currentDayCount = 0;
+
+      for (let i = 0; i < itineraryDays.length; i++) {
+        currentDayCount += itineraryDays[i].nights;
+        if (index < currentDayCount) {
+          destinationIndex = i;
+          break;
+        }
+      }
+
+      const updatedDays = [...itineraryDays];
+      updatedDays[destinationIndex] = {
+        ...updatedDays[destinationIndex],
+        food: foodItems.join(', ')
+      };
+      setItineraryDays(updatedDays);
+    }
+    setShowFoodPopup(false);
+    setActiveDestinationIndexForFood(null);
   };
 
   const renderDestinationsGrid = () => {
     return (
       <div className="space-y-4">
         {/* Column Headers */}
-        <div className="grid grid-cols-[1fr,180px,200px,120px,120px,120px] gap-4 px-4 py-2 text-sm text-gray-500">
+        <div className="grid grid-cols-[1fr,140px,200px,120px,120px,120px] gap-4 px-4 py-2 text-sm text-gray-500">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-[#00C48C]/10 flex items-center justify-center">
               <MapPin className="w-4 h-4 text-[#00C48C]" />
             </div>
-            DESTINATION
+            <span className="font-[600] font-['Poppins',sans-serif]">DESTINATION</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-[#6366F1]/10 flex items-center justify-center">
               <Moon className="w-4 h-4 text-[#6366F1]" />
             </div>
-            NIGHTS
+            <span className="font-[600] font-['Poppins',sans-serif]">NIGHTS</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-[#F59E0B]/10 flex items-center justify-center">
               <Bed className="w-4 h-4 text-[#F59E0B]" />
             </div>
-            SLEEPING
+            <span className="font-[600] font-['Poppins',sans-serif]">SLEEPING</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-[#EC4899]/10 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-[#EC4899]" />
             </div>
-            DISCOVER
+            <span className="font-[600] font-['Poppins',sans-serif]">DISCOVER</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-[#8B5CF6]/10 flex items-center justify-center">
               <Utensils className="w-4 h-4 text-[#8B5CF6]" />
             </div>
-            FOOD
+            <span className="font-[600] font-['Poppins',sans-serif]">FOOD</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-[#14B8A6]/10 flex items-center justify-center">
               <Transport className="w-4 h-4 text-[#14B8A6]" />
             </div>
-            TRANSPORT
+            <span className="font-[600] font-['Poppins',sans-serif]">TRANSPORT</span>
           </div>
         </div>
 
         {/* Destinations List */}
         <div className="space-y-2">
           {itineraryDays.map((day, index) => (
-            <div key={index} className="grid grid-cols-[1fr,180px,200px,120px,120px,120px] gap-4 items-center bg-white rounded-lg px-4 py-3 hover:shadow-sm transition-shadow">
+            <div key={index} className="grid grid-cols-[1fr,140px,200px,120px,120px,120px] gap-4 items-center bg-white rounded-lg px-4 py-3 hover:shadow-sm transition-shadow">
               <div>
                 <div className="flex items-center gap-3">
                   <div className="w-6 h-6 rounded-full bg-[#00C48C]/10 flex items-center justify-center text-sm font-medium text-[#00C48C]">
@@ -575,163 +644,169 @@ const CreateItinerary: React.FC = () => {
                   </div>
                   <div>
                     <PlaceAutocomplete
-                      value={day.destination}
+                      value={day.destination.split(',')[0]}
                       onChange={(value) => handleDayUpdate(index, 'destination', value)}
                       country={tripSummary.country}
                       onPlaceSelect={(place) => {
                         console.log('Selected place:', place);
-                        handleDayUpdate(index, 'destination', place.formatted_address || place.name || '');
+                        handleDayUpdate(index, 'destination', place.name || '');
                       }}
-                      startDate={tripSummary.startDate}
-                      nights={day.nights}
+                      startDate=""
+                      nights={0}
                     />
-                    {day.destination && (
-                      <div className="text-sm text-[#64748B] mt-1 font-normal">
-                        {formatDateRange(index)}
-                      </div>
-                    )}
+                    <div className="text-sm text-[#64748B] mt-1">
+                      {formatDateRange(index)}
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleDayUpdate(index, 'nights', Math.max(1, day.nights - 1))}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-[#64748B] hover:bg-gray-100 border border-gray-200"
-                >
-                  -
-                </button>
-                <span className="w-8 text-center font-medium text-[#1E293B]">{day.nights}</span>
-                <button
-                  onClick={() => handleDayUpdate(index, 'nights', day.nights + 1)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-[#64748B] hover:bg-gray-100 border border-gray-200"
-                >
-                  +
-                </button>
+              <div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleDayUpdate(index, 'nights', Math.max(1, day.nights - 1))}
+                    className="w-8 h-8 flex items-center justify-center text-[#64748B] hover:bg-gray-100"
+                  >
+                    -
+                  </button>
+                  <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center">
+                    <span className="font-bold text-[#1E293B]">{day.nights}</span>
+                  </div>
+                  <button
+                    onClick={() => handleDayUpdate(index, 'nights', day.nights + 1)}
+                    className="w-8 h-8 flex items-center justify-center text-[#64748B] hover:bg-gray-100"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
               <div>
-                {day.hotel ? (
-                  <div className="text-sm group relative">
-                    <div className="font-medium text-[#1E293B] flex items-center gap-2">
-                      <span className="truncate">{day.hotel}</span>
-                      <button
-                        onClick={() => {
-                          setCurrentDestinationForHotel(day.destination);
-                          setCurrentDestinationIndexForHotel(index);
-                          setIsHotelSearchOpen(true);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded-full hover:bg-gray-100 transition-opacity"
-                      >
-                        <Edit className="w-4 h-4 text-[#64748B]" />
-                      </button>
-                    </div>
-                    <div className="text-[#64748B]">To be booked</div>
+                {day.hotel || dayHotels.find(h => h.dayIndex === index)?.hotel ? (
+                  <div className="text-sm group relative flex items-start justify-start flex-col">
+                    <button
+                      onClick={() => {
+                        setCurrentDestinationForHotel(day.destination);
+                        setCurrentDestinationIndexForHotel(index);
+                        setIsHotelSearchOpen(true);
+                      }}
+                      className="font-medium text-[#1E293B] hover:text-[#00C48C] transition-colors"
+                    >
+                      <span className="max-w-[160px]">
+                        {day.hotel || dayHotels.find(h => h.dayIndex === index)?.hotel}
+                      </span>
+                    </button>
+                    <div className="text-xs text-[#64748B]">To be booked</div>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => {
-                      setCurrentDestinationForHotel(day.destination);
-                      setCurrentDestinationIndexForHotel(index);
-                      setIsHotelSearchOpen(true);
-                    }}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#00C48C] hover:bg-[#00C48C]/10 border border-dashed border-[#00C48C]"
-                  >
-                    <Plus className="w-5 h-5" />
-                  </button>
+                  <div className="flex items-center justify-start">
+                    <button
+                      onClick={() => {
+                        setCurrentDestinationForHotel(day.destination);
+                        setCurrentDestinationIndexForHotel(index);
+                        setIsHotelSearchOpen(true);
+                      }}
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-[#F59E0B] hover:bg-[#F59E0B]/10 border border-[#F59E0B]"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  </div>
                 )}
               </div>
               <div>
                 {day.discover ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-[#1E293B]">{day.discover.split(',').length} to do's</span>
+                  <div className="flex items-center justify-center">
                     <button
                       onClick={() => {
                         setActiveDestinationIndex(index);
                         setShowDiscoverPopup(true);
                       }}
-                      className="p-1 rounded-full hover:bg-gray-100"
+                      className="text-sm font-medium text-[#1E293B] hover:text-[#00C48C] transition-colors"
                     >
-                      <Edit className="w-4 h-4 text-[#64748B]" />
+                      {day.discover.split(',').length} to do's
                     </button>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => {
-                      setActiveDestinationIndex(index);
-                      setShowDiscoverPopup(true);
-                    }}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#00C48C] hover:bg-[#00C48C]/10 border border-dashed border-[#00C48C]"
-                  >
-                    <Plus className="w-5 h-5" />
-                  </button>
+                  <div className="flex items-center justify-center">
+                    <button
+                      onClick={() => {
+                        setActiveDestinationIndex(index);
+                        setShowDiscoverPopup(true);
+                      }}
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-[#EC4899] hover:bg-[#EC4899]/10 border border-[#EC4899]"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  </div>
                 )}
               </div>
               <div>
                 {day.food ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-[#1E293B]">{day.food.split(',').length} food spots</span>
+                  <div className="flex items-center justify-center">
                     <button
                       onClick={() => {
-                        setActiveDestinationIndexForFood(index);
-                        setShowFoodPopup(true);
+                        handleDayFoodSelect(day.destination, index);
                       }}
-                      className="p-1 rounded-full hover:bg-gray-100"
+                      className="text-sm font-medium text-[#1E293B] hover:text-[#00C48C] transition-colors"
                     >
-                      <Edit className="w-4 h-4 text-[#64748B]" />
+                      {day.food.split(',').filter(item => item.trim()).length} food spots
                     </button>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => {
-                      setActiveDestinationIndexForFood(index);
-                      setShowFoodPopup(true);
-                    }}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#00C48C] hover:bg-[#00C48C]/10 border border-dashed border-[#00C48C]"
-                  >
-                    <Plus className="w-5 h-5" />
-                  </button>
+                  <div className="flex items-center justify-center">
+                    <button
+                      onClick={() => {
+                        handleDayFoodSelect(day.destination, index);
+                      }}
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-[#8B5CF6] hover:bg-[#8B5CF6]/10 border border-[#8B5CF6]"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  </div>
                 )}
               </div>
               <div>
                 {index > 0 && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center gap-2">
                     {day.transport ? (
-                      <>
-                        <div className="text-sm font-medium text-[#1E293B]">{day.transport}</div>
-                        <button
-                          onClick={() => {
-                            setCurrentDestinationForTransport({
-                              from: itineraryDays[index - 1].destination,
-                              to: day.destination,
-                              index
-                            });
-                            setShowTransportPopup(true);
-                          }}
-                          className="p-1 rounded-full hover:bg-gray-100"
-                        >
-                          <Edit className="w-4 h-4 text-[#64748B]" />
-                        </button>
-                      </>
+                      <button
+                        disabled={index === 0}
+                        onClick={() => {
+                          if (index === 0) return;
+                          setCurrentDestinationForTransport({
+                            from: itineraryDays[index - 1].destination,
+                            to: day.destination,
+                            index
+                          });
+                          setShowTransportPopup(true);
+                        }}
+                        className="flex items-center gap-2 hover:text-[#00C48C] transition-colors"
+                      >
+                        {day.transport.includes('Drive') && <Car className="w-5 h-5 text-[#14B8A6]" />}
+                        {day.transport.includes('Air') && <Plane className="w-5 h-5 text-[#14B8A6]" />}
+                        {day.transport.includes('Train') && <Train className="w-5 h-5 text-[#14B8A6]" />}
+                        {day.transport.includes('Bus') && <BusIcon className="w-5 h-5 text-[#14B8A6]" />}
+                        <span className="text-sm font-medium text-[#1E293B]">
+                          {day.transport.split(' - ')[1]}
+                        </span>
+                      </button>
                     ) : (
-                      <>
-                        <button
-                          onClick={() => {
-                            setCurrentDestinationForTransport({
-                              from: itineraryDays[index - 1].destination,
-                              to: day.destination,
-                              index
-                            });
-                            setShowTransportPopup(true);
-                          }}
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-[#00C48C] hover:bg-[#00C48C]/10 border border-dashed border-[#00C48C]"
-                        >
-                          <Plus className="w-5 h-5" />
-                        </button>
-                        {calculateDistance(itineraryDays[index - 1].destination, day.destination) && (
-                          <span className="text-sm font-medium text-[#F43F5E]">
-                            {calculateDistance(itineraryDays[index - 1].destination, day.destination)} km
-                          </span>
-                        )}
-                      </>
+                      <button
+                        disabled={index === 0}
+                        onClick={() => {
+                          if (index === 0) return;
+                          setCurrentDestinationForTransport({
+                            from: itineraryDays[index - 1].destination,
+                            to: day.destination,
+                            index
+                          });
+                          setShowTransportPopup(true);
+                        }}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center border ${index === 0
+                            ? 'text-gray-300 border-gray-300 cursor-not-allowed'
+                            : 'text-[#14B8A6] hover:bg-[#14B8A6]/10 border-[#14B8A6]'
+                          }`}
+                      >
+                        <Plus className="w-5 h-5" />
+                      </button>
                     )}
                   </div>
                 )}
@@ -811,18 +886,18 @@ const CreateItinerary: React.FC = () => {
                     <div className="w-6 h-6 rounded-full bg-[#00C48C] flex items-center justify-center">
                       <Users className="w-4 h-4 text-white" />
                     </div>
-                    <span>You</span>
+                    <span className="font-[600] font-['Poppins',sans-serif]">You</span>
                   </Link>
                   <Link to="/discover" className="flex items-center gap-2 text-gray-500">
                     <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
                       <Globe className="w-4 h-4 text-gray-500" />
                     </div>
-                    <span>Discover</span>
+                    <span className="font-[600] font-['Poppins',sans-serif]">Discover</span>
                   </Link>
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <Link to="/invite" className="text-[#00C48C] hover:text-[#00B380] transition-colors">
+                  <Link to="/invite" className="text-[#00C48C] hover:text-[#00B380] transition-colors font-[600] font-['Poppins',sans-serif]">
                     Invite a friend
                   </Link>
                   <button className="relative">
@@ -852,7 +927,7 @@ const CreateItinerary: React.FC = () => {
             {/* Left Sidebar */}
             <div className="w-[240px] flex-shrink-0">
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
-                <h2 className="text-lg font-medium text-[#1e293b] mb-4">Trip Summary</h2>
+                <h2 className="text-lg font-[600] font-['Poppins',sans-serif] text-[#1e293b] mb-4">Trip Summary</h2>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Trip Name</label>
@@ -962,7 +1037,7 @@ const CreateItinerary: React.FC = () => {
                     {/* Tabs */}
                     <div className="flex items-center">
                       <button
-                        className={`px-6 py-3 text-sm font-medium border-b-2 -mb-[1px] ${activeTab === 'destinations'
+                        className={`px-6 py-3 text-sm font-[600] font-['Poppins',sans-serif] border-b-2 -mb-[1px] ${activeTab === 'destinations'
                           ? 'text-[#00C48C] border-[#00C48C]'
                           : 'text-gray-500 border-transparent hover:text-[#1e293b]'
                           } transition-colors`}
@@ -971,7 +1046,7 @@ const CreateItinerary: React.FC = () => {
                         Destinations
                       </button>
                       <button
-                        className={`px-6 py-3 text-sm font-medium border-b-2 -mb-[1px] ${activeTab === 'day-by-day'
+                        className={`px-6 py-3 text-sm font-[600] font-['Poppins',sans-serif] border-b-2 -mb-[1px] ${activeTab === 'day-by-day'
                           ? 'text-[#00C48C] border-[#00C48C]'
                           : 'text-gray-500 border-transparent hover:text-[#1e293b]'
                           } transition-colors`}
@@ -982,33 +1057,33 @@ const CreateItinerary: React.FC = () => {
                     </div>
 
                     {/* Nights Planned Indicator */}
-                    <div className="flex items-center gap-2 pr-6">
-                      <div className="relative h-12 w-12">
-                        <svg className="transform -rotate-90" width="48" height="48">
+                    <div className="flex items-center gap-3 pr-6">
+                      <div className="relative h-16 w-16">
+                        <svg className="transform -rotate-90" width="64" height="64">
                           <circle
-                            cx="24"
-                            cy="24"
-                            r="20"
+                            cx="32"
+                            cy="32"
+                            r="28"
                             stroke="#E5E7EB"
                             strokeWidth="4"
                             fill="none"
                           />
                           <circle
-                            cx="24"
-                            cy="24"
-                            r="20"
+                            cx="32"
+                            cy="32"
+                            r="28"
                             stroke="#00C48C"
                             strokeWidth="4"
                             fill="none"
-                            strokeDasharray={`${(totalNights / tripSummary.duration) * 125.6} 125.6`}
+                            strokeDasharray={`${(totalNights / tripSummary.duration) * 175.9} 175.9`}
                           />
                         </svg>
-                        <div className="absolute inset-0 flex items-center justify-center text-lg font-medium">
+                        <div className="absolute inset-0 flex items-center justify-center text-xl font-medium text-[#00C48C]">
                           {totalNights}/{tripSummary.duration}
                         </div>
                       </div>
                       <div className="flex flex-col">
-                        <span className="font-medium text-[#1e293b]">Nights</span>
+                        <span className="font-medium text-[#1e293b] text-lg">Nights</span>
                         <span className="text-sm text-gray-500">planned</span>
                       </div>
                     </div>
@@ -1036,6 +1111,7 @@ const CreateItinerary: React.FC = () => {
                         setCurrentDestinationIndexForHotel(dayIndex);
                         setIsHotelSearchOpen(true);
                       }}
+                      onFoodSelect={handleDayFoodSelect}
                     />
                   </div>
                 )}
@@ -1127,22 +1203,20 @@ const CreateItinerary: React.FC = () => {
           />
         )}
 
-        {showFoodPopup && activeDestinationIndexForFood !== null && (
-          <FoodPopup
-            isOpen={showFoodPopup}
-            onClose={() => {
-              setShowFoodPopup(false);
-              setActiveDestinationIndexForFood(null);
-            }}
-            destination={itineraryDays[activeDestinationIndexForFood].destination}
-            selectedFoodItems={itineraryDays[activeDestinationIndexForFood].food?.split(', ').filter(Boolean) || []}
-            onFoodSelect={(foodItems) => {
+        <FoodPopup
+          isOpen={showFoodPopup}
+          onClose={() => {
+            setShowFoodPopup(false);
+            setActiveDestinationIndexForFood(null);
+          }}
+          destination={activeDestinationIndexForFood !== null ? itineraryDays[activeDestinationIndexForFood]?.destination || '' : ''}
+          selectedFoodItems={activeDestinationIndexForFood !== null ? (itineraryDays[activeDestinationIndexForFood]?.food || '').split(',').filter(Boolean).map(item => item.trim()) : []}
+          onFoodSelect={(foodItems) => {
+            if (activeDestinationIndexForFood !== null) {
               handleFoodSelect(activeDestinationIndexForFood, foodItems);
-              setShowFoodPopup(false);
-              setActiveDestinationIndexForFood(null);
-            }}
-          />
-        )}
+            }
+          }}
+        />
       </div>
     );
   }
@@ -1152,7 +1226,7 @@ const CreateItinerary: React.FC = () => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       {/* Popup content */}
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-        <h2 className="text-xl font-semibold mb-4">Trip Summary</h2>
+        <h2 className="text-xl font-[600] font-['Poppins',sans-serif] mb-4">Trip Summary</h2>
 
         {error && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">

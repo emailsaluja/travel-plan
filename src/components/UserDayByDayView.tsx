@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, MapPin, Bed, Navigation } from 'lucide-react';
+import { Calendar, MapPin, Bed, Navigation, Utensils } from 'lucide-react';
 import { getAttractionIcon } from '../data/attraction-types';
 
 interface Destination {
@@ -8,6 +8,7 @@ interface Destination {
   discover: string;
   transport: string;
   notes: string;
+  food: string;
 }
 
 interface DayAttraction {
@@ -47,21 +48,34 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
     let currentDate = new Date(startDate);
     let currentDestIndex = 0;
     let nightsSpent = 0;
-    let totalDays = 0;
+    let dayIndex = 0;
+
+    console.log('Initial dayAttractions:', dayAttractions);
+    console.log('Initial destinations:', destinations);
 
     while (currentDestIndex < destinations.length) {
       const currentDest = destinations[currentDestIndex];
-      console.log('Processing day:', totalDays, 'for destination:', currentDest.destination);
-      
+      console.log(`Processing day ${dayIndex} for ${currentDest.destination}`);
+
+      // Find attractions for this day
       const dayAttractionData = dayAttractions.find(da => {
-        console.log('Comparing dayIndex:', da.dayIndex, 'with totalDays:', totalDays);
-        return da.dayIndex === totalDays;
+        console.log('Comparing:', { dayAttractionDayIndex: da.dayIndex, currentDayIndex: dayIndex });
+        return da.dayIndex === dayIndex;
       });
 
-      const dayHotelData = dayHotels.find(dh => dh.dayIndex === totalDays);
-      
-      console.log('Found attractions for day:', dayAttractionData);
-      console.log('Found hotel for day:', dayHotelData);
+      const dayHotelData = dayHotels.find(dh => dh.dayIndex === dayIndex);
+      console.log('Found dayAttractionData:', dayAttractionData);
+
+      // Get attractions from the destination's discover field if no day attractions are found
+      let attractions: string[] = [];
+      if (dayAttractionData && Array.isArray(dayAttractionData.attractions)) {
+        console.log('Using day-specific attractions:', dayAttractionData.attractions);
+        attractions = dayAttractionData.attractions;
+      } else if (currentDest.discover) {
+        console.log('Using destination discover field:', currentDest.discover);
+        attractions = currentDest.discover.split(', ').filter(Boolean);
+      }
+      console.log('Final attractions array:', attractions);
 
       schedule.push({
         date: new Date(currentDate),
@@ -71,12 +85,13 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
         sleeping: dayHotelData?.hotel || '',
         transport: currentDest.transport,
         notes: currentDest.notes,
-        attractions: dayAttractionData?.attractions || []
+        attractions: attractions,
+        food: currentDest.food
       });
 
       currentDate.setDate(currentDate.getDate() + 1);
       nightsSpent++;
-      totalDays++;
+      dayIndex++;
 
       if (nightsSpent === currentDest.nights) {
         currentDestIndex++;
@@ -102,7 +117,8 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
     <div className="space-y-8">
       {schedule.map((day, index) => {
         const dayNote = dayNotes.find(n => n.dayIndex === index);
-        
+        const foodItems = day.food?.split(',').filter(item => item.trim()) || [];
+
         return (
           <div key={index} className="bg-white rounded-lg border p-6">
             <div className="flex items-center justify-between mb-6">
@@ -119,7 +135,7 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-8">
               {/* Left Column - Basic Info */}
               <div className="space-y-4">
                 {day.isArrivalDay && (
@@ -128,7 +144,7 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
                     <p className="text-gray-700">{day.transport || 'Transport details not specified'}</p>
                   </div>
                 )}
-                
+
                 {day.isDepartureDay && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-500 mb-1">Departure</h4>
@@ -145,6 +161,20 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
                     <p className="text-gray-700">{day.sleeping || 'Not specified'}</p>
                   </div>
                 </div>
+
+                {foodItems.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Food Spots</h4>
+                    <div className="space-y-2">
+                      {foodItems.map((food, idx) => (
+                        <div key={idx} className="flex items-center gap-2 text-gray-700">
+                          <Utensils className="w-4 h-4 text-[#8B5CF6]" />
+                          <span>{food}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {dayNote && (
                   <div>
@@ -168,7 +198,7 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
                         const attractionType = getAttractionIcon(attraction);
                         const IconComponent = attractionType.icon;
                         return (
-                          <div 
+                          <div
                             key={attrIndex}
                             className={`${attractionType.bgColor} rounded-lg p-3`}
                           >

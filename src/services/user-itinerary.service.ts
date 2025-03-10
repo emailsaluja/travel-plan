@@ -43,6 +43,7 @@ export interface SaveItineraryData {
     discover: string;
     transport: string;
     notes: string;
+    food: string;
   }[];
   dayAttractions: {
     dayIndex: number;
@@ -86,6 +87,7 @@ export const UserItineraryService = {
         discover: dest.discover,
         transport: dest.transport,
         notes: dest.notes,
+        food: dest.food,
         order_index: index
       }));
 
@@ -261,6 +263,7 @@ export const UserItineraryService = {
         discover: dest.discover,
         transport: dest.transport,
         notes: dest.notes,
+        food: dest.food,
         order_index: index
       }));
 

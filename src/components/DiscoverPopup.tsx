@@ -39,7 +39,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
   useEffect(() => {
     if (isOpen && destination && window.google) {
       setLoading(true);
-      
+
       // Initialize Places Service with a map div (required by Google Maps API)
       const mapDiv = document.createElement('div');
       const map = new google.maps.Map(mapDiv);
@@ -54,7 +54,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
       placesService.current.findPlaceFromQuery(destinationRequest, (results, status) => {
         if (status === google.maps.places.PlacesServiceStatus.OK && results && results[0]) {
           const location = results[0].geometry?.location;
-          
+
           if (location) {
             // Now search for attractions near this location
             const attractionsRequest = {
@@ -140,7 +140,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
               })
             ]).then((responses) => {
               const allPlaces = new Map();
-              
+
               responses.forEach((response: any) => {
                 if (response.status === google.maps.places.PlacesServiceStatus.OK && response.results) {
                   response.results.forEach((place: google.maps.places.PlaceResult) => {
@@ -151,8 +151,8 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
                       } else {
                         // If place already exists, update it if the new one has better rating or more reviews
                         const existingPlace = allPlaces.get(place.place_id);
-                        if ((place.rating || 0) > (existingPlace.rating || 0) || 
-                            (place.user_ratings_total || 0) > (existingPlace.user_ratings_total || 0)) {
+                        if ((place.rating || 0) > (existingPlace.rating || 0) ||
+                          (place.user_ratings_total || 0) > (existingPlace.user_ratings_total || 0)) {
                           allPlaces.set(place.place_id, place);
                         }
                       }
@@ -162,18 +162,18 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
               });
 
               const places = Array.from(allPlaces.values());
-              
+
               // Sort places by rating and number of reviews
               places.sort((a, b) => {
                 const ratingA = a.rating || 0;
                 const ratingB = b.rating || 0;
                 const reviewsA = a.user_ratings_total || 0;
                 const reviewsB = b.user_ratings_total || 0;
-                
+
                 // Prioritize highly rated places with significant number of reviews
                 const scoreA = ratingA * Math.log(reviewsA + 1);
                 const scoreB = ratingB * Math.log(reviewsB + 1);
-                
+
                 return scoreB - scoreA;
               });
 
@@ -254,7 +254,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
     if (!placesService.current) return;
 
     // Check if attraction already exists
-    const existingAttraction = attractions.find(a => 
+    const existingAttraction = attractions.find(a =>
       a.name.toLowerCase() === prediction.structured_formatting.main_text.toLowerCase()
     );
 
@@ -280,7 +280,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
 
     // Add to list immediately
     setAttractions(prevAttractions => [tempAttraction, ...prevAttractions]);
-    
+
     // Update selected attractions
     const selectedNames = [tempAttraction.name, ...selectedAttractions];
     onAttractionsSelect(selectedNames);
@@ -319,16 +319,20 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
   };
 
   const handleAttractionToggle = (attraction: Attraction) => {
-    const updatedAttractions = attractions.map(a => 
-      a.id === attraction.id ? { ...a, isSelected: !a.isSelected } : a
+    const updatedAttractions = attractions.map(a =>
+      a.id === attraction.id
+        ? { ...a, isSelected: !a.isSelected }
+        : a
     );
     setAttractions(updatedAttractions);
-    
-    const selectedNames = updatedAttractions
+
+    // Get all selected attractions
+    const selectedAttractions = updatedAttractions
       .filter(a => a.isSelected)
       .map(a => a.name);
-    
-    onAttractionsSelect(selectedNames);
+
+    // Call the parent's onAttractionsSelect with the updated list
+    onAttractionsSelect(selectedAttractions);
   };
 
   // Sort attractions with selected ones at the top
@@ -336,16 +340,16 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
     // First priority: selected items
     if (a.isSelected && !b.isSelected) return -1;
     if (!a.isSelected && b.isSelected) return 1;
-    
+
     // Second priority: manually added items
     if (a.isManuallyAdded && !b.isManuallyAdded) return -1;
     if (!a.isManuallyAdded && b.isManuallyAdded) return 1;
-    
+
     // Third priority: number of reviews (for non-manual attractions)
     if (!a.isManuallyAdded && !b.isManuallyAdded) {
       return (b.userRatingsTotal || 0) - (a.userRatingsTotal || 0);
     }
-    
+
     // If both are manually added or other cases, maintain current order
     return 0;
   });
@@ -419,15 +423,14 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
                   {attractions.filter(a => a.isSelected).length} attractions selected
                 </div>
               )}
-              
+
               {sortedAttractions.map((attraction) => (
                 <div
                   key={attraction.id}
-                  className={`flex items-start gap-4 p-4 rounded-lg transition-colors ${
-                    attraction.isSelected 
-                      ? 'bg-amber-50 hover:bg-amber-100' 
-                      : 'bg-gray-50 hover:bg-gray-100'
-                  }`}
+                  className={`flex items-start gap-4 p-4 rounded-lg transition-colors ${attraction.isSelected
+                    ? 'bg-amber-50 hover:bg-amber-100'
+                    : 'bg-gray-50 hover:bg-gray-100'
+                    }`}
                 >
                   {!attraction.isManuallyAdded && (
                     <div className="w-24 h-24 rounded-lg overflow-hidden">
@@ -468,11 +471,10 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
                   </div>
                   <button
                     onClick={() => handleAttractionToggle(attraction)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                      attraction.isSelected
-                        ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${attraction.isSelected
+                      ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
                   >
                     {attraction.isSelected ? 'Remove' : 'Add'}
                   </button>
