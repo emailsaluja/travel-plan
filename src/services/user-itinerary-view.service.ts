@@ -7,6 +7,7 @@ export interface UserItineraryView {
   start_date: string;
   duration: number;
   passengers: number;
+  is_private: boolean;
   destinations: {
     destination: string;
     nights: number;

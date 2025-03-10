@@ -41,7 +41,7 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
   useEffect(() => {
     if (isOpen && destination && window.google) {
       setLoading(true);
-      
+
       // Initialize Places Service
       const mapDiv = document.createElement('div');
       const map = new google.maps.Map(mapDiv);
@@ -56,7 +56,7 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
       placesService.current.findPlaceFromQuery(destinationRequest, (results, status) => {
         if (status === google.maps.places.PlacesServiceStatus.OK && results && results[0]) {
           const location = results[0].geometry?.location;
-          
+
           if (location) {
             // Search for hotels near this location
             Promise.all([
@@ -89,7 +89,7 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
               })
             ]).then((responses) => {
               const allPlaces = new Map();
-              
+
               responses.forEach((response: any) => {
                 if (response.status === google.maps.places.PlacesServiceStatus.OK && response.results) {
                   response.results.forEach((place: google.maps.places.PlaceResult) => {
@@ -100,8 +100,8 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
                       } else {
                         // Update if better rating or more reviews
                         const existingPlace = allPlaces.get(place.place_id);
-                        if ((place.rating || 0) > (existingPlace.rating || 0) || 
-                            (place.user_ratings_total || 0) > (existingPlace.user_ratings_total || 0)) {
+                        if ((place.rating || 0) > (existingPlace.rating || 0) ||
+                          (place.user_ratings_total || 0) > (existingPlace.user_ratings_total || 0)) {
                           allPlaces.set(place.place_id, place);
                         }
                       }
@@ -111,17 +111,17 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
               });
 
               const places = Array.from(allPlaces.values());
-              
+
               // Sort by rating and reviews
               places.sort((a, b) => {
                 const ratingA = a.rating || 0;
                 const ratingB = b.rating || 0;
                 const reviewsA = a.user_ratings_total || 0;
                 const reviewsB = b.user_ratings_total || 0;
-                
+
                 const scoreA = ratingA * Math.log(reviewsA + 1);
                 const scoreB = ratingB * Math.log(reviewsB + 1);
-                
+
                 return scoreB - scoreA;
               });
 
@@ -287,11 +287,10 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
               {hotels.map((hotel) => (
                 <div
                   key={hotel.id}
-                  className={`flex items-start gap-4 p-4 rounded-lg transition-colors ${
-                    hotel.isSelected 
-                      ? 'bg-amber-50 hover:bg-amber-100' 
+                  className={`flex items-start gap-4 p-4 rounded-lg transition-colors ${hotel.isSelected
+                      ? 'bg-amber-50 hover:bg-amber-100'
                       : 'bg-gray-50 hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
                   <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0">
                     {hotel.photoUrl ? (
@@ -330,11 +329,10 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
                   </div>
                   <button
                     onClick={() => handleHotelSelect(hotel)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                      hotel.isSelected
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${hotel.isSelected
                         ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                      }`}
                   >
                     {hotel.isSelected ? 'Remove' : 'Add'}
                   </button>

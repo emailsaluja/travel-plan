@@ -8,6 +8,7 @@ export interface UserItinerary {
   duration: number;
   passengers: number;
   created_at: string;
+  is_private: boolean;
   destinations: {
     id: string;
     destination: string;
@@ -34,6 +35,7 @@ export interface SaveItineraryData {
     duration: number;
     startDate: string;
     passengers: number;
+    isPrivate: boolean;
   };
   destinations: {
     destination: string;
@@ -68,7 +70,8 @@ export const UserItineraryService = {
           country: data.tripSummary.country,
           start_date: data.tripSummary.startDate,
           duration: data.tripSummary.duration,
-          passengers: data.tripSummary.passengers
+          passengers: data.tripSummary.passengers,
+          is_private: data.tripSummary.isPrivate
         })
         .select()
         .single();
@@ -196,21 +199,21 @@ export const UserItineraryService = {
         .from('user_itinerary_day_attractions')
         .delete()
         .eq('itinerary_id', id);
-      
+
       if (attractionsError) throw attractionsError;
 
       const { error: hotelsError } = await supabase
         .from('user_itinerary_day_hotels')
         .delete()
         .eq('itinerary_id', id);
-      
+
       if (hotelsError) throw hotelsError;
 
       const { error: destinationsError } = await supabase
         .from('user_itinerary_destinations')
         .delete()
         .eq('itinerary_id', id);
-      
+
       if (destinationsError) throw destinationsError;
 
       const { error: itineraryError } = await supabase
@@ -237,7 +240,8 @@ export const UserItineraryService = {
           country: data.tripSummary.country,
           start_date: data.tripSummary.startDate,
           duration: data.tripSummary.duration,
-          passengers: data.tripSummary.passengers
+          passengers: data.tripSummary.passengers,
+          is_private: data.tripSummary.isPrivate
         })
         .eq('id', id);
 
@@ -271,14 +275,14 @@ export const UserItineraryService = {
       if (data.dayAttractions && data.dayAttractions.length > 0) {
         let currentDestIndex = 0;
         let daysAccumulated = 0;
-        
+
         const attractionsToInsert = data.dayAttractions.map(day => {
-          while (currentDestIndex < data.destinations.length && 
-                 daysAccumulated + data.destinations[currentDestIndex].nights <= day.dayIndex) {
+          while (currentDestIndex < data.destinations.length &&
+            daysAccumulated + data.destinations[currentDestIndex].nights <= day.dayIndex) {
             daysAccumulated += data.destinations[currentDestIndex].nights;
             currentDestIndex++;
           }
-          
+
           return {
             itinerary_id: id,
             destination_id: destinations[Math.min(currentDestIndex, destinations.length - 1)].id,

@@ -2,21 +2,18 @@ import React, { useState } from 'react';
 import { Calendar, Users, MapPin } from 'lucide-react';
 import { countries } from '../data/countries';
 
+interface TripSummary {
+  tripName: string;
+  country: string;
+  duration: number;
+  startDate: string;
+  passengers: number;
+  isPrivate: boolean;
+}
+
 interface TripSummaryEditProps {
-  tripSummary: {
-    tripName: string;
-    country: string;
-    duration: number;
-    startDate: string;
-    passengers: number;
-  };
-  onSave: (updatedSummary: {
-    tripName: string;
-    country: string;
-    duration: number;
-    startDate: string;
-    passengers: number;
-  }) => void;
+  tripSummary: TripSummary;
+  onSave: (updatedSummary: TripSummary) => void;
   onCancel: () => void;
 }
 
@@ -25,7 +22,14 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
   onSave,
   onCancel
 }) => {
-  const [editedSummary, setEditedSummary] = useState(tripSummary);
+  const [editedSummary, setEditedSummary] = useState<TripSummary>({
+    tripName: tripSummary.tripName,
+    country: tripSummary.country,
+    duration: tripSummary.duration,
+    startDate: tripSummary.startDate,
+    passengers: tripSummary.passengers,
+    isPrivate: tripSummary.isPrivate
+  });
   const [countrySearch, setCountrySearch] = useState('');
   const [showCountries, setShowCountries] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +48,7 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
     setCountrySearch('');
   };
 
-  const filteredCountries = countries.filter(country => 
+  const filteredCountries = countries.filter(country =>
     country.toLowerCase().includes((countrySearch || editedSummary.country).toLowerCase())
   );
 
@@ -63,7 +67,7 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
   return (
     <div className="bg-white rounded-lg shadow-lg p-6 max-w-2xl mx-auto">
       <h2 className="text-xl font-semibold mb-6">Edit Trip Summary</h2>
-      
+
       {error && (
         <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
           {error}
@@ -192,6 +196,26 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
               className="flex-1 border border-gray-300 rounded-md shadow-sm p-2"
             />
           </div>
+        </div>
+
+        <div className="mt-4">
+          <label className="flex items-center justify-between text-sm font-medium text-gray-700">
+            <span>Privacy</span>
+            <button
+              type="button"
+              onClick={() => setEditedSummary(prev => ({ ...prev, isPrivate: !prev.isPrivate }))}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${editedSummary.isPrivate ? 'bg-[#00C48C]' : 'bg-gray-200'
+                }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${editedSummary.isPrivate ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+              />
+            </button>
+          </label>
+          <p className="text-sm text-gray-500 mt-1">
+            {editedSummary.isPrivate ? 'Only you can view this itinerary' : 'Anyone with the link can view this itinerary'}
+          </p>
         </div>
 
         <div className="flex justify-end space-x-3 pt-6">

@@ -7,7 +7,7 @@ export const GoogleMapsService = {
   async getDistanceAndDuration(origin: string, destination: string): Promise<DistanceInfo> {
     return new Promise((resolve, reject) => {
       const service = new google.maps.DistanceMatrixService();
-      
+
       service.getDistanceMatrix(
         {
           origins: [origin],

@@ -6,6 +6,8 @@ import { GoogleMapsService, DistanceInfo } from '../services/google-maps.service
 import UserItineraryMap from '../components/UserItineraryMap';
 import UserDayByDayView from '../components/UserDayByDayView';
 import countryImages from '../data/country-images.json';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 interface CountryImages {
   [key: string]: string[];
@@ -25,6 +27,7 @@ interface CountryImages {
 
 const ViewUserItinerary: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const [itinerary, setItinerary] = useState<UserItineraryView | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,24 +37,47 @@ const ViewUserItinerary: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadItinerary = async () => {
-      if (!id) return;
-      
+    const fetchItinerary = async () => {
       try {
         setLoading(true);
-        const { data, error } = await UserItineraryViewService.getItineraryById(id);
-        if (error) throw error;
+        const { data, error } = await UserItineraryViewService.getItineraryById(id!);
+
+        if (error) {
+          throw error;
+        }
+
+        if (!data) {
+          setError('Itinerary not found');
+          return;
+        }
+
+        // Check if user has permission to view the itinerary
+        if (data.is_private) {
+          const { data: itineraryData } = await supabase
+            .from('user_itineraries')
+            .select('user_id')
+            .eq('id', id!)
+            .single();
+
+          if (!isAuthenticated || itineraryData?.user_id !== user?.id) {
+            setError('You do not have permission to view this itinerary');
+            return;
+          }
+        }
+
         setItinerary(data);
       } catch (error) {
-        console.error('Error loading itinerary:', error);
-        setError('Error loading itinerary');
+        console.error('Error fetching itinerary:', error);
+        setError('Failed to load itinerary');
       } finally {
         setLoading(false);
       }
     };
 
-    loadItinerary();
-  }, [id]);
+    if (id) {
+      fetchItinerary();
+    }
+  }, [id, isAuthenticated, user]);
 
   useEffect(() => {
     const fetchDistanceInfo = async () => {
@@ -129,7 +155,7 @@ const ViewUserItinerary: React.FC = () => {
       {/* Hero Section */}
       <div className="relative h-[400px] mt-16">
         {/* Dynamic country image */}
-        <div 
+        <div
           className="absolute inset-0 bg-cover bg-center bg-gray-800 transition-opacity duration-300"
           style={{
             backgroundImage: itinerary ? `url(${getCountryImage(itinerary.country)})` : undefined,
@@ -159,9 +185,8 @@ const ViewUserItinerary: React.FC = () => {
           </button>
           <button
             onClick={handleLike}
-            className={`p-2 rounded-full transition-colors shadow-lg ${
-              isLiked ? 'bg-rose-500 text-white' : 'bg-white/90 text-gray-700 hover:bg-white'
-            }`}
+            className={`p-2 rounded-full transition-colors shadow-lg ${isLiked ? 'bg-rose-500 text-white' : 'bg-white/90 text-gray-700 hover:bg-white'
+              }`}
             title={isLiked ? 'Unlike' : 'Like'}
           >
             <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
@@ -205,21 +230,19 @@ const ViewUserItinerary: React.FC = () => {
           <nav className="flex space-x-8">
             <button
               onClick={() => setActiveTab('overview')}
-              className={`py-4 px-1 border-b-2 font-medium ${
-                activeTab === 'overview'
-                  ? 'border-rose-500 text-rose-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium ${activeTab === 'overview'
+                ? 'border-rose-500 text-rose-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               Overview
             </button>
             <button
               onClick={() => setActiveTab('dayByDay')}
-              className={`py-4 px-1 border-b-2 font-medium ${
-                activeTab === 'dayByDay'
-                  ? 'border-rose-500 text-rose-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium ${activeTab === 'dayByDay'
+                ? 'border-rose-500 text-rose-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               Day by Day
             </button>
@@ -252,13 +275,13 @@ const ViewUserItinerary: React.FC = () => {
                             {index < itinerary.destinations.length - 1 && (
                               <div className="absolute left-3.5 top-12 bottom-0 w-[2px] bg-rose-100" />
                             )}
-                            
+
                             <div className="relative">
                               <h3 className="text-lg font-medium mb-2 flex items-center gap-2">
                                 <span className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-semibold text-white
-                                  ${index === 0 ? 'bg-rose-500' : 
-                                    index === itinerary.destinations.length - 1 ? 'bg-rose-500' : 
-                                    'bg-rose-500'}`}
+                                  ${index === 0 ? 'bg-rose-500' :
+                                    index === itinerary.destinations.length - 1 ? 'bg-rose-500' :
+                                      'bg-rose-500'}`}
                                 >
                                   {index + 1}
                                 </span>
@@ -267,7 +290,7 @@ const ViewUserItinerary: React.FC = () => {
                                   <div className="text-sm text-gray-500">{dest.nights} days</div>
                                 </div>
                               </h3>
-                              
+
                               {dest.discover && (
                                 <div className="text-sm text-gray-600 ml-9">
                                   {dest.discover}
@@ -299,7 +322,7 @@ const ViewUserItinerary: React.FC = () => {
                 {/* Right Column - Map */}
                 <div className="w-full lg:w-3/5">
                   <div className="sticky top-8">
-                    <UserItineraryMap 
+                    <UserItineraryMap
                       destinations={itinerary.destinations.map(d => ({
                         destination: d.destination,
                         nights: d.nights
