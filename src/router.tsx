@@ -14,6 +14,8 @@ import CreateItinerary from './pages/CreateItinerary';
 import How from './pages/How';
 import WhyTravel from './pages/WhyTravel';
 import ViewUserItinerary from './pages/ViewUserItinerary';
+import UserPublicDashboard from './pages/UserPublicDashboard';
+import PublicItineraryView from './pages/PublicItineraryView';
 
 const RootLayout = () => {
   return (
@@ -38,8 +40,8 @@ export const router = createBrowserRouter([
       { path: 'how', element: <How /> },
       { path: 'whytravel', element: <WhyTravel /> },
       { path: 'view-itinerary/:id', element: <ViewUserItinerary /> },
-      { 
-        path: 'dashboard', 
+      {
+        path: 'dashboard',
         element: <ProtectedRoute><Dashboard /></ProtectedRoute>
       },
       { path: 'itinerary/:id', element: <ItineraryDetails /> },
@@ -54,6 +56,14 @@ export const router = createBrowserRouter([
       {
         path: 'create-itinerary',
         element: <ProtectedRoute><CreateItinerary /></ProtectedRoute>
+      },
+      {
+        path: ':username',
+        element: <UserPublicDashboard />
+      },
+      {
+        path: ':username/trips/:id',
+        element: <PublicItineraryView />
       }
     ]
   }

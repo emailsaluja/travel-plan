@@ -120,8 +120,8 @@ export const ProfileSettingsPopup: React.FC<ProfileSettingsPopupProps> = ({
                                 type="button"
                                 onClick={() => setSettings({ ...settings, measurement_system: 'metric' })}
                                 className={`flex-1 px-4 py-3 rounded-lg border transition-colors ${settings.measurement_system === 'metric'
-                                        ? 'border-[#00C48C] bg-[#00C48C]/10 text-[#00C48C]'
-                                        : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                                    ? 'border-[#00C48C] bg-[#00C48C]/10 text-[#00C48C]'
+                                    : 'border-gray-200 text-gray-500 hover:bg-gray-50'
                                     }`}
                             >
                                 Metric (km)
@@ -130,8 +130,8 @@ export const ProfileSettingsPopup: React.FC<ProfileSettingsPopupProps> = ({
                                 type="button"
                                 onClick={() => setSettings({ ...settings, measurement_system: 'imperial' })}
                                 className={`flex-1 px-4 py-3 rounded-lg border transition-colors ${settings.measurement_system === 'imperial'
-                                        ? 'border-[#00C48C] bg-[#00C48C]/10 text-[#00C48C]'
-                                        : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                                    ? 'border-[#00C48C] bg-[#00C48C]/10 text-[#00C48C]'
+                                    : 'border-gray-200 text-gray-500 hover:bg-gray-50'
                                     }`}
                             >
                                 Imperial (miles)
@@ -147,8 +147,8 @@ export const ProfileSettingsPopup: React.FC<ProfileSettingsPopupProps> = ({
                                 type="button"
                                 onClick={() => setSettings({ ...settings, privacy_setting: 'everyone' })}
                                 className={`flex-1 px-4 py-3 rounded-lg border transition-colors ${settings.privacy_setting === 'everyone'
-                                        ? 'border-[#00C48C] bg-[#00C48C]/10 text-[#00C48C]'
-                                        : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                                    ? 'border-[#00C48C] bg-[#00C48C]/10 text-[#00C48C]'
+                                    : 'border-gray-200 text-gray-500 hover:bg-gray-50'
                                     }`}
                             >
                                 Everyone
@@ -157,8 +157,8 @@ export const ProfileSettingsPopup: React.FC<ProfileSettingsPopupProps> = ({
                                 type="button"
                                 onClick={() => setSettings({ ...settings, privacy_setting: 'approved_only' })}
                                 className={`flex-1 px-4 py-3 rounded-lg border transition-colors ${settings.privacy_setting === 'approved_only'
-                                        ? 'border-[#00C48C] bg-[#00C48C]/10 text-[#00C48C]'
-                                        : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                                    ? 'border-[#00C48C] bg-[#00C48C]/10 text-[#00C48C]'
+                                    : 'border-gray-200 text-gray-500 hover:bg-gray-50'
                                     }`}
                             >
                                 Only the people I approve
