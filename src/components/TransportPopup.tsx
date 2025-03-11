@@ -93,13 +93,13 @@ const normalizeLocation = (location: string): string => {
 const getTrainRouteKey = (from: string, to: string): string => {
   const normalizedFrom = normalizeLocation(from);
   const normalizedTo = normalizeLocation(to);
-  
+
   // Try both directions
   const key1 = `${normalizedFrom}-${normalizedTo}`;
   const key2 = `${normalizedTo}-${normalizedFrom}`;
-  
-  return JAPAN_TRAIN_ROUTES[key1] ? key1 : 
-         JAPAN_TRAIN_ROUTES[key2] ? key2 : '';
+
+  return JAPAN_TRAIN_ROUTES[key1] ? key1 :
+    JAPAN_TRAIN_ROUTES[key2] ? key2 : '';
 };
 
 const TransportPopup: React.FC<TransportPopupProps> = ({
@@ -117,9 +117,9 @@ const TransportPopup: React.FC<TransportPopupProps> = ({
   const [debugInfo, setDebugInfo] = useState<string>('');
 
   const findTrainStations = async (location: string) => {
-    return new Promise<google.maps.places.PlaceResult[]>((resolve, reject) => {
+    return new Promise<google.maps.places.PlaceResult[]>((resolve) => {
       const service = new google.maps.places.PlacesService(document.createElement('div'));
-      
+
       service.textSearch({
         query: `train station in ${location}`,
         type: 'train_station'
@@ -127,7 +127,8 @@ const TransportPopup: React.FC<TransportPopupProps> = ({
         if (status === google.maps.places.PlacesServiceStatus.OK && results) {
           resolve(results);
         } else {
-          reject(new Error(`No train stations found in ${location}`));
+          // Instead of rejecting, resolve with empty array
+          resolve([]);
         }
       });
     });
@@ -171,7 +172,7 @@ const TransportPopup: React.FC<TransportPopupProps> = ({
               duration: mainRoute.duration?.text || '',
               distance: mainRoute.distance?.text || '',
               icon: <Car className="w-5 h-5" />,
-              details: `Drive · ${mainRoute.duration?.text || ''} · ${mainRoute.distance?.text || ''}`,
+              details: `Drive · ${mainRoute.duration?.text || ''}`,
               route: mainRoute.steps.map(step => ({
                 instruction: step.instructions,
                 distance: step.distance?.text || '',
@@ -189,7 +190,7 @@ const TransportPopup: React.FC<TransportPopupProps> = ({
         if (trainRouteKey) {
           setDebugInfo('Found predefined train route data\n');
           const routeData = JAPAN_TRAIN_ROUTES[trainRouteKey];
-          
+
           routeData.routes.forEach(route => {
             route.services.forEach(service => {
               options.push({
@@ -197,7 +198,7 @@ const TransportPopup: React.FC<TransportPopupProps> = ({
                 duration: route.duration,
                 distance: route.distance,
                 icon: <Train className="w-5 h-5" />,
-                details: `${service.name} Train · ${route.duration} · ${route.distance}`,
+                details: `${service.name} Train · ${route.duration}`,
                 operator: route.operator,
                 departureTime: service.frequency,
                 stops: service.stops
@@ -207,101 +208,86 @@ const TransportPopup: React.FC<TransportPopupProps> = ({
         } else {
           // Existing train station search code
           try {
-            setDebugInfo('Searching for train stations...\n');
-
             // Find train stations in both cities
             const [fromStations, toStations] = await Promise.all([
               findTrainStations(fromDestination),
               findTrainStations(toDestination)
             ]);
 
-            setDebugInfo(prev => prev + 
-              `Found ${fromStations.length} stations in ${fromDestination}\n` +
-              `Found ${toStations.length} stations in ${toDestination}\n`
-            );
+            // Only proceed with train routing if both locations have stations
+            if (fromStations.length > 0 && toStations.length > 0) {
+              const trainRoutes: TransportOption[] = [];
+              const departureTimes = [
+                new Date(), // now
+                new Date(new Date().setHours(9, 0, 0, 0)), // 9 AM
+                new Date(new Date().setHours(12, 0, 0, 0)), // 12 PM
+                new Date(new Date().setHours(15, 0, 0, 0)), // 3 PM
+              ];
 
-            const trainRoutes: TransportOption[] = [];
-            const departureTimes = [
-              new Date(), // now
-              new Date(new Date().setHours(9, 0, 0, 0)), // 9 AM
-              new Date(new Date().setHours(12, 0, 0, 0)), // 12 PM
-              new Date(new Date().setHours(15, 0, 0, 0)), // 3 PM
-            ];
-
-            // Try each combination of stations
-            for (const fromStation of fromStations.slice(0, 2)) { // Limit to top 2 stations
-              for (const toStation of toStations.slice(0, 2)) { // Limit to top 2 stations
-                setDebugInfo(prev => prev + 
-                  `\nTrying route from ${fromStation.name} to ${toStation.name}\n`
-                );
-
-                for (const departureTime of departureTimes) {
-                  try {
-                    const transitResult = await directionsService.route({
-                      origin: { placeId: fromStation.place_id },
-                      destination: { placeId: toStation.place_id },
-                      travelMode: google.maps.TravelMode.TRANSIT,
-                      transitOptions: {
-                        modes: [google.maps.TransitMode.TRAIN, google.maps.TransitMode.RAIL],
-                        departureTime: departureTime
-                      }
-                    });
-
-                    if (transitResult.routes && transitResult.routes.length > 0) {
-                      transitResult.routes.forEach((route, routeIndex) => {
-                        const leg = route.legs[0];
-                        const transitSteps = leg.steps.filter(step => 
-                          step.travel_mode === google.maps.TravelMode.TRANSIT &&
-                          step.transit?.line.vehicle.type.toLowerCase().includes('train')
-                        );
-
-                        if (transitSteps.length > 0) {
-                          const firstTransit = transitSteps[0].transit!;
-                          const option: TransportOption = {
-                            mode: 'Train',
-                            duration: leg.duration?.text || '',
-                            distance: leg.distance?.text || '',
-                            icon: <Train className="w-5 h-5" />,
-                            details: `Train · ${leg.duration?.text || ''} · ${leg.distance?.text || ''}`,
-                            operator: firstTransit.line.agencies?.[0]?.name || firstTransit.line.name || 'Unknown operator',
-                            departureTime: leg.departure_time?.text,
-                            arrivalTime: leg.arrival_time?.text,
-                            stops: transitSteps.map(step => 
-                              `${step.transit!.departure_stop?.name} → ${step.transit!.arrival_stop?.name}`
-                            )
-                          };
-
-                          // Only add if not already present
-                          if (!trainRoutes.some(r => 
-                            r.departureTime === option.departureTime && 
-                            r.arrivalTime === option.arrivalTime
-                          )) {
-                            trainRoutes.push(option);
-                            setDebugInfo(prev => prev + 
-                              `Found train route: ${option.departureTime} - ${option.arrivalTime}\n`
-                            );
-                          }
+              // Try each combination of stations
+              for (const fromStation of fromStations.slice(0, 2)) { // Limit to top 2 stations
+                for (const toStation of toStations.slice(0, 2)) { // Limit to top 2 stations
+                  for (const departureTime of departureTimes) {
+                    try {
+                      const transitResult = await directionsService.route({
+                        origin: { placeId: fromStation.place_id },
+                        destination: { placeId: toStation.place_id },
+                        travelMode: google.maps.TravelMode.TRANSIT,
+                        transitOptions: {
+                          modes: [google.maps.TransitMode.TRAIN, google.maps.TransitMode.RAIL],
+                          departureTime: departureTime
                         }
                       });
+
+                      if (transitResult.routes && transitResult.routes.length > 0) {
+                        transitResult.routes.forEach((route) => {
+                          const leg = route.legs[0];
+                          const transitSteps = leg.steps.filter(step =>
+                            step.travel_mode === google.maps.TravelMode.TRANSIT &&
+                            step.transit?.line.vehicle.type.toLowerCase().includes('train')
+                          );
+
+                          if (transitSteps.length > 0) {
+                            const firstTransit = transitSteps[0].transit!;
+                            const option: TransportOption = {
+                              mode: 'Train',
+                              duration: leg.duration?.text || '',
+                              distance: leg.distance?.text || '',
+                              icon: <Train className="w-5 h-5" />,
+                              details: `Train · ${leg.duration?.text || ''}`,
+                              operator: firstTransit.line.agencies?.[0]?.name || firstTransit.line.name || 'Unknown operator',
+                              departureTime: leg.departure_time?.text,
+                              arrivalTime: leg.arrival_time?.text,
+                              stops: transitSteps.map(step =>
+                                `${step.transit!.departure_stop?.name} → ${step.transit!.arrival_stop?.name}`
+                              )
+                            };
+
+                            // Only add if not already present
+                            if (!trainRoutes.some(r =>
+                              r.departureTime === option.departureTime &&
+                              r.arrivalTime === option.arrivalTime
+                            )) {
+                              trainRoutes.push(option);
+                            }
+                          }
+                        });
+                      }
+                    } catch (error) {
+                      // Silently handle routing errors
+                      console.debug('Error finding route between stations:', error);
                     }
-                  } catch (error) {
-                    setDebugInfo(prev => prev + 
-                      `Error finding route between stations: ${error}\n`
-                    );
                   }
                 }
               }
-            }
 
-            if (trainRoutes.length > 0) {
-              options.push(...trainRoutes);
-            } else {
-              setDebugInfo(prev => prev + '\nNo train routes found after trying all station combinations');
+              if (trainRoutes.length > 0) {
+                options.push(...trainRoutes);
+              }
             }
-
           } catch (error) {
-            console.error('Transit options not available:', error);
-            setDebugInfo(prev => prev + `\nError finding train stations: ${error}`);
+            // Silently handle train station search errors
+            console.debug('Train options not available:', error);
           }
         }
 
@@ -321,7 +307,7 @@ const TransportPopup: React.FC<TransportPopupProps> = ({
               duration: `~${Math.floor(flightDuration / 60)}h ${flightDuration % 60}m`,
               distance: `${Math.round(distance / 1000)} km`,
               icon: <Plane className="w-5 h-5" />,
-              details: `Flight · ~${Math.floor(flightDuration / 60)}h ${flightDuration % 60}m · ${Math.round(distance / 1000)}km`,
+              details: `Flight · ~${Math.floor(flightDuration / 60)}h ${flightDuration % 60}m`,
               price: 'Check airlines for current prices',
               operator: 'Multiple airlines operate on this route'
             });
@@ -495,20 +481,24 @@ const TransportPopup: React.FC<TransportPopupProps> = ({
 
         {/* Transport Mode Tabs */}
         <div className="px-6 flex items-center gap-3 border-b border-gray-200 pb-3">
-          {transportModes.map(({ mode, icon }) => (
-            <button
-              key={mode}
-              onClick={() => setSelectedMode(mode)}
-              className={`px-6 py-3 rounded-full flex items-center gap-3 ${
-                selectedMode === mode
+          {transportModes
+            .filter(({ mode }) =>
+              // Only show modes that have available options
+              transportOptions.some(option => option.mode === mode)
+            )
+            .map(({ mode, icon }) => (
+              <button
+                key={mode}
+                onClick={() => setSelectedMode(mode)}
+                className={`px-6 py-3 rounded-full flex items-center gap-3 ${selectedMode === mode
                   ? 'bg-pink-500 text-white'
                   : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              {icon}
-              <span className="text-base">{mode}</span>
-            </button>
-          ))}
+                  }`}
+              >
+                {icon}
+                <span className="text-base">{mode}</span>
+              </button>
+            ))}
         </div>
 
         {/* Content */}
@@ -523,14 +513,13 @@ const TransportPopup: React.FC<TransportPopupProps> = ({
             </div>
           ) : currentOptions.length === 0 ? (
             <div className="py-12 text-center text-gray-500 text-lg flex flex-col items-center gap-4">
-              <div>No {selectedMode.toLowerCase()} options available for this route</div>
-              {selectedMode === 'Train' && debugInfo && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-lg text-left text-sm font-mono whitespace-pre-wrap max-w-full overflow-auto">
-                  <div className="flex items-center gap-2 mb-2 text-orange-600">
-                    <AlertCircle className="w-4 h-4" />
-                    <span>Debug Information:</span>
-                  </div>
-                  {debugInfo}
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-orange-500" />
+                <span>No {selectedMode.toLowerCase()} options available for this route.</span>
+              </div>
+              {selectedMode === 'Train' && (
+                <div className="text-sm text-gray-600 max-w-md text-center">
+                  Train service is not available between these destinations. Please consider other transport options.
                 </div>
               )}
             </div>

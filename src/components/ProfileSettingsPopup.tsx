@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { ProfileService, ProfileSettings } from '../services/profile.service';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 interface ProfileSettingsPopupProps {
     isOpen: boolean;
@@ -11,6 +13,8 @@ export const ProfileSettingsPopup: React.FC<ProfileSettingsPopupProps> = ({
     isOpen,
     onClose
 }) => {
+    const navigate = useNavigate();
+    const { signOut } = useAuth();
     const [settings, setSettings] = useState<ProfileSettings>({
         username: '',
         full_name: '',
@@ -63,6 +67,16 @@ export const ProfileSettingsPopup: React.FC<ProfileSettingsPopupProps> = ({
             } catch (error: any) {
                 setError(error.message || 'Failed to delete account');
             }
+        }
+    };
+
+    const handleSignOut = async () => {
+        try {
+            await signOut();
+            onClose();
+            navigate('/signin');
+        } catch (error) {
+            setError('Failed to sign out');
         }
     };
 
@@ -168,14 +182,16 @@ export const ProfileSettingsPopup: React.FC<ProfileSettingsPopupProps> = ({
 
                     {/* Action Buttons */}
                     <div className="flex items-center justify-between pt-4">
-                        <button
-                            type="button"
-                            onClick={handleSave}
-                            disabled={isSaving || isLoading}
-                            className="bg-[#00C48C] text-white px-6 py-3 rounded-full hover:bg-[#00B380] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isSaving ? 'Saving...' : 'Save settings'}
-                        </button>
+                        <div className="flex items-center gap-4">
+                            <button
+                                type="button"
+                                onClick={handleSave}
+                                disabled={isSaving || isLoading}
+                                className="bg-[#00C48C] text-white px-6 py-3 rounded-full hover:bg-[#00B380] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isSaving ? 'Saving...' : 'Save settings'}
+                            </button>
+                        </div>
 
                         <button
                             type="button"

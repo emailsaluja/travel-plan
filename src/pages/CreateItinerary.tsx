@@ -776,52 +776,46 @@ const CreateItinerary: React.FC = () => {
                 )}
               </div>
               <div>
-                {index > 0 && (
-                  <div className="flex items-center justify-center gap-2">
-                    {day.transport ? (
-                      <button
-                        disabled={index === 0}
-                        onClick={() => {
-                          if (index === 0) return;
-                          setCurrentDestinationForTransport({
-                            from: itineraryDays[index - 1].destination,
-                            to: day.destination,
-                            index
-                          });
-                          setShowTransportPopup(true);
-                        }}
-                        className="flex items-center gap-2 hover:text-[#00C48C] transition-colors"
-                      >
-                        {day.transport.includes('Drive') && <Car className="w-5 h-5 text-[#14B8A6]" />}
-                        {day.transport.includes('Air') && <Plane className="w-5 h-5 text-[#14B8A6]" />}
-                        {day.transport.includes('Train') && <Train className="w-5 h-5 text-[#14B8A6]" />}
-                        {day.transport.includes('Bus') && <BusIcon className="w-5 h-5 text-[#14B8A6]" />}
-                        <span className="text-sm font-medium text-[#1E293B]">
-                          {day.transport.split(' - ')[1]}
-                        </span>
-                      </button>
-                    ) : (
-                      <button
-                        disabled={index === 0}
-                        onClick={() => {
-                          if (index === 0) return;
-                          setCurrentDestinationForTransport({
-                            from: itineraryDays[index - 1].destination,
-                            to: day.destination,
-                            index
-                          });
-                          setShowTransportPopup(true);
-                        }}
-                        className={`w-8 h-8 rounded-full flex items-center justify-center border ${index === 0
-                          ? 'text-gray-300 border-gray-300 cursor-not-allowed'
-                          : 'text-[#14B8A6] hover:bg-[#14B8A6]/10 border-[#14B8A6]'
-                          }`}
-                      >
-                        <Plus className="w-5 h-5" />
-                      </button>
-                    )}
-                  </div>
-                )}
+                {/* Show plus icon for first row but keep it disabled */}
+                <div className="flex items-center justify-center gap-2">
+                  {day.transport ? (
+                    <button
+                      onClick={() => {
+                        setCurrentDestinationForTransport({
+                          from: day.destination,
+                          to: index < itineraryDays.length - 1 ? itineraryDays[index + 1].destination : '',
+                          index
+                        });
+                        setShowTransportPopup(true);
+                      }}
+                      className="flex flex-col items-center gap-1 hover:text-[#00C48C] transition-colors"
+                    >
+                      <div>
+                        {day.transport.includes('Drive') && <Car className="w-6 h-6 text-[#14B8A6]" />}
+                        {day.transport.includes('Air') && <Plane className="w-6 h-6 text-[#14B8A6]" />}
+                        {day.transport.includes('Train') && <Train className="w-6 h-6 text-[#14B8A6]" />}
+                        {day.transport.includes('Bus') && <BusIcon className="w-6 h-6 text-[#14B8A6]" />}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {day.transport.split(' · ')[1]}
+                      </div>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setCurrentDestinationForTransport({
+                          from: day.destination,
+                          to: index < itineraryDays.length - 1 ? itineraryDays[index + 1].destination : '',
+                          index
+                        });
+                        setShowTransportPopup(true);
+                      }}
+                      className="w-8 h-8 rounded-full flex items-center justify-center border text-[#14B8A6] hover:bg-[#14B8A6]/10 border-[#14B8A6]"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}

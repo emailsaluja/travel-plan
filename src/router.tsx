@@ -16,6 +16,7 @@ import WhyTravel from './pages/WhyTravel';
 import ViewUserItinerary from './pages/ViewUserItinerary';
 import UserPublicDashboard from './pages/UserPublicDashboard';
 import PublicItineraryView from './pages/PublicItineraryView';
+import { CountryImagesAdmin } from './components/CountryImagesAdmin';
 
 const RootLayout = () => {
   return (
@@ -56,6 +57,10 @@ export const router = createBrowserRouter([
       {
         path: 'create-itinerary',
         element: <ProtectedRoute><CreateItinerary /></ProtectedRoute>
+      },
+      {
+        path: 'admin/country-images',
+        element: <ProtectedRoute><CountryImagesAdmin /></ProtectedRoute>
       },
       {
         path: ':username',

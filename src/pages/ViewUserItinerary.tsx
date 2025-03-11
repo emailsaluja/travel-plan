@@ -5,25 +5,9 @@ import { UserItineraryView, UserItineraryViewService } from '../services/user-it
 import { GoogleMapsService, DistanceInfo } from '../services/google-maps.service';
 import UserItineraryMap from '../components/UserItineraryMap';
 import UserDayByDayView from '../components/UserDayByDayView';
-import countryImages from '../data/country-images.json';
+import { CountryImagesService } from '../services/country-images.service';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-
-interface CountryImages {
-  [key: string]: string[];
-  Japan: string[];
-  "South Korea": string[];
-  Thailand: string[];
-  Vietnam: string[];
-  Singapore: string[];
-  Indonesia: string[];
-  Malaysia: string[];
-  Philippines: string[];
-  China: string[];
-  Taiwan: string[];
-  India: string[];
-  default: string[];
-}
 
 const ViewUserItinerary: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -35,6 +19,7 @@ const ViewUserItinerary: React.FC = () => {
   const [isLiked, setIsLiked] = useState(false);
   const [distanceInfo, setDistanceInfo] = useState<(DistanceInfo | null)[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [countryImage, setCountryImage] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchItinerary = async () => {
@@ -79,14 +64,19 @@ const ViewUserItinerary: React.FC = () => {
     }
   }, [id, isAuthenticated, user]);
 
+  // Add this helper function to remove country from destination
+  const cleanDestination = (destination: string) => {
+    return destination.split(',')[0].trim();
+  };
+
   useEffect(() => {
     const fetchDistanceInfo = async () => {
       if (!itinerary || itinerary.destinations.length <= 1) return;
 
       const distances = [];
       for (let i = 0; i < itinerary.destinations.length - 1; i++) {
-        const origin = itinerary.destinations[i].destination;
-        const destination = itinerary.destinations[i + 1].destination;
+        const origin = cleanDestination(itinerary.destinations[i].destination);
+        const destination = cleanDestination(itinerary.destinations[i + 1].destination);
         try {
           const info = await GoogleMapsService.getDistanceAndDuration(origin, destination);
           distances.push(info);
@@ -101,13 +91,16 @@ const ViewUserItinerary: React.FC = () => {
     fetchDistanceInfo();
   }, [itinerary]);
 
-  // Get a random image URL for the country
-  const getCountryImage = (country: string) => {
-    const typedCountryImages = countryImages as unknown as CountryImages;
-    const images = typedCountryImages[country] || typedCountryImages.default;
-    const randomIndex = Math.floor(Math.random() * images.length);
-    return images[randomIndex];
-  };
+  useEffect(() => {
+    const loadCountryImage = async () => {
+      if (itinerary?.country) {
+        const imageUrl = await CountryImagesService.getCountryImage(itinerary.country);
+        setCountryImage(imageUrl);
+      }
+    };
+
+    loadCountryImage();
+  }, [itinerary?.country]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -158,9 +151,22 @@ const ViewUserItinerary: React.FC = () => {
         <div
           className="absolute inset-0 bg-cover bg-center bg-gray-800 transition-opacity duration-300"
           style={{
-            backgroundImage: itinerary ? `url(${getCountryImage(itinerary.country)})` : undefined,
+            backgroundImage: countryImage ? `url(${countryImage})` : undefined,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover'
           }}
-        />
+        >
+          {/* Add a loading state */}
+          {!countryImage && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
+            </div>
+          )}
+        </div>
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/20 to-black/50" />
 
         {/* Back button */}
@@ -251,7 +257,7 @@ const ViewUserItinerary: React.FC = () => {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {loading ? (
           <div>Loading...</div>
         ) : error ? (
@@ -264,7 +270,7 @@ const ViewUserItinerary: React.FC = () => {
             {activeTab === 'overview' && (
               <div className="flex flex-col lg:flex-row gap-8">
                 {/* Left Column - Destinations */}
-                <div className="w-full lg:w-2/5 space-y-6">
+                <div className="w-full lg:w-1/4 space-y-6">
                   <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                     <div className="p-6">
                       <h2 className="text-xl font-semibold mb-6">Destinations</h2>
@@ -286,7 +292,7 @@ const ViewUserItinerary: React.FC = () => {
                                   {index + 1}
                                 </span>
                                 <div>
-                                  <div className="font-semibold">{dest.destination}</div>
+                                  <div className="font-semibold">{cleanDestination(dest.destination)}</div>
                                   <div className="text-sm text-gray-500">{dest.nights} days</div>
                                 </div>
                               </h3>
@@ -303,7 +309,7 @@ const ViewUserItinerary: React.FC = () => {
                                   <div className="flex items-center gap-2 text-sm text-gray-500">
                                     <Train className="w-4 h-4" />
                                     <ArrowRight className="w-4 h-4" />
-                                    <span>{itinerary.destinations[index + 1].destination}</span>
+                                    <span>{cleanDestination(itinerary.destinations[index + 1].destination)}</span>
                                     <span className="mx-2">•</span>
                                     <span>{distanceInfo[index]?.duration}</span>
                                     <span className="mx-2">•</span>
@@ -320,14 +326,16 @@ const ViewUserItinerary: React.FC = () => {
                 </div>
 
                 {/* Right Column - Map */}
-                <div className="w-full lg:w-3/5">
+                <div className="w-full lg:w-3/4">
                   <div className="sticky top-8">
-                    <UserItineraryMap
-                      destinations={itinerary.destinations.map(d => ({
-                        destination: d.destination,
-                        nights: d.nights
-                      }))}
-                    />
+                    <div className="h-[900px]">
+                      <UserItineraryMap
+                        destinations={itinerary.destinations.map(d => ({
+                          destination: cleanDestination(d.destination),
+                          nights: d.nights
+                        }))}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -337,7 +345,10 @@ const ViewUserItinerary: React.FC = () => {
             {activeTab === 'dayByDay' && (
               <UserDayByDayView
                 startDate={itinerary.start_date}
-                destinations={itinerary.destinations}
+                destinations={itinerary.destinations.map(d => ({
+                  ...d,
+                  destination: cleanDestination(d.destination)
+                }))}
                 dayAttractions={itinerary.day_attractions.map(da => ({
                   dayIndex: da.day_index - 1,
                   attractions: da.attractions

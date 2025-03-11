@@ -31,7 +31,7 @@ const UserItineraryMap: React.FC<UserItineraryMapProps> = ({ destinations }) => 
         .map(loc => encodeURIComponent(loc.destination))
         .join('|')}`;
 
-      return `https://maps.googleapis.com/maps/api/staticmap?${markers}&${path}&size=800x600&scale=2&key=${apiKey}`;
+      return `https://maps.googleapis.com/maps/api/staticmap?${markers}&${path}&size=1000x800&scale=2&key=${apiKey}`;
     };
 
     if (destinations.length > 0) {
@@ -41,7 +41,7 @@ const UserItineraryMap: React.FC<UserItineraryMapProps> = ({ destinations }) => 
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-      <div className="relative rounded-lg overflow-hidden shadow-sm h-[600px]">
+      <div className="relative rounded-lg overflow-hidden shadow-sm h-[800px]">
         <img
           src={mapUrl}
           alt="Itinerary Map"

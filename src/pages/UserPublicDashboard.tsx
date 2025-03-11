@@ -8,6 +8,9 @@ interface UserProfile {
     full_name: string;
     measurement_system: string;
     privacy_setting: string;
+    hero_banner_url?: string;
+    profile_picture_url?: string;
+    user_id: string;
 }
 
 interface Itinerary {
@@ -57,7 +60,23 @@ const UserPublicDashboard = () => {
                 return;
             }
 
-            setProfile(profileData);
+            // Fetch user settings to get profile picture and hero banner
+            const { data: userSettings, error: settingsError } = await supabase
+                .from('user_settings')
+                .select('profile_picture_url, hero_banner_url')
+                .eq('user_id', profileData.user_id)
+                .maybeSingle();
+
+            if (settingsError) {
+                console.error('Settings fetch error:', settingsError);
+            }
+
+            // Combine profile data with user settings
+            setProfile({
+                ...profileData,
+                profile_picture_url: userSettings?.profile_picture_url || null,
+                hero_banner_url: userSettings?.hero_banner_url || null
+            });
 
             // Get public itineraries using the public schema
             const { data: itinerariesData, error: itinerariesError } = await supabase
@@ -125,13 +144,26 @@ const UserPublicDashboard = () => {
     return (
         <div className="min-h-screen bg-white">
             {/* Hero Banner */}
-            <div className="h-[300px] relative bg-gradient-to-r from-[#00C48C] to-[#00B380]">
-                <div className="absolute inset-0 bg-black/20"></div>
+            <div className="h-[300px] relative">
+                {profile.hero_banner_url ? (
+                    <div className="absolute inset-0">
+                        <img
+                            src={profile.hero_banner_url}
+                            alt="Hero Banner"
+                            className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/20"></div>
+                    </div>
+                ) : (
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#00C48C] to-[#00B380]">
+                        <div className="absolute inset-0 bg-black/20"></div>
+                    </div>
+                )}
                 <div className="max-w-[1400px] mx-auto px-4 h-full flex items-end pb-8 relative">
                     <div className="flex items-end gap-6">
                         <div className="w-32 h-32 rounded-xl bg-white shadow-lg overflow-hidden">
                             <img
-                                src="/images/profile-icon.svg"
+                                src={profile.profile_picture_url || '/images/profile-icon.svg'}
                                 alt={profile.full_name}
                                 className="w-full h-full object-cover"
                             />
