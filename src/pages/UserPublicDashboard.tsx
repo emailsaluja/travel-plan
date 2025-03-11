@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { MapPin, Calendar, Clock, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { CountryImagesService } from '../services/country-images.service';
 
 interface UserProfile {
     username: string;
@@ -32,6 +33,8 @@ const UserPublicDashboard = () => {
     const [itineraries, setItineraries] = useState<Itinerary[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [countryImages, setCountryImages] = useState<{ [key: string]: string[] }>({});
+    const [selectedImages, setSelectedImages] = useState<{ [key: string]: string }>({});
 
     useEffect(() => {
         loadUserProfile();
@@ -112,6 +115,43 @@ const UserPublicDashboard = () => {
             setLoading(false);
         }
     };
+
+    // Add effect to fetch country images
+    useEffect(() => {
+        const fetchCountryImages = async () => {
+            const countries = Array.from(new Set(itineraries.map(i => i.country)));
+            const images: Record<string, string[]> = {};
+
+            for (const country of countries) {
+                try {
+                    const imageUrls = await CountryImagesService.getCountryImages(country);
+                    if (imageUrls && imageUrls.length > 0) {
+                        images[country] = imageUrls;
+                    }
+                } catch (error) {
+                    console.error(`Error fetching images for ${country}:`, error);
+                }
+            }
+
+            setCountryImages(images);
+
+            // Assign random images for each itinerary
+            const selected: Record<string, string> = {};
+            itineraries.forEach(itinerary => {
+                const countryImageList = images[itinerary.country] || [];
+                if (countryImageList.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * countryImageList.length);
+                    selected[itinerary.id] = countryImageList[randomIndex];
+                }
+            });
+
+            setSelectedImages(selected);
+        };
+
+        if (itineraries.length > 0) {
+            fetchCountryImages();
+        }
+    }, [itineraries]);
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
@@ -200,6 +240,27 @@ const UserPublicDashboard = () => {
                                 to={`/view-itinerary/${itinerary.id}`}
                                 className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
                             >
+                                <div className="relative h-48 bg-gray-100">
+                                    {selectedImages[itinerary.id] ? (
+                                        <img
+                                            src={selectedImages[itinerary.id]}
+                                            alt={itinerary.country}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full bg-gradient-to-br from-[#00C48C] to-[#00B380]" />
+                                    )}
+                                    <div className="absolute inset-0 bg-black/20"></div>
+                                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent">
+                                        <h3 className="text-xl font-semibold text-white mb-1">
+                                            {itinerary.trip_name}
+                                        </h3>
+                                        <div className="flex items-center gap-2 text-white/90">
+                                            <MapPin className="w-4 h-4" />
+                                            <span>{itinerary.country}</span>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div className="p-4">
                                     <h3 className="text-lg font-medium text-[#1e293b] mb-4">
                                         {itinerary.trip_name}
