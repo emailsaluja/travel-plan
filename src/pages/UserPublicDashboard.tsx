@@ -39,19 +39,27 @@ const UserPublicDashboard = () => {
             setLoading(true);
             setError(null);
 
-            // First get the user profile
+            // First check if the profile exists using the public schema
             const { data: profileData, error: profileError } = await supabase
                 .from('user_profiles')
                 .select('*')
                 .eq('username', username)
-                .single();
+                .maybeSingle();
 
-            if (profileError) throw profileError;
-            if (!profileData) throw new Error('Profile not found');
+            if (profileError) {
+                console.error('Profile fetch error:', profileError);
+                setError('Error loading profile');
+                return;
+            }
+
+            if (!profileData) {
+                setError('Profile not found');
+                return;
+            }
 
             setProfile(profileData);
 
-            // Then get their itineraries with destinations included
+            // Get public itineraries using the public schema
             const { data: itinerariesData, error: itinerariesError } = await supabase
                 .from('user_itineraries')
                 .select(`
@@ -62,9 +70,13 @@ const UserPublicDashboard = () => {
                     )
                 `)
                 .eq('user_id', profileData.user_id)
+                .eq('is_private', false)
                 .order('created_at', { ascending: false });
 
-            if (itinerariesError) throw itinerariesError;
+            if (itinerariesError) {
+                console.error('Itineraries fetch error:', itinerariesError);
+                return;
+            }
 
             // Transform the data to match our interface
             const transformedItineraries = (itinerariesData || []).map(itinerary => ({
@@ -146,14 +158,14 @@ const UserPublicDashboard = () => {
 
                 {itineraries.length === 0 ? (
                     <div className="text-center py-12 bg-gray-50 rounded-xl">
-                        <p className="text-gray-600">No itineraries shared yet</p>
+                        <p className="text-gray-600">No public itineraries shared yet</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {itineraries.map((itinerary) => (
                             <Link
                                 key={itinerary.id}
-                                to={`/${username}/trips/${itinerary.id}`}
+                                to={`/view-itinerary/${itinerary.id}`}
                                 className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
                             >
                                 <div className="p-4">

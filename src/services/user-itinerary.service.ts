@@ -181,13 +181,10 @@ export const UserItineraryService = {
 
   async getItineraryById(id: string) {
     try {
+      // Get the current user, but don't require authentication
       const { data: { user } } = await supabase.auth.getUser();
 
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-
-      const { data, error } = await supabase
+      const query = supabase
         .from('user_itineraries')
         .select(`
           *,
@@ -196,9 +193,17 @@ export const UserItineraryService = {
           day_hotels:user_itinerary_day_hotels(*),
           day_notes:user_itinerary_day_notes(*)
         `)
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .single();
+        .eq('id', id);
+
+      // If user is authenticated, allow access to their private itineraries
+      if (user) {
+        query.or(`user_id.eq.${user.id},is_private.eq.false`);
+      } else {
+        // For anonymous users, only show non-private itineraries
+        query.eq('is_private', false);
+      }
+
+      const { data, error } = await query.single();
 
       if (error) {
         if (error.code === 'PGRST116') {
