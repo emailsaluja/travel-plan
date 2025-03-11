@@ -639,8 +639,20 @@ const CreateItinerary: React.FC = () => {
             <div key={index} className="grid grid-cols-[1fr,140px,200px,120px,120px,120px] gap-4 items-center bg-white rounded-lg px-4 py-3 hover:shadow-sm transition-shadow">
               <div>
                 <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-full bg-[#00C48C]/10 flex items-center justify-center text-sm font-medium text-[#00C48C]">
-                    {index + 1}
+                  <div className="relative group">
+                    <div className="w-6 h-6 rounded-full bg-[#00C48C]/10 flex items-center justify-center text-sm font-medium text-[#00C48C]">
+                      {index + 1}
+                    </div>
+                    <button
+                      onClick={() => {
+                        const newDays = [...itineraryDays];
+                        newDays.splice(index, 1);
+                        setItineraryDays(newDays);
+                      }}
+                      className="absolute -right-2 -top-2 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
                   </div>
                   <div>
                     <PlaceAutocomplete
@@ -801,8 +813,8 @@ const CreateItinerary: React.FC = () => {
                           setShowTransportPopup(true);
                         }}
                         className={`w-8 h-8 rounded-full flex items-center justify-center border ${index === 0
-                            ? 'text-gray-300 border-gray-300 cursor-not-allowed'
-                            : 'text-[#14B8A6] hover:bg-[#14B8A6]/10 border-[#14B8A6]'
+                          ? 'text-gray-300 border-gray-300 cursor-not-allowed'
+                          : 'text-[#14B8A6] hover:bg-[#14B8A6]/10 border-[#14B8A6]'
                           }`}
                       >
                         <Plus className="w-5 h-5" />

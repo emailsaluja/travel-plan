@@ -240,37 +240,81 @@ export const UserItineraryService = {
       }
 
       // Delete in correct order to handle foreign key constraints
-      const { error: attractionsError } = await supabase
-        .from('user_itinerary_day_attractions')
-        .delete()
-        .eq('itinerary_id', id);
+      console.log('Starting deletion process...');
 
-      if (attractionsError) throw attractionsError;
+      try {
+        // First check for any existing destinations and their references
+        const { data: existingDest } = await supabase
+          .from('user_itinerary_destinations')
+          .select('*')
+          .eq('itinerary_id', id);
 
-      const { error: hotelsError } = await supabase
-        .from('user_itinerary_day_hotels')
-        .delete()
-        .eq('itinerary_id', id);
+        console.log('Found existing destinations:', existingDest);
 
-      if (hotelsError) throw hotelsError;
+        // Delete all attractions first
+        console.log('Deleting attractions...');
+        const { error: attractionsError } = await supabase
+          .from('user_itinerary_day_attractions')
+          .delete()
+          .eq('itinerary_id', id);
 
-      const { error: notesError } = await supabase
-        .from('user_itinerary_day_notes')
-        .delete()
-        .eq('itinerary_id', id);
+        if (attractionsError) {
+          console.error('Failed to delete attractions:', attractionsError);
+          throw attractionsError;
+        }
 
-      if (notesError) throw notesError;
+        // Delete hotels
+        console.log('Deleting hotels...');
+        const { error: hotelsError } = await supabase
+          .from('user_itinerary_day_hotels')
+          .delete()
+          .eq('itinerary_id', id);
 
-      const { error: destinationsError } = await supabase
-        .from('user_itinerary_destinations')
-        .delete()
-        .eq('itinerary_id', id);
+        if (hotelsError) {
+          console.error('Failed to delete hotels:', hotelsError);
+          throw hotelsError;
+        }
 
-      if (destinationsError) throw destinationsError;
+        // Delete notes
+        console.log('Deleting notes...');
+        const { error: notesError } = await supabase
+          .from('user_itinerary_day_notes')
+          .delete()
+          .eq('itinerary_id', id);
 
+        if (notesError) {
+          console.error('Failed to delete notes:', notesError);
+          throw notesError;
+        }
+
+        // Delete all destinations in one operation
+        console.log('Deleting all destinations...');
+        const { error: destError } = await supabase
+          .from('user_itinerary_destinations')
+          .delete()
+          .eq('itinerary_id', id);
+
+        if (destError) {
+          console.error('Failed to delete destinations:', destError);
+          throw destError;
+        }
+
+      } catch (error) {
+        console.error('Error during deletion process:', error);
+        throw error;
+      }
+
+      // Update main itinerary
       const { error: itineraryError } = await supabase
         .from('user_itineraries')
-        .delete()
+        .update({
+          trip_name: data.tripSummary.tripName,
+          country: data.tripSummary.country,
+          start_date: data.tripSummary.startDate,
+          duration: data.tripSummary.duration,
+          passengers: data.tripSummary.passengers,
+          is_private: data.tripSummary.isPrivate
+        })
         .eq('id', id)
         .eq('user_id', user.id);
 
@@ -303,8 +347,87 @@ export const UserItineraryService = {
         throw new Error('Itinerary not found or you do not have permission to update it');
       }
 
-      // Update main itinerary
-      const { error: itineraryError } = await supabase
+      // Step 1: Delete all existing data in reverse order of dependencies
+      console.log('Starting deletion of existing data...');
+
+      // First check for any existing destinations and their references
+      const { data: existingDest } = await supabase
+        .from('user_itinerary_destinations')
+        .select(`
+          id,
+          destination,
+          user_itinerary_day_attractions (
+            id,
+            day_index
+          )
+        `)
+        .eq('itinerary_id', id);
+
+      console.log('Found existing destinations with references:', existingDest);
+
+      // Delete attractions first for each destination
+      for (const dest of (existingDest || [])) {
+        if (dest.user_itinerary_day_attractions && dest.user_itinerary_day_attractions.length > 0) {
+          console.log(`Deleting attractions for destination ${dest.id}...`);
+          const { error: attractionError } = await supabase
+            .from('user_itinerary_day_attractions')
+            .delete()
+            .eq('destination_id', dest.id);
+
+          if (attractionError) {
+            console.error(`Failed to delete attractions for destination ${dest.id}:`, attractionError);
+            throw attractionError;
+          }
+        }
+      }
+
+      // Delete any remaining attractions by itinerary_id
+      const { error: attractionsError } = await supabase
+        .from('user_itinerary_day_attractions')
+        .delete()
+        .eq('itinerary_id', id);
+
+      if (attractionsError) {
+        console.error('Failed to delete remaining attractions:', attractionsError);
+        throw attractionsError;
+      }
+
+      // Delete hotels
+      const { error: hotelsError } = await supabase
+        .from('user_itinerary_day_hotels')
+        .delete()
+        .eq('itinerary_id', id);
+
+      if (hotelsError) {
+        console.error('Failed to delete hotels:', hotelsError);
+        throw hotelsError;
+      }
+
+      // Delete notes
+      const { error: notesError } = await supabase
+        .from('user_itinerary_day_notes')
+        .delete()
+        .eq('itinerary_id', id);
+
+      if (notesError) {
+        console.error('Failed to delete notes:', notesError);
+        throw notesError;
+      }
+
+      // Delete all destinations in one operation
+      console.log('Deleting all destinations...');
+      const { error: destError } = await supabase
+        .from('user_itinerary_destinations')
+        .delete()
+        .eq('itinerary_id', id);
+
+      if (destError) {
+        console.error('Failed to delete destinations:', destError);
+        throw destError;
+      }
+
+      // Step 2: Update the main itinerary
+      const { error: itineraryUpdateError } = await supabase
         .from('user_itineraries')
         .update({
           trip_name: data.tripSummary.tripName,
@@ -317,15 +440,13 @@ export const UserItineraryService = {
         .eq('id', id)
         .eq('user_id', user.id);
 
-      if (itineraryError) throw itineraryError;
+      if (itineraryUpdateError) {
+        console.error('Failed to update itinerary:', itineraryUpdateError);
+        throw itineraryUpdateError;
+      }
 
-      // Delete existing destinations, attractions, hotels, and notes
-      await supabase.from('user_itinerary_day_attractions').delete().eq('itinerary_id', id);
-      await supabase.from('user_itinerary_day_hotels').delete().eq('itinerary_id', id);
-      await supabase.from('user_itinerary_day_notes').delete().eq('itinerary_id', id);
-      await supabase.from('user_itinerary_destinations').delete().eq('itinerary_id', id);
-
-      // Insert updated destinations
+      // Step 3: Insert new destinations
+      console.log('Inserting new destinations:', data.destinations.length);
       const destinationsToInsert = data.destinations.map((dest, index) => ({
         itinerary_id: id,
         destination: dest.destination,
@@ -337,41 +458,49 @@ export const UserItineraryService = {
         order_index: index
       }));
 
-      const { data: destinations, error: destinationsError } = await supabase
+      const { data: newDestinations, error: destinationsError } = await supabase
         .from('user_itinerary_destinations')
         .insert(destinationsToInsert)
         .select();
 
-      if (destinationsError) throw destinationsError;
+      if (destinationsError) {
+        console.error('Failed to insert destinations:', destinationsError);
+        throw destinationsError;
+      }
 
-      // Insert updated day attractions if they exist
+      // Step 4: Insert new attractions
       if (data.dayAttractions && data.dayAttractions.length > 0) {
-        let currentDestIndex = 0;
-        let daysAccumulated = 0;
-
         const attractionsToInsert = data.dayAttractions.map(day => {
-          while (currentDestIndex < data.destinations.length &&
-            daysAccumulated + data.destinations[currentDestIndex].nights <= day.dayIndex) {
-            daysAccumulated += data.destinations[currentDestIndex].nights;
+          let currentDestIndex = 0;
+          let nightsSum = 0;
+
+          while (currentDestIndex < data.destinations.length) {
+            if (nightsSum + data.destinations[currentDestIndex].nights > day.dayIndex) {
+              break;
+            }
+            nightsSum += data.destinations[currentDestIndex].nights;
             currentDestIndex++;
           }
 
           return {
             itinerary_id: id,
-            destination_id: destinations[Math.min(currentDestIndex, destinations.length - 1)].id,
+            destination_id: newDestinations[Math.min(currentDestIndex, newDestinations.length - 1)].id,
             day_index: day.dayIndex,
             attractions: day.selectedAttractions
           };
         });
 
-        const { error: attractionsError } = await supabase
+        const { error: newAttractionsError } = await supabase
           .from('user_itinerary_day_attractions')
           .insert(attractionsToInsert);
 
-        if (attractionsError) throw attractionsError;
+        if (newAttractionsError) {
+          console.error('Failed to insert attractions:', newAttractionsError);
+          throw newAttractionsError;
+        }
       }
 
-      // Insert updated day hotels if they exist
+      // Step 5: Insert new hotels
       if (data.dayHotels && data.dayHotels.length > 0) {
         const hotelsToInsert = data.dayHotels.map(day => ({
           itinerary_id: id,
@@ -379,14 +508,17 @@ export const UserItineraryService = {
           hotel: day.hotel
         }));
 
-        const { error: hotelsError } = await supabase
+        const { error: newHotelsError } = await supabase
           .from('user_itinerary_day_hotels')
           .insert(hotelsToInsert);
 
-        if (hotelsError) throw hotelsError;
+        if (newHotelsError) {
+          console.error('Failed to insert hotels:', newHotelsError);
+          throw newHotelsError;
+        }
       }
 
-      // Insert updated day notes if they exist
+      // Step 6: Insert new notes
       if (data.dayNotes && data.dayNotes.length > 0) {
         const notesToInsert = data.dayNotes.map(day => ({
           itinerary_id: id,
@@ -394,13 +526,17 @@ export const UserItineraryService = {
           notes: day.notes
         }));
 
-        const { error: notesError } = await supabase
+        const { error: newNotesError } = await supabase
           .from('user_itinerary_day_notes')
           .insert(notesToInsert);
 
-        if (notesError) throw notesError;
+        if (newNotesError) {
+          console.error('Failed to insert notes:', newNotesError);
+          throw newNotesError;
+        }
       }
 
+      console.log('Update completed successfully');
       return { success: true };
     } catch (error) {
       console.error('Error updating itinerary:', error);
