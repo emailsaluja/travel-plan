@@ -72,9 +72,10 @@ const UserPublicDashboard = () => {
 
             if (settingsError) {
                 console.error('Settings fetch error:', settingsError);
+                // Don't return here, continue with default values
             }
 
-            // Combine profile data with user settings
+            // Combine profile data with user settings, ensuring we have default values
             setProfile({
                 ...profileData,
                 profile_picture_url: userSettings?.profile_picture_url || null,
