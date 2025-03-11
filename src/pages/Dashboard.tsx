@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
+import {
   Search,
   Share2,
   MoreHorizontal,
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserItineraryService } from '../services/user-itinerary.service';
+import { ProfileSettingsPopup } from '../components/ProfileSettingsPopup';
 
 interface Itinerary {
   id: string;
@@ -41,6 +42,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [itineraries, setItineraries] = useState<Itinerary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const stats = {
     followers: 0,
@@ -74,7 +76,7 @@ const Dashboard = () => {
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     if (window.confirm('Are you sure you want to delete this itinerary?')) {
       try {
         setLoading(true);
@@ -98,7 +100,7 @@ const Dashboard = () => {
             <Link to="/" className="flex-shrink-0">
               <img src="/images/stippl-logo.svg" alt="Stippl" className="h-8" />
             </Link>
-            
+
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-4">
                 <Link to="/you" className="flex items-center gap-2 text-gray-700">
@@ -114,7 +116,7 @@ const Dashboard = () => {
                   <span>Discover</span>
                 </Link>
               </div>
-              
+
               <div className="flex items-center gap-4">
                 <Link to="/invite" className="text-[#00C48C] hover:text-[#00B380] transition-colors">
                   Invite a friend
@@ -123,7 +125,7 @@ const Dashboard = () => {
                   <Bell className="w-5 h-5 text-gray-600" />
                   <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#00C48C] rounded-full"></span>
                 </button>
-                <Link 
+                <Link
                   to="/create-itinerary"
                   className="bg-[#00C48C] text-white px-4 py-1.5 rounded-lg flex items-center gap-2 hover:bg-[#00B380] transition-colors shadow-sm"
                 >
@@ -146,7 +148,7 @@ const Dashboard = () => {
                 <img src="/images/profile-icon.svg" alt="Profile" className="w-full h-full object-cover rounded-lg" />
               </div>
               <p className="text-gray-500 mb-4">{username}</p>
-              
+
               <div className="flex items-center gap-6 text-sm">
                 <div className="text-center">
                   <div className="font-medium text-[#1e293b] mb-1">{stats.followers}</div>
@@ -179,8 +181,8 @@ const Dashboard = () => {
             {/* Navigation Links */}
             <div className="space-y-4">
               <div>
-                <Link 
-                  to="/trips" 
+                <Link
+                  to="/trips"
                   className="flex items-center justify-between text-[#1e293b] font-medium p-2 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-center gap-2">
@@ -193,8 +195,8 @@ const Dashboard = () => {
                 </Link>
               </div>
               <div>
-                <Link 
-                  to="/countries" 
+                <Link
+                  to="/countries"
                   className="flex items-center justify-between text-[#1e293b] font-medium p-2 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-center gap-2">
@@ -206,6 +208,23 @@ const Dashboard = () => {
                   </span>
                 </Link>
               </div>
+            </div>
+
+            {/* Share Profile and Settings */}
+            <div className="mt-auto pt-6 space-y-2">
+              <button
+                className="w-full flex items-center gap-2 text-[#1e293b] font-medium p-2 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <Share2 className="w-4 h-4 text-[#00C48C]" />
+                <span>Share profile</span>
+              </button>
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="w-full flex items-center gap-2 text-[#1e293b] font-medium p-2 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <Settings className="w-4 h-4 text-[#00C48C]" />
+                <span>Settings</span>
+              </button>
             </div>
           </div>
 
@@ -233,9 +252,9 @@ const Dashboard = () => {
               </div>
             ) : itineraries.length === 0 ? (
               <div className="text-center py-12 px-4 bg-white rounded-2xl border border-gray-200 shadow-sm">
-                <img 
-                  src="/images/empty-state.svg" 
-                  alt="No trips" 
+                <img
+                  src="/images/empty-state.svg"
+                  alt="No trips"
                   className="w-48 h-48 mx-auto mb-6"
                 />
                 <h3 className="text-xl font-semibold text-[#1e293b] mb-2">
@@ -255,8 +274,8 @@ const Dashboard = () => {
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {itineraries.map((itinerary) => (
-                  <div 
-                    key={itinerary.id} 
+                  <div
+                    key={itinerary.id}
                     className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                     onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
                   >
@@ -264,14 +283,14 @@ const Dashboard = () => {
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-medium text-[#1e293b]">{itinerary.trip_name}</h3>
                         <div className="flex items-center gap-2">
-                          <Link 
+                          <Link
                             to={`/create-itinerary?id=${itinerary.id}`}
                             className="p-2 rounded-lg hover:bg-gray-50 text-gray-400 hover:text-[#00C48C] transition-colors"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <Edit className="w-5 h-5" />
                           </Link>
-                          <button 
+                          <button
                             onClick={(e) => handleDelete(itinerary.id, e)}
                             className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
                           >
@@ -322,6 +341,12 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Settings Popup */}
+      <ProfileSettingsPopup
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </div>
   );
 };

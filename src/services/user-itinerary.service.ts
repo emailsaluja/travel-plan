@@ -156,12 +156,19 @@ export const UserItineraryService = {
 
   async getUserItineraries() {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       const { data, error } = await supabase
         .from('user_itineraries')
         .select(`
           *,
           destinations:user_itinerary_destinations(*)
         `)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -174,6 +181,12 @@ export const UserItineraryService = {
 
   async getItineraryById(id: string) {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       const { data, error } = await supabase
         .from('user_itineraries')
         .select(`
@@ -184,9 +197,16 @@ export const UserItineraryService = {
           day_notes:user_itinerary_day_notes(*)
         `)
         .eq('id', id)
+        .eq('user_id', user.id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST116') {
+          throw new Error('Itinerary not found or you do not have permission to view it');
+        }
+        throw error;
+      }
+
       return { data };
     } catch (error) {
       console.error('Error fetching itinerary:', error);
@@ -196,6 +216,24 @@ export const UserItineraryService = {
 
   async deleteItinerary(id: string) {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // First verify the user owns this itinerary
+      const { data: itinerary, error: checkError } = await supabase
+        .from('user_itineraries')
+        .select('id')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (checkError || !itinerary) {
+        throw new Error('Itinerary not found or you do not have permission to delete it');
+      }
+
       // Delete in correct order to handle foreign key constraints
       const { error: attractionsError } = await supabase
         .from('user_itinerary_day_attractions')
@@ -211,6 +249,13 @@ export const UserItineraryService = {
 
       if (hotelsError) throw hotelsError;
 
+      const { error: notesError } = await supabase
+        .from('user_itinerary_day_notes')
+        .delete()
+        .eq('itinerary_id', id);
+
+      if (notesError) throw notesError;
+
       const { error: destinationsError } = await supabase
         .from('user_itinerary_destinations')
         .delete()
@@ -221,7 +266,8 @@ export const UserItineraryService = {
       const { error: itineraryError } = await supabase
         .from('user_itineraries')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', user.id);
 
       if (itineraryError) throw itineraryError;
 
@@ -234,6 +280,24 @@ export const UserItineraryService = {
 
   async updateItinerary(id: string, data: SaveItineraryData) {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // First verify the user owns this itinerary
+      const { data: itinerary, error: checkError } = await supabase
+        .from('user_itineraries')
+        .select('id')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (checkError || !itinerary) {
+        throw new Error('Itinerary not found or you do not have permission to update it');
+      }
+
       // Update main itinerary
       const { error: itineraryError } = await supabase
         .from('user_itineraries')
@@ -245,7 +309,8 @@ export const UserItineraryService = {
           passengers: data.tripSummary.passengers,
           is_private: data.tripSummary.isPrivate
         })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', user.id);
 
       if (itineraryError) throw itineraryError;
 
