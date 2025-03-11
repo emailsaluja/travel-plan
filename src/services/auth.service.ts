@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { AuthError } from '@supabase/supabase-js';
 
 export class AuthService {
   static async signIn(email: string, password: string) {
@@ -8,10 +9,19 @@ export class AuthService {
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        return { data: null, error };
+      }
+
       return { data, error: null };
-    } catch (error) {
-      return { data: null, error: error.message };
+    } catch (error: any) {
+      console.error('Sign in error:', error);
+      return {
+        data: null,
+        error: {
+          message: error?.message || 'An error occurred during sign in'
+        } as AuthError
+      };
     }
   }
 
@@ -27,10 +37,18 @@ export class AuthService {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        return { data: null, error };
+      }
+
       return { data, error: null };
-    } catch (error) {
-      return { data: null, error: error.message };
+    } catch (error: any) {
+      return {
+        data: null,
+        error: {
+          message: error?.message || 'An error occurred during sign up'
+        } as AuthError
+      };
     }
   }
 
@@ -38,38 +56,62 @@ export class AuthService {
     try {
       const { error } = await supabase.auth.signOut();
       return { error };
-    } catch (error) {
-      return { error };
+    } catch (error: any) {
+      return {
+        error: {
+          message: error?.message || 'An error occurred during sign out'
+        } as AuthError
+      };
     }
   }
 
   static async getCurrentUser() {
     try {
       const { data: { user }, error } = await supabase.auth.getUser();
-      if (error) throw error;
+      if (error) {
+        return { user: null, error };
+      }
       return { user, error: null };
-    } catch (error) {
-      return { user: null, error: error.message };
+    } catch (error: any) {
+      return {
+        user: null,
+        error: {
+          message: error?.message || 'An error occurred while getting user'
+        } as AuthError
+      };
     }
   }
 
   static async getCurrentSession() {
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) throw error;
+      if (error) {
+        return { session: null, error };
+      }
       return { session, error: null };
-    } catch (error) {
-      return { session: null, error: error.message };
+    } catch (error: any) {
+      return {
+        session: null,
+        error: {
+          message: error?.message || 'An error occurred while getting session'
+        } as AuthError
+      };
     }
   }
 
   static async resetPassword(email: string) {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email);
-      if (error) throw error;
+      if (error) {
+        return { error };
+      }
       return { error: null };
-    } catch (error) {
-      return { error: error.message };
+    } catch (error: any) {
+      return {
+        error: {
+          message: error?.message || 'An error occurred while resetting password'
+        } as AuthError
+      };
     }
   }
 } 

@@ -4,7 +4,10 @@ import { supabase } from '../lib/supabase';
 
 export interface AuthContextType {
   isAuthenticated: boolean;
+  setIsAuthenticated: (value: boolean) => void;
   user: User | null;
+  userEmail: string;
+  setUserEmail: (email: string) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -17,6 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [userEmail, setUserEmail] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,6 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
       setIsAuthenticated(!!session?.user);
+      setUserEmail(session?.user?.email || '');
       setLoading(false);
     };
 
@@ -35,6 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setIsAuthenticated(!!session?.user);
+      setUserEmail(session?.user?.email || '');
       setLoading(false);
     });
 
@@ -72,6 +78,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(true);
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      setIsAuthenticated(false);
+      setUserEmail('');
+      setUser(null);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'An error occurred during sign out');
     } finally {
@@ -81,7 +90,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const value = {
     isAuthenticated,
+    setIsAuthenticated,
     user,
+    userEmail,
+    setUserEmail,
     signIn,
     signUp,
     signOut,
