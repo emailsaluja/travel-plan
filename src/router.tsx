@@ -17,6 +17,7 @@ import ViewUserItinerary from './pages/ViewUserItinerary';
 import UserPublicDashboard from './pages/UserPublicDashboard';
 import PublicItineraryView from './pages/PublicItineraryView';
 import { CountryImagesAdmin } from './components/CountryImagesAdmin';
+import Discover from './pages/Discover';
 
 const RootLayout = () => {
   return (
@@ -40,6 +41,7 @@ export const router = createBrowserRouter([
       { path: 'email-confirmation', element: <EmailConfirmation /> },
       { path: 'how', element: <How /> },
       { path: 'whytravel', element: <WhyTravel /> },
+      { path: 'discover', element: <Discover /> },
       { path: 'view-itinerary/:id', element: <ViewUserItinerary /> },
       {
         path: 'dashboard',

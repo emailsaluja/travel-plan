@@ -72,10 +72,10 @@ const Navigation1: React.FC = () => {
                   Creators
                 </Link>
                 <Link
-                  to="/blog"
+                  to="/discover"
                   className="text-gray-600 hover:text-gray-900 px-3 py-2 text-[15px] font-medium"
                 >
-                  Blog
+                  Discover
                 </Link>
               </>
             )}
@@ -171,10 +171,10 @@ const Navigation1: React.FC = () => {
                   Creators
                 </Link>
                 <Link
-                  to="/blog"
+                  to="/discover"
                   className="block px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50"
                 >
-                  Blog
+                  Discover
                 </Link>
                 <Link
                   to="/signin"
