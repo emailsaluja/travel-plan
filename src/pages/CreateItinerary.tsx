@@ -81,6 +81,7 @@ interface TripSummary {
   startDate: string;
   passengers: number;
   isPrivate: boolean;
+  tags: string[];
 }
 
 type TabType = 'destinations' | 'day-by-day';
@@ -129,7 +130,8 @@ const CreateItinerary: React.FC = () => {
     duration: 1,
     startDate: new Date().toISOString().split('T')[0],
     passengers: 1,
-    isPrivate: false
+    isPrivate: false,
+    tags: []
   });
   const [itineraryDays, setItineraryDays] = useState<ItineraryDay[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>('destinations');
@@ -155,6 +157,17 @@ const CreateItinerary: React.FC = () => {
   const [showFoodPopup, setShowFoodPopup] = useState(false);
   const [activeDestinationIndexForFood, setActiveDestinationIndexForFood] = useState<number | null>(null);
 
+  // Add available tags constant
+  const AVAILABLE_TAGS = [
+    { id: 'family', label: 'Family Friendly 👨‍👩‍👧‍👦' },
+    { id: 'bucket-list', label: 'Bucket List 🌟' },
+    { id: 'popular', label: 'Most Popular 🔥' },
+    { id: 'adventure', label: 'Adventure 🏃‍♂️' },
+    { id: 'short', label: 'Short Trip ⚡' },
+    { id: 'multi-country', label: 'Multi Country 🌎' },
+    { id: 'europe', label: 'Europe 🏰' }
+  ];
+
   useEffect(() => {
     const loadExistingItinerary = async () => {
       if (itineraryId) {
@@ -170,7 +183,8 @@ const CreateItinerary: React.FC = () => {
               duration: data.duration,
               startDate: data.start_date,
               passengers: data.passengers,
-              isPrivate: data.is_private
+              isPrivate: data.is_private,
+              tags: data.tags || []
             });
             setCountrySearch(data.country);
 
@@ -272,54 +286,47 @@ const CreateItinerary: React.FC = () => {
   const handleSave = async () => {
     try {
       setLoading(true);
+      setError(null);
+
+      const saveData = {
+        tripSummary: {
+          tripName: tripSummary.tripName,
+          country: tripSummary.country,
+          duration: tripSummary.duration,
+          startDate: tripSummary.startDate,
+          passengers: tripSummary.passengers,
+          isPrivate: tripSummary.isPrivate,
+          tags: tripSummary.tags
+        },
+        destinations: itineraryDays.map(day => ({
+          destination: day.destination,
+          nights: day.nights,
+          discover: day.discover,
+          transport: day.transport,
+          notes: day.notes,
+          food: day.food || ''
+        })),
+        dayAttractions,
+        dayHotels: dayHotels.map(dh => ({
+          day_index: dh.dayIndex,
+          hotel: dh.hotel
+        })),
+        dayNotes: dayNotes.map(dn => ({
+          day_index: dn.dayIndex,
+          notes: dn.notes
+        }))
+      };
+
       if (itineraryId) {
-        // Update existing itinerary
-        await UserItineraryService.updateItinerary(itineraryId, {
-          tripSummary,
-          destinations: itineraryDays.map(day => ({
-            destination: day.destination,
-            nights: day.nights,
-            discover: day.discover,
-            transport: day.transport,
-            notes: day.notes,
-            food: day.food || ''
-          })),
-          dayAttractions,
-          dayHotels: dayHotels.map(dh => ({
-            day_index: dh.dayIndex,
-            hotel: dh.hotel
-          })),
-          dayNotes: dayNotes.map(dn => ({
-            day_index: dn.dayIndex,
-            notes: dn.notes
-          }))
-        });
+        await UserItineraryService.updateItinerary(itineraryId, saveData);
       } else {
-        // Create new itinerary
-        await UserItineraryService.saveItinerary({
-          tripSummary,
-          destinations: itineraryDays.map(day => ({
-            destination: day.destination,
-            nights: day.nights,
-            discover: day.discover,
-            transport: day.transport,
-            notes: day.notes,
-            food: day.food || ''
-          })),
-          dayAttractions,
-          dayHotels: dayHotels.map(dh => ({
-            day_index: dh.dayIndex,
-            hotel: dh.hotel
-          })),
-          dayNotes: dayNotes.map(dn => ({
-            day_index: dn.dayIndex,
-            notes: dn.notes
-          }))
-        });
+        await UserItineraryService.saveItinerary(saveData);
       }
+
       navigate('/dashboard');
     } catch (error) {
       console.error('Error saving itinerary:', error);
+      setError('Failed to save itinerary. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -859,7 +866,6 @@ const CreateItinerary: React.FC = () => {
   const handleTripSummaryUpdate = (updatedSummary: typeof tripSummary) => {
     setTripSummary(updatedSummary);
     setShowTripSummaryEdit(false);
-    setShouldUpdateDayAttractions(true);
   };
 
   // Add new handler for transport selection
@@ -933,7 +939,15 @@ const CreateItinerary: React.FC = () => {
             {/* Left Sidebar */}
             <div className="w-[240px] flex-shrink-0">
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
-                <h2 className="text-lg font-[600] font-['Poppins',sans-serif] text-[#1e293b] mb-4">Trip Summary</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-[600] font-['Poppins',sans-serif] text-[#1e293b]">Trip Summary</h2>
+                  <button
+                    onClick={() => setShowTripSummaryEdit(true)}
+                    className="p-2 text-gray-500 hover:text-[#00C48C] rounded-lg transition-colors"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                </div>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Trip Name</label>
@@ -1202,11 +1216,154 @@ const CreateItinerary: React.FC = () => {
         />
 
         {showTripSummaryEdit && (
-          <TripSummaryEdit
-            tripSummary={tripSummary}
-            onSave={handleTripSummaryUpdate}
-            onCancel={() => setShowTripSummaryEdit(false)}
-          />
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+              <h2 className="text-2xl font-bold mb-4">Edit Trip Summary</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Trip Name</label>
+                  <input
+                    type="text"
+                    name="tripName"
+                    value={tripSummary.tripName}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 rounded-md shadow-sm p-2"
+                    placeholder="Enter trip name"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={tripSummary.country || countrySearch}
+                      onChange={(e) => {
+                        setCountrySearch(e.target.value);
+                        setShowCountries(true);
+                        if (tripSummary.country) {
+                          setTripSummary(prev => ({ ...prev, country: '' }));
+                        }
+                      }}
+                      onFocus={() => setShowCountries(true)}
+                      className="w-full border border-gray-300 rounded-md shadow-sm p-2"
+                      placeholder="Select a country"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2"
+                      onClick={() => setShowCountries(!showCountries)}
+                    >
+                      <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+                  <input
+                    type="number"
+                    name="duration"
+                    value={tripSummary.duration}
+                    onChange={handleInputChange}
+                    min="1"
+                    className="w-full border border-gray-300 rounded-md shadow-sm p-2"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    name="startDate"
+                    value={tripSummary.startDate}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 rounded-md shadow-sm p-2"
+                    min={new Date().toISOString().split('T')[0]}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Passengers</label>
+                  <input
+                    type="number"
+                    name="passengers"
+                    value={tripSummary.passengers}
+                    onChange={handleInputChange}
+                    min="1"
+                    className="w-full border border-gray-300 rounded-md shadow-sm p-2"
+                    required
+                  />
+                </div>
+                <div className="mt-4">
+                  <label className="flex items-center justify-between text-sm font-medium text-gray-700">
+                    <span>Privacy</span>
+                    <button
+                      type="button"
+                      onClick={() => setTripSummary(prev => ({ ...prev, isPrivate: !prev.isPrivate }))}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${tripSummary.isPrivate ? 'bg-[#00C48C]' : 'bg-gray-200'
+                        }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${tripSummary.isPrivate ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                      />
+                    </button>
+                  </label>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {tripSummary.isPrivate ? 'Only you can view this itinerary' : 'Anyone with the link can view this itinerary'}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Trip Tags
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {AVAILABLE_TAGS.map(tag => (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() => {
+                          const newTags = tripSummary.tags.includes(tag.id)
+                            ? tripSummary.tags.filter(t => t !== tag.id)
+                            : [...tripSummary.tags, tag.id];
+                          setTripSummary(prev => ({ ...prev, tags: newTags }));
+                        }}
+                        className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors
+                          ${tripSummary.tags.includes(tag.id)
+                            ? 'bg-[#00C48C] text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                      >
+                        {tag.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Select all tags that apply to your trip
+                  </p>
+                </div>
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowTripSummaryEdit(false)}
+                    className="px-4 py-2 text-gray-700 hover:text-gray-900"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTripSummaryUpdate(tripSummary)}
+                    className="px-4 py-2 text-white bg-rose-500 rounded-md hover:bg-rose-600"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         <FoodPopup

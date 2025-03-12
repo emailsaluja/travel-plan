@@ -127,8 +127,10 @@ body {
 
 /* Hide scrollbar for IE, Edge and Firefox */
 .hide-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
 
 /* Smooth scrolling */
@@ -136,3 +138,15 @@ body {
   scroll-behavior: smooth;
 }
 
+/* Add scrollbar hiding styles */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  /* Internet Explorer and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+  /* Chrome, Safari and Opera */
+}

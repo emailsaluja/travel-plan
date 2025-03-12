@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { UserItineraryService } from '../services/user-itinerary.service';
 import { CountryImagesService } from '../services/country-images.service';
 import ItineraryTile from '../components/ItineraryTile';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Country-specific information
 const countryInfo: Record<string, {
@@ -73,7 +74,127 @@ const countryInfo: Record<string, {
             '🎫 Book temples in advance'
         ]
     },
-    // Add more countries as needed
+    'Fiji': {
+        bestSeasons: ['🌞 Dry Season: May - October', '🌴 Shoulder Season: November - April'],
+        seasonDescription: 'Dry season offers perfect beach weather and clear waters for diving',
+        famousFor: [
+            '🏖️ Pristine Beaches',
+            '🤿 Coral Reefs',
+            '🌺 Island Culture',
+            '🌊 Water Sports'
+        ],
+        attractions: [
+            '🏝️ Mamanuca Islands',
+            '🐠 Great Astrolabe Reef',
+            '🌺 Garden of the Sleeping Giant',
+            '🏊‍♂️ Blue Lagoon',
+            '🗿 Tavuni Hill Fort'
+        ],
+        food: [
+            '🐟 Kokoda (Raw Fish in Coconut)',
+            '🥥 Lovo (Earth Oven Feast)',
+            '🍖 Duruka (Fijian Asparagus)',
+            '🥘 Taro & Cassava',
+            '🥭 Tropical Fruits'
+        ],
+        travelTips: [
+            '🏨 Book resorts in advance',
+            '🚤 Plan island hopping',
+            '🧴 Pack reef-safe sunscreen',
+            '🌧️ Check weather forecasts'
+        ]
+    },
+    'Thailand': {
+        bestSeasons: ['🌞 Cool Season: November - February', '🌸 Shoulder Season: March - May'],
+        seasonDescription: 'Cool season offers comfortable temperatures and minimal rain',
+        famousFor: [
+            '🏖️ Tropical Beaches',
+            '🍜 Street Food',
+            '⛩️ Ancient Temples',
+            '🎉 Vibrant Nightlife'
+        ],
+        attractions: [
+            '🏯 Grand Palace Bangkok',
+            '🏖️ Phi Phi Islands',
+            '🐘 Elephant Nature Park',
+            '⛩️ Wat Arun',
+            '🌆 Khao San Road'
+        ],
+        food: [
+            '🍜 Pad Thai',
+            '🥘 Tom Yum Goong',
+            '🥭 Mango Sticky Rice',
+            '🍖 Satay',
+            '🥗 Som Tam'
+        ],
+        travelTips: [
+            '👕 Dress modestly at temples',
+            '💧 Drink bottled water',
+            '🛵 Use ride-hailing apps',
+            '🏷️ Learn basic bargaining'
+        ]
+    },
+    'Vietnam': {
+        bestSeasons: ['🍂 Fall: September - December', '🌸 Spring: March - April'],
+        seasonDescription: 'Fall and spring offer mild temperatures and less rainfall',
+        famousFor: [
+            '🏔️ Rice Terraces',
+            '🚣 Ha Long Bay',
+            '🍜 Street Food Culture',
+            '🏛️ Historical Sites'
+        ],
+        attractions: [
+            '🚣 Ha Long Bay',
+            '🏙️ Hoi An Ancient Town',
+            '🏔️ Sapa Rice Terraces',
+            '🕌 Notre Dame Cathedral',
+            '🏰 Imperial City Hue'
+        ],
+        food: [
+            '🍜 Pho',
+            '🥖 Banh Mi',
+            '🥘 Bun Cha',
+            '☕ Vietnamese Coffee',
+            '🥗 Fresh Spring Rolls'
+        ],
+        travelTips: [
+            '🛵 Be careful crossing streets',
+            '💵 Carry small bills',
+            '🚌 Book sleeper buses ahead',
+            '☔ Pack rain gear'
+        ]
+    },
+    'Indonesia': {
+        bestSeasons: ['🌞 Dry Season: April - October', '🌺 Shoulder Season: March & November'],
+        seasonDescription: 'Dry season is perfect for beach activities and temple visits',
+        famousFor: [
+            '🏖️ Tropical Paradise',
+            '🏊‍♂️ Diving Spots',
+            '🛕 Ancient Temples',
+            '🌋 Volcanoes'
+        ],
+        attractions: [
+            '🛕 Borobudur Temple',
+            '🏖️ Bali Beaches',
+            '🌋 Mount Bromo',
+            '🦎 Komodo Island',
+            '🌺 Ubud Monkey Forest'
+        ],
+        food: [
+            '🍛 Nasi Goreng',
+            '🥘 Rendang',
+            '🍖 Satay',
+            '🥜 Gado Gado',
+            '🍜 Mie Goreng'
+        ],
+        travelTips: [
+            '🚕 Use reliable taxi apps',
+            '🛵 Rent scooters carefully',
+            '💧 Drink bottled water',
+            '🦟 Use mosquito repellent'
+        ]
+    }
+    // You can continue adding more countries as needed
 };
 
 // Default country information for countries not in the mapping
@@ -120,7 +241,56 @@ interface Itinerary {
         destination: string;
         nights: number;
     }[];
+    tags?: string[];
 }
+
+const ScrollableSection: React.FC<{
+    title: string;
+    children: React.ReactNode;
+}> = ({ title, children }) => {
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const scroll = (direction: 'left' | 'right') => {
+        if (scrollContainerRef.current) {
+            const scrollAmount = 600; // Adjust this value to control scroll distance
+            const newScrollLeft = scrollContainerRef.current.scrollLeft + (direction === 'left' ? -scrollAmount : scrollAmount);
+            scrollContainerRef.current.scrollTo({
+                left: newScrollLeft,
+                behavior: 'smooth'
+            });
+        }
+    };
+
+    return (
+        <div className="mb-12">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">{title}</h2>
+            <div className="relative group">
+                <div
+                    ref={scrollContainerRef}
+                    className="overflow-x-auto pb-4 hide-scrollbar"
+                >
+                    <div className="flex gap-4 min-w-max">
+                        {children}
+                    </div>
+                </div>
+
+                <button
+                    onClick={() => scroll('left')}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white shadow-lg rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 -translate-x-1/2 z-10"
+                >
+                    <ChevronLeft className="w-6 h-6 text-gray-700" />
+                </button>
+
+                <button
+                    onClick={() => scroll('right')}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white shadow-lg rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 translate-x-1/2 z-10"
+                >
+                    <ChevronRight className="w-6 h-6 text-gray-700" />
+                </button>
+            </div>
+        </div>
+    );
+};
 
 const Discover: React.FC = () => {
     const { country: urlCountry } = useParams<{ country?: string }>();
@@ -160,37 +330,78 @@ const Discover: React.FC = () => {
             const countries = Object.keys(countryStats);
             const images: Record<string, string[]> = {};
 
+            console.log('Fetching images for countries:', countries);
+
             for (const country of countries) {
                 try {
+                    console.log(`Fetching images for ${country}...`);
                     const imageUrls = await CountryImagesService.getCountryImages(country);
+                    console.log(`Received ${imageUrls.length} images for ${country}:`, imageUrls);
+
                     if (imageUrls && imageUrls.length > 0) {
-                        images[country] = imageUrls;
+                        // Ensure URLs are properly formatted and filter out low-quality images
+                        const formattedUrls = imageUrls.map(url => {
+                            try {
+                                const urlObj = new URL(url);
+                                // Add quality parameters for Supabase storage URLs
+                                if (url.includes('supabase.co')) {
+                                    // Ensure we're getting the highest quality version
+                                    urlObj.searchParams.set('quality', '100');
+                                    urlObj.searchParams.set('width', '1920');
+                                    return urlObj.toString();
+                                }
+                                return url;
+                            } catch {
+                                console.error(`Invalid URL format: ${url}`);
+                                return null;
+                            }
+                        }).filter(url => url !== null) as string[];
+
+                        const sortedUrls = formattedUrls.sort((a, b) => {
+                            const aIsUnsplash = a.includes('unsplash.com');
+                            const bIsUnsplash = b.includes('unsplash.com');
+                            if (aIsUnsplash && !bIsUnsplash) return -1;
+                            if (!aIsUnsplash && bIsUnsplash) return 1;
+                            return 0;
+                        });
+
+                        if (sortedUrls.length > 0) {
+                            images[country] = sortedUrls;
+                            console.log(`Sorted URLs for ${country}:`, sortedUrls);
+                        }
                     }
                 } catch (error) {
                     console.error(`Error fetching images for ${country}:`, error);
                 }
             }
 
+            console.log('Final images object:', images);
             setCountryImages(images);
 
-            // Assign random images for each itinerary and country
             const selected: Record<string, string> = {};
-            itineraries.forEach(itinerary => {
-                const countryImageList = images[itinerary.country] || [];
-                if (countryImageList.length > 0) {
-                    const randomIndex = Math.floor(Math.random() * countryImageList.length);
-                    selected[itinerary.id] = countryImageList[randomIndex];
-                }
-            });
 
+            // Select hero images for countries (prioritize high-quality images)
             Object.keys(countryStats).forEach(country => {
                 const countryImageList = images[country] || [];
                 if (countryImageList.length > 0) {
-                    const randomIndex = Math.floor(Math.random() * countryImageList.length);
-                    selected[country] = countryImageList[randomIndex];
+                    // For hero images, always use the first (highest quality) image
+                    selected[country] = countryImageList[0];
+                    console.log(`Selected hero image for ${country}:`, countryImageList[0]);
                 }
             });
 
+            // Select images for itineraries
+            itineraries.forEach(itinerary => {
+                const countryImageList = images[itinerary.country] || [];
+                if (countryImageList.length > 0) {
+                    // For itinerary tiles, we can use any high-quality image
+                    const randomIndex = Math.floor(Math.random() * countryImageList.length);
+                    selected[itinerary.id] = countryImageList[randomIndex];
+                    console.log(`Selected image for itinerary ${itinerary.id}:`, countryImageList[randomIndex]);
+                }
+            });
+
+            console.log('Final selected images:', selected);
             setSelectedImages(selected);
         };
 
@@ -265,18 +476,30 @@ const Discover: React.FC = () => {
                     ← Back to Discover
                 </button>
                 <div className="relative overflow-hidden mb-8">
-                    <div className="h-[600px]">
+                    <div className="relative h-[400px] w-full">
                         <img
-                            src={selectedImages[normalizedUrlCountry] || '/images/placeholder.jpg'}
+                            src={selectedImages[normalizedUrlCountry] || '/images/empty-state.svg'}
                             alt={normalizedUrlCountry}
-                            className="w-full h-full object-cover"
+                            className="absolute inset-0 w-full h-full object-cover object-center"
+                            style={{
+                                imageRendering: 'crisp-edges',
+                                maxWidth: '100%',
+                                maxHeight: '100%'
+                            }}
+                            onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                console.error(`Failed to load image: ${target.src}`);
+                                target.src = '/images/empty-state.svg';
+                            }}
+                            loading="eager"
+                            fetchPriority="high"
                         />
-                        <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/60"></div>
                         <div className="absolute inset-0 flex flex-col justify-center max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                            <h1 className="text-3xl font-bold text-white mb-1">
+                            <h1 className="text-4xl font-bold text-white mb-2 drop-shadow-lg">
                                 Discover {normalizedUrlCountry}
                             </h1>
-                            <p className="text-lg text-white opacity-90">
+                            <p className="text-xl text-white opacity-90 drop-shadow-md">
                                 {countryData.count} itineraries to explore
                             </p>
                         </div>
@@ -407,12 +630,12 @@ const Discover: React.FC = () => {
                                     id={itinerary.id}
                                     title={itinerary.trip_name}
                                     description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => stripCountryFromDestination(d.destination, normalizedUrlCountry))
+                                        .map(d => stripCountryFromDestination(d.destination, itinerary.country))
                                         .join(', ')}`}
-                                    imageUrl={selectedImages[itinerary.id]}
+                                    imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
                                     duration={itinerary.duration}
                                     cities={itinerary.destinations.map(d =>
-                                        stripCountryFromDestination(d.destination, normalizedUrlCountry)
+                                        stripCountryFromDestination(d.destination, itinerary.country)
                                     )}
                                     createdAt={itinerary.created_at}
                                 />
@@ -428,35 +651,199 @@ const Discover: React.FC = () => {
     return (
         <div className="min-h-screen bg-white pt-16">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                <h1 className="text-3xl font-bold text-gray-900 mb-8">Discover</h1>
-
-                <div className="mb-12">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Show by Country</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {Object.entries(countryStats).map(([country, { count }]) => (
-                            <div
-                                key={country}
-                                onClick={() => handleCountryClick(country)}
-                                className="relative overflow-hidden rounded-lg cursor-pointer transform transition-transform hover:scale-[1.02]"
-                            >
-                                <div className="aspect-w-16 aspect-h-9">
-                                    <img
-                                        src={selectedImages[country] || '/images/placeholder.jpg'}
-                                        alt={country}
-                                        className="w-full h-full object-cover"
-                                    />
-                                    <div className="absolute inset-0 bg-black bg-opacity-40"></div>
-                                    <div className="absolute inset-0 p-6 flex flex-col justify-between">
-                                        <div className="text-white">
-                                            <h3 className="text-xl font-semibold">{country}</h3>
-                                            <p className="text-sm opacity-90">{count} itineraries</p>
-                                        </div>
+                {/* Countries Section */}
+                <ScrollableSection title="Explore these Countries">
+                    {Object.entries(countryStats).map(([country, { count }]) => (
+                        <div
+                            key={country}
+                            onClick={() => handleCountryClick(country)}
+                            className="relative overflow-hidden rounded-lg cursor-pointer transform transition-transform hover:scale-[1.02] shadow-md w-[280px]"
+                        >
+                            <div className="relative pb-[66.67%]">
+                                <img
+                                    src={selectedImages[country] || '/images/empty-state.svg'}
+                                    alt={country}
+                                    className="absolute inset-0 w-full h-full object-cover"
+                                    onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        console.error(`Failed to load image: ${target.src}`);
+                                        target.src = '/images/empty-state.svg';
+                                    }}
+                                    loading="lazy"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/60"></div>
+                                <div className="absolute inset-0 p-4 flex flex-col justify-end">
+                                    <div className="text-white">
+                                        <h3 className="text-lg font-semibold">{country}</h3>
+                                        <p className="text-sm opacity-90">{count} itineraries</p>
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    ))}
+                </ScrollableSection>
+
+                {/* Most Popular Itineraries Section */}
+                <ScrollableSection title="Most Popular Itineraries">
+                    {itineraries
+                        .filter(itinerary => itinerary.tags?.includes('popular'))
+                        .map((itinerary) => (
+                            <div
+                                key={itinerary.id}
+                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                                className="cursor-pointer w-[300px]"
+                            >
+                                <ItineraryTile
+                                    id={itinerary.id}
+                                    title={itinerary.trip_name}
+                                    description={`${itinerary.duration} days in ${itinerary.destinations
+                                        .map(d => stripCountryFromDestination(d.destination, itinerary.country))
+                                        .join(', ')}`}
+                                    imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                    duration={itinerary.duration}
+                                    cities={itinerary.destinations.map(d =>
+                                        stripCountryFromDestination(d.destination, itinerary.country)
+                                    )}
+                                    createdAt={itinerary.created_at}
+                                />
+                            </div>
                         ))}
-                    </div>
-                </div>
+                </ScrollableSection>
+
+                {/* Bucket List Experiences Section */}
+                <ScrollableSection title="Bucket List Experiences">
+                    {itineraries
+                        .filter(itinerary => itinerary.tags?.includes('bucket-list'))
+                        .map((itinerary) => (
+                            <div
+                                key={itinerary.id}
+                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                                className="cursor-pointer w-[300px]"
+                            >
+                                <ItineraryTile
+                                    id={itinerary.id}
+                                    title={itinerary.trip_name}
+                                    description={`${itinerary.duration} days in ${itinerary.destinations
+                                        .map(d => stripCountryFromDestination(d.destination, itinerary.country))
+                                        .join(', ')}`}
+                                    imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                    duration={itinerary.duration}
+                                    cities={itinerary.destinations.map(d =>
+                                        stripCountryFromDestination(d.destination, itinerary.country)
+                                    )}
+                                    createdAt={itinerary.created_at}
+                                />
+                            </div>
+                        ))}
+                </ScrollableSection>
+
+                {/* Family Friendly Itineraries Section */}
+                <ScrollableSection title="Family Friendly Itineraries">
+                    {itineraries
+                        .filter(itinerary => itinerary.tags?.includes('family'))
+                        .map((itinerary) => (
+                            <div
+                                key={itinerary.id}
+                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                                className="cursor-pointer w-[300px]"
+                            >
+                                <ItineraryTile
+                                    id={itinerary.id}
+                                    title={itinerary.trip_name}
+                                    description={`${itinerary.duration} days in ${itinerary.destinations
+                                        .map(d => stripCountryFromDestination(d.destination, itinerary.country))
+                                        .join(', ')}`}
+                                    imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                    duration={itinerary.duration}
+                                    cities={itinerary.destinations.map(d =>
+                                        stripCountryFromDestination(d.destination, itinerary.country)
+                                    )}
+                                    createdAt={itinerary.created_at}
+                                />
+                            </div>
+                        ))}
+                </ScrollableSection>
+
+                {/* Adventurous Itineraries Section */}
+                <ScrollableSection title="Adventurous Itineraries">
+                    {itineraries
+                        .filter(itinerary => itinerary.tags?.includes('adventure'))
+                        .map((itinerary) => (
+                            <div
+                                key={itinerary.id}
+                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                                className="cursor-pointer w-[300px]"
+                            >
+                                <ItineraryTile
+                                    id={itinerary.id}
+                                    title={itinerary.trip_name}
+                                    description={`${itinerary.duration} days in ${itinerary.destinations
+                                        .map(d => stripCountryFromDestination(d.destination, itinerary.country))
+                                        .join(', ')}`}
+                                    imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                    duration={itinerary.duration}
+                                    cities={itinerary.destinations.map(d =>
+                                        stripCountryFromDestination(d.destination, itinerary.country)
+                                    )}
+                                    createdAt={itinerary.created_at}
+                                />
+                            </div>
+                        ))}
+                </ScrollableSection>
+
+                {/* Short Trips Section */}
+                <ScrollableSection title="Short Trips">
+                    {itineraries
+                        .filter(itinerary => itinerary.tags?.includes('short'))
+                        .map((itinerary) => (
+                            <div
+                                key={itinerary.id}
+                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                                className="cursor-pointer w-[300px]"
+                            >
+                                <ItineraryTile
+                                    id={itinerary.id}
+                                    title={itinerary.trip_name}
+                                    description={`${itinerary.duration} days in ${itinerary.destinations
+                                        .map(d => stripCountryFromDestination(d.destination, itinerary.country))
+                                        .join(', ')}`}
+                                    imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                    duration={itinerary.duration}
+                                    cities={itinerary.destinations.map(d =>
+                                        stripCountryFromDestination(d.destination, itinerary.country)
+                                    )}
+                                    createdAt={itinerary.created_at}
+                                />
+                            </div>
+                        ))}
+                </ScrollableSection>
+
+                {/* Multi Countries Section */}
+                <ScrollableSection title="Multi Countries">
+                    {itineraries
+                        .filter(itinerary => itinerary.tags?.includes('multi-country'))
+                        .map((itinerary) => (
+                            <div
+                                key={itinerary.id}
+                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                                className="cursor-pointer w-[300px]"
+                            >
+                                <ItineraryTile
+                                    id={itinerary.id}
+                                    title={itinerary.trip_name}
+                                    description={`${itinerary.duration} days in ${itinerary.destinations
+                                        .map(d => stripCountryFromDestination(d.destination, itinerary.country))
+                                        .join(', ')}`}
+                                    imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                    duration={itinerary.duration}
+                                    cities={itinerary.destinations.map(d =>
+                                        stripCountryFromDestination(d.destination, itinerary.country)
+                                    )}
+                                    createdAt={itinerary.created_at}
+                                />
+                            </div>
+                        ))}
+                </ScrollableSection>
             </div>
         </div>
     );
