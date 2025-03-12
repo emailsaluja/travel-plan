@@ -398,7 +398,11 @@ const Discover: React.FC = () => {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {countryData.itineraries.map((itinerary) => (
-                            <div key={itinerary.id}>
+                            <div
+                                key={itinerary.id}
+                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                                className="cursor-pointer"
+                            >
                                 <ItineraryTile
                                     id={itinerary.id}
                                     title={itinerary.trip_name}
