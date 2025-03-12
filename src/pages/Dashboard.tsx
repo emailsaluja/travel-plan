@@ -21,7 +21,8 @@ import {
   X,
   User,
   Image,
-  Upload
+  Upload,
+  Heart
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserItineraryService } from '../services/user-itinerary.service';
@@ -314,11 +315,11 @@ const Dashboard = () => {
 
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-4">
-                <Link to="/you" className="flex items-center gap-2 text-gray-700">
+                <Link to="/liked-trips" className="flex items-center gap-2 text-gray-700">
                   <div className="w-6 h-6 rounded-full bg-[#00C48C] flex items-center justify-center">
-                    <Users className="w-4 h-4 text-white" />
+                    <Heart className="w-4 h-4 text-white" />
                   </div>
-                  <span>You</span>
+                  <span>Liked Trips</span>
                 </Link>
                 <Link to="/discover" className="flex items-center gap-2 text-gray-500">
                   <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">

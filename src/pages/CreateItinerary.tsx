@@ -34,7 +34,8 @@ import {
   Car,
   Plane,
   Train,
-  Bus as BusIcon
+  Bus as BusIcon,
+  Heart
 } from 'lucide-react';
 import { countries } from '../data/countries';
 import PlaceAutocomplete from '../components/PlaceAutocomplete';
@@ -894,11 +895,11 @@ const CreateItinerary: React.FC = () => {
 
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-4">
-                  <Link to="/you" className="flex items-center gap-2 text-gray-700">
+                  <Link to="/liked-trips" className="flex items-center gap-2 text-gray-700">
                     <div className="w-6 h-6 rounded-full bg-[#00C48C] flex items-center justify-center">
-                      <Users className="w-4 h-4 text-white" />
+                      <Heart className="w-4 h-4 text-white" />
                     </div>
-                    <span className="font-[600] font-['Poppins',sans-serif]">You</span>
+                    <span className="font-[600] font-['Poppins',sans-serif]">Liked Trips</span>
                   </Link>
                   <Link to="/discover" className="flex items-center gap-2 text-gray-500">
                     <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">

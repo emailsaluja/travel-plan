@@ -473,5 +473,224 @@ export const UserItineraryService = {
       console.error('Error updating itinerary:', error);
       throw error;
     }
-  }
+  },
+
+  async getLikedItineraries() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const { data, error } = await supabase
+        .from('likes')
+        .select(`
+          created_at,
+          itinerary:user_itineraries!inner(
+            id,
+            trip_name,
+            country,
+            start_date,
+            duration,
+            passengers,
+            created_at,
+            destinations:user_itinerary_destinations(
+              destination,
+              nights
+            )
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Transform the data to match the LikedItinerary interface
+      const transformedData = data?.map(item => ({
+        ...item.itinerary,
+        liked_at: item.created_at,
+        destinations: item.itinerary.destinations
+      }));
+
+      return { data: transformedData };
+    } catch (error) {
+      console.error('Error fetching liked itineraries:', error);
+      throw error;
+    }
+  },
+
+  async toggleLikeItinerary(itineraryId: string) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Check if the itinerary is already liked
+      const { data: existingLike, error: checkError } = await supabase
+        .from('likes')
+        .select()
+        .eq('user_id', user.id)
+        .eq('itinerary_id', itineraryId)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') throw checkError;
+
+      if (existingLike) {
+        // Unlike the itinerary
+        const { error: unlikeError } = await supabase
+          .from('likes')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('itinerary_id', itineraryId);
+
+        if (unlikeError) throw unlikeError;
+        return { liked: false };
+      } else {
+        // Like the itinerary
+        const { error: likeError } = await supabase
+          .from('likes')
+          .insert({
+            user_id: user.id,
+            itinerary_id: itineraryId
+          });
+
+        if (likeError) throw likeError;
+        return { liked: true };
+      }
+    } catch (error) {
+      console.error('Error toggling itinerary like:', error);
+      throw error;
+    }
+  },
+
+  async isItineraryLiked(itineraryId: string) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        return { liked: false };
+      }
+
+      const { data, error } = await supabase
+        .from('likes')
+        .select()
+        .eq('user_id', user.id)
+        .eq('itinerary_id', itineraryId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+
+      return { liked: !!data };
+    } catch (error) {
+      console.error('Error checking if itinerary is liked:', error);
+      throw error;
+    }
+  },
+
+  async copyItinerary(id: string) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Get the original itinerary with all its data
+      const { data: originalItinerary } = await this.getItineraryById(id);
+      if (!originalItinerary) {
+        throw new Error('Itinerary not found');
+      }
+
+      // Create a new itinerary with the same data but for the current user
+      const { data: newItinerary, error: itineraryError } = await supabase
+        .from('user_itineraries')
+        .insert({
+          user_id: user.id,
+          trip_name: `${originalItinerary.trip_name} (Copy)`,
+          country: originalItinerary.country,
+          start_date: originalItinerary.start_date,
+          duration: originalItinerary.duration,
+          passengers: originalItinerary.passengers,
+          is_private: true, // Make the copy private by default
+          tags: originalItinerary.tags || []
+        })
+        .select()
+        .single();
+
+      if (itineraryError) throw itineraryError;
+
+      // Copy destinations
+      if (originalItinerary.destinations && originalItinerary.destinations.length > 0) {
+        const destinationsToInsert = originalItinerary.destinations.map((dest, index) => ({
+          itinerary_id: newItinerary.id,
+          destination: dest.destination,
+          nights: dest.nights,
+          discover: dest.discover || '',
+          transport: dest.transport || '',
+          notes: dest.notes || '',
+          food: dest.food || '',
+          order_index: index
+        }));
+
+        const { error: destinationsError } = await supabase
+          .from('user_itinerary_destinations')
+          .insert(destinationsToInsert);
+
+        if (destinationsError) throw destinationsError;
+      }
+
+      // Copy day attractions if they exist
+      if (originalItinerary.day_attractions && originalItinerary.day_attractions.length > 0) {
+        const attractionsToInsert = originalItinerary.day_attractions.map(day => ({
+          itinerary_id: newItinerary.id,
+          day_index: day.day_index,
+          attractions: day.attractions
+        }));
+
+        const { error: attractionsError } = await supabase
+          .from('user_itinerary_day_attractions')
+          .insert(attractionsToInsert);
+
+        if (attractionsError) throw attractionsError;
+      }
+
+      // Copy day hotels if they exist
+      if (originalItinerary.day_hotels && originalItinerary.day_hotels.length > 0) {
+        const hotelsToInsert = originalItinerary.day_hotels.map(day => ({
+          itinerary_id: newItinerary.id,
+          day_index: day.day_index,
+          hotel: day.hotel
+        }));
+
+        const { error: hotelsError } = await supabase
+          .from('user_itinerary_day_hotels')
+          .insert(hotelsToInsert);
+
+        if (hotelsError) throw hotelsError;
+      }
+
+      // Copy day notes if they exist
+      if (originalItinerary.day_notes && originalItinerary.day_notes.length > 0) {
+        const notesToInsert = originalItinerary.day_notes.map(day => ({
+          itinerary_id: newItinerary.id,
+          day_index: day.day_index,
+          notes: day.notes
+        }));
+
+        const { error: notesError } = await supabase
+          .from('user_itinerary_day_notes')
+          .insert(notesToInsert);
+
+        if (notesError) throw notesError;
+      }
+
+      return { data: newItinerary };
+    } catch (error) {
+      console.error('Error copying itinerary:', error);
+      throw error;
+    }
+  },
 }; 

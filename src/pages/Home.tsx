@@ -72,7 +72,7 @@ const discoveryInterface = {
 // Add featured trips data
 const featuredTrips = [
   {
-    id: 1,
+    id: "550e8400-e29b-41d4-a716-446655440000",
     title: "Ultimate Argentina",
     subtitle: "Itinerary for 2 Weeks",
     imageUrl: "https://images.unsplash.com/photo-1589909202802-8f4aadce1849?w=800&fit=crop",
@@ -80,7 +80,7 @@ const featuredTrips = [
     authorAvatar: "https://i.pravatar.cc/150?u=wheregoesrose"
   },
   {
-    id: 2,
+    id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
     title: "North of Morocco",
     subtitle: "7-Day Itinerary",
     imageUrl: "https://images.unsplash.com/photo-1539020140153-e479b8c22e70?w=800&fit=crop",
@@ -88,7 +88,7 @@ const featuredTrips = [
     authorAvatar: "https://i.pravatar.cc/150?u=journalofnomads"
   },
   {
-    id: 3,
+    id: "6ba7b811-9dad-11d1-80b4-00c04fd430c8",
     title: "3 Week Vietnam",
     subtitle: "from North to South",
     imageUrl: "https://images.unsplash.com/photo-1528127269322-539801943592?w=800&fit=crop",
@@ -96,7 +96,7 @@ const featuredTrips = [
     authorAvatar: "https://i.pravatar.cc/150?u=happywhenabroad"
   },
   {
-    id: 4,
+    id: "6ba7b812-9dad-11d1-80b4-00c04fd430c8",
     title: "10 days in Norway",
     subtitle: "A Beginners Itinerary",
     imageUrl: "https://images.unsplash.com/photo-1506655624258-6e7d8177e99b?w=800&fit=crop",
@@ -104,7 +104,7 @@ const featuredTrips = [
     authorAvatar: "https://i.pravatar.cc/150?u=dannycph"
   },
   {
-    id: 5,
+    id: "6ba7b813-9dad-11d1-80b4-00c04fd430c8",
     title: "10-Day Puglia Itinerary",
     subtitle: "The Perfect Italy Road Trip",
     imageUrl: "https://images.unsplash.com/photo-1499678329028-101435549a4e?w=800&fit=crop",
@@ -117,7 +117,7 @@ const Home = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [activeFeature, setActiveFeature] = useState('planning');
   const [currentInterface, setCurrentInterface] = useState(planningInterface);
-  const [selectedTrip, setSelectedTrip] = useState<number | null>(null);
+  const [selectedTrip, setSelectedTrip] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
@@ -181,12 +181,12 @@ const Home = () => {
     <div className="overflow-hidden">
       {/* Hero Section */}
       <section className="relative py-24 overflow-hidden">
-        <div 
+        <div
           className="absolute inset-0 w-full h-full bg-no-repeat bg-center bg-cover z-0"
           style={{ backgroundImage: "url('https://www.stippl.io/assets/background_visual-85f87405.svg')" }}
         ></div>
         <div className="absolute left-0 bottom-0 w-1/3 h-2/3 pointer-events-none">
-          <motion.div 
+          <motion.div
             className="absolute left-0 bottom-0 w-full h-full bg-contain bg-no-repeat bg-left-bottom opacity-90"
             style={{ backgroundImage: "url('/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png')" }}
             initial={{ opacity: 0, y: 20 }}
@@ -195,7 +195,7 @@ const Home = () => {
           />
         </div>
         <div className="absolute right-0 bottom-0 w-1/3 h-2/3 pointer-events-none">
-          <motion.div 
+          <motion.div
             className="absolute right-0 bottom-0 w-full h-full bg-contain bg-no-repeat bg-right-bottom opacity-90"
             style={{ backgroundImage: "url('/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png')" }}
             initial={{ opacity: 0, y: 20 }}
@@ -231,7 +231,7 @@ const Home = () => {
             {/* Gradient Overlays */}
             <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-white to-transparent pointer-events-none z-10"></div>
             <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white to-transparent pointer-events-none z-10"></div>
-            
+
             {/* Feature Icons */}
             <FeatureIcons />
           </div>
@@ -307,9 +307,8 @@ const Home = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mt-16">
             <div className="space-y-8">
               <motion.div
-                className={`p-6 rounded-xl cursor-pointer transition-colors duration-300 ${
-                  activeFeature === 'planning' ? 'bg-[#00C48C] text-white' : 'bg-gray-100 hover:bg-gray-200'
-                }`}
+                className={`p-6 rounded-xl cursor-pointer transition-colors duration-300 ${activeFeature === 'planning' ? 'bg-[#00C48C] text-white' : 'bg-gray-100 hover:bg-gray-200'
+                  }`}
                 onClick={() => handleFeatureClick('planning')}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -319,9 +318,8 @@ const Home = () => {
               </motion.div>
 
               <motion.div
-                className={`p-6 rounded-xl cursor-pointer transition-colors duration-300 ${
-                  activeFeature === 'group' ? 'bg-[#00C48C] text-white' : 'bg-gray-100 hover:bg-gray-200'
-                }`}
+                className={`p-6 rounded-xl cursor-pointer transition-colors duration-300 ${activeFeature === 'group' ? 'bg-[#00C48C] text-white' : 'bg-gray-100 hover:bg-gray-200'
+                  }`}
                 onClick={() => handleFeatureClick('group')}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -331,9 +329,8 @@ const Home = () => {
               </motion.div>
 
               <motion.div
-                className={`p-6 rounded-xl cursor-pointer transition-colors duration-300 ${
-                  activeFeature === 'sharing' ? 'bg-[#7C3AED] text-white' : 'bg-gray-100 hover:bg-gray-200'
-                }`}
+                className={`p-6 rounded-xl cursor-pointer transition-colors duration-300 ${activeFeature === 'sharing' ? 'bg-[#7C3AED] text-white' : 'bg-gray-100 hover:bg-gray-200'
+                  }`}
                 onClick={() => handleFeatureClick('sharing')}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -343,9 +340,8 @@ const Home = () => {
               </motion.div>
 
               <motion.div
-                className={`p-6 rounded-xl cursor-pointer transition-colors duration-300 ${
-                  activeFeature === 'discovery' ? 'bg-[#00C48C] text-white' : 'bg-gray-100 hover:bg-gray-200'
-                }`}
+                className={`p-6 rounded-xl cursor-pointer transition-colors duration-300 ${activeFeature === 'discovery' ? 'bg-[#00C48C] text-white' : 'bg-gray-100 hover:bg-gray-200'
+                  }`}
                 onClick={() => handleFeatureClick('discovery')}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -420,13 +416,13 @@ const Home = () => {
               Featured trips from <span className="text-[#00C48C]">travel experts</span>
             </h2>
             <p className="text-lg text-gray-600 max-w-3xl mx-auto mt-6">
-              Keep up with your friends' adventures and follow people who live and breathe all things travel. 
+              Keep up with your friends' adventures and follow people who live and breathe all things travel.
               Discover and engage with their travel content while creating your own.
             </p>
           </div>
 
           <div className="relative">
-            <div 
+            <div
               ref={sliderRef}
               className="overflow-x-auto pb-8 hide-scrollbar cursor-grab active:cursor-grabbing"
               onMouseDown={handleMouseDown}
@@ -515,14 +511,14 @@ const Home = () => {
         {/* Decorative curves */}
         <div className="absolute left-0 top-0 w-1/3 h-full">
           <svg className="h-full w-full" viewBox="0 0 400 800" fill="none">
-            <path d="M-100 0 Q 150 400 -100 800" stroke="#00C48C" strokeWidth="4" fill="none"/>
-            <path d="M-50 0 Q 200 400 -50 800" stroke="#7C3AED" strokeWidth="4" fill="none" opacity="0.8"/>
+            <path d="M-100 0 Q 150 400 -100 800" stroke="#00C48C" strokeWidth="4" fill="none" />
+            <path d="M-50 0 Q 200 400 -50 800" stroke="#7C3AED" strokeWidth="4" fill="none" opacity="0.8" />
           </svg>
         </div>
         <div className="absolute right-0 top-0 w-1/3 h-full">
           <svg className="h-full w-full" viewBox="0 0 400 800" fill="none">
-            <path d="M500 0 Q 250 400 500 800" stroke="#00C48C" strokeWidth="4" fill="none"/>
-            <path d="M450 0 Q 200 400 450 800" stroke="#7C3AED" strokeWidth="4" fill="none" opacity="0.8"/>
+            <path d="M500 0 Q 250 400 500 800" stroke="#00C48C" strokeWidth="4" fill="none" />
+            <path d="M450 0 Q 200 400 450 800" stroke="#7C3AED" strokeWidth="4" fill="none" opacity="0.8" />
           </svg>
         </div>
 
@@ -783,9 +779,9 @@ const Home = () => {
       {/* Sign Up Section */}
       <section className="relative py-24 overflow-hidden">
         <div className="absolute inset-0">
-          <div 
+          <div
             className="absolute inset-0 w-full h-full bg-no-repeat bg-cover bg-center"
-            style={{ 
+            style={{
               backgroundImage: 'url("https://www.stippl.io/assets/background_visual-85f87405.svg")',
               opacity: '1'
             }}
@@ -810,15 +806,15 @@ const Home = () => {
               <div className="text-gray-600">or download the app</div>
               <div className="flex gap-4">
                 <a href="#" className="transition-opacity hover:opacity-80">
-                  <img 
-                    src="/images/app-store.svg" 
+                  <img
+                    src="/images/app-store.svg"
                     alt="Download on the App Store"
                     className="h-12"
                   />
                 </a>
                 <a href="#" className="transition-opacity hover:opacity-80">
-                  <img 
-                    src="/images/google-play.svg" 
+                  <img
+                    src="/images/google-play.svg"
                     alt="Get it on Google Play"
                     className="h-12"
                   />
@@ -835,37 +831,37 @@ const Home = () => {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
             {/* Logo and Social Links */}
             <div className="md:col-span-3">
-              <img 
-                src="/images/stippl-logo.svg" 
+              <img
+                src="/images/stippl-logo.svg"
                 alt="Stippl"
                 className="h-8 mb-6"
               />
               <div className="flex gap-4">
                 <a href="#" className="text-gray-400 hover:text-gray-600">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <rect x="2" y="2" width="20" height="20" rx="6" strokeWidth="2"/>
-                    <circle cx="12" cy="12" r="5" strokeWidth="2"/>
-                    <circle cx="17" cy="7" r="1" fill="currentColor"/>
+                    <rect x="2" y="2" width="20" height="20" rx="6" strokeWidth="2" />
+                    <circle cx="12" cy="12" r="5" strokeWidth="2" />
+                    <circle cx="17" cy="7" r="1" fill="currentColor" />
                   </svg>
                 </a>
                 <a href="#" className="text-gray-400 hover:text-gray-600">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M12 2C14 2 15 4 15 6V14C15 16 14 18 12 18C10 18 9 16 9 14C9 12 10 11 12 11" strokeWidth="2"/>
-                    <path d="M15 6C17 6 19 5 20 3" strokeWidth="2"/>
+                    <path d="M12 2C14 2 15 4 15 6V14C15 16 14 18 12 18C10 18 9 16 9 14C9 12 10 11 12 11" strokeWidth="2" />
+                    <path d="M15 6C17 6 19 5 20 3" strokeWidth="2" />
                   </svg>
                 </a>
                 <a href="#" className="text-gray-400 hover:text-gray-600">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <rect x="2" y="2" width="20" height="20" rx="6" strokeWidth="2"/>
-                    <path d="M15 8H13C12.4 8 12 8.4 12 9V21" strokeWidth="2"/>
-                    <line x1="9" y1="13" x2="15" y2="13" strokeWidth="2"/>
+                    <rect x="2" y="2" width="20" height="20" rx="6" strokeWidth="2" />
+                    <path d="M15 8H13C12.4 8 12 8.4 12 9V21" strokeWidth="2" />
+                    <line x1="9" y1="13" x2="15" y2="13" strokeWidth="2" />
                   </svg>
                 </a>
                 <a href="#" className="text-gray-400 hover:text-gray-600">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <rect x="2" y="2" width="20" height="20" rx="6" strokeWidth="2"/>
-                    <circle cx="8" cy="8" r="2" strokeWidth="2"/>
-                    <path d="M6 12V18M10 12V18M14 12V18M18 12V18" strokeWidth="2"/>
+                    <rect x="2" y="2" width="20" height="20" rx="6" strokeWidth="2" />
+                    <circle cx="8" cy="8" r="2" strokeWidth="2" />
+                    <path d="M6 12V18M10 12V18M14 12V18M18 12V18" strokeWidth="2" />
                   </svg>
                 </a>
               </div>
@@ -911,15 +907,15 @@ const Home = () => {
               <h3 className="font-semibold text-gray-900 mb-4">Download the app</h3>
               <div className="flex flex-col gap-4">
                 <a href="#" className="transition-opacity hover:opacity-80">
-                  <img 
-                    src="/images/app-store.svg" 
+                  <img
+                    src="/images/app-store.svg"
                     alt="Download on the App Store"
                     className="h-10"
                   />
                 </a>
                 <a href="#" className="transition-opacity hover:opacity-80">
-                  <img 
-                    src="/images/google-play.svg" 
+                  <img
+                    src="/images/google-play.svg"
                     alt="Get it on Google Play"
                     className="h-10"
                   />

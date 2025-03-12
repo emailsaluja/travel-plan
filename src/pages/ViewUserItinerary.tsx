@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Calendar, Users, MapPin, Clock, Navigation, Bed, Car, StickyNote, Share2, Heart, ArrowLeft, Edit, Train, ArrowRight } from 'lucide-react';
 import { UserItineraryView, UserItineraryViewService } from '../services/user-itinerary-view.service';
+import { UserItineraryService } from '../services/user-itinerary.service';
 import { GoogleMapsService, DistanceInfo } from '../services/google-maps.service';
 import UserItineraryMap from '../components/UserItineraryMap';
 import UserDayByDayView from '../components/UserDayByDayView';
@@ -102,6 +103,20 @@ const ViewUserItinerary: React.FC = () => {
     loadCountryImage();
   }, [itinerary?.country]);
 
+  useEffect(() => {
+    const checkIfLiked = async () => {
+      if (!id || !isAuthenticated) return;
+      try {
+        const { liked } = await UserItineraryService.isItineraryLiked(id);
+        setIsLiked(liked);
+      } catch (error) {
+        console.error('Error checking if itinerary is liked:', error);
+      }
+    };
+
+    checkIfLiked();
+  }, [id, isAuthenticated]);
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -123,8 +138,18 @@ const ViewUserItinerary: React.FC = () => {
     }
   };
 
-  const handleLike = () => {
-    setIsLiked(!isLiked);
+  const handleLike = async () => {
+    if (!isAuthenticated) {
+      navigate('/signin');
+      return;
+    }
+
+    try {
+      const { liked } = await UserItineraryService.toggleLikeItinerary(id!);
+      setIsLiked(liked);
+    } catch (error) {
+      console.error('Error toggling like:', error);
+    }
   };
 
   if (loading) {

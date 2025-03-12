@@ -45,16 +45,16 @@ const Navigation1: React.FC = () => {
                   Dashboard
                 </Link>
                 <Link
-                  to="/trips"
+                  to="/liked-trips"
                   className="text-gray-500 hover:text-[#1e293b] px-3 py-2 text-[15px] font-medium"
                 >
-                  My Trips
+                  Liked Trips
                 </Link>
                 <Link
-                  to="/explore"
+                  to="/discover"
                   className="text-gray-500 hover:text-[#1e293b] px-3 py-2 text-[15px] font-medium"
                 >
-                  Explore
+                  Discover
                 </Link>
               </>
             ) : (
@@ -138,16 +138,16 @@ const Navigation1: React.FC = () => {
                   Dashboard
                 </Link>
                 <Link
-                  to="/trips"
+                  to="/liked-trips"
                   className="block px-3 py-2 rounded-md text-base font-medium text-gray-500 hover:text-[#1e293b]"
                 >
-                  My Trips
+                  Liked Trips
                 </Link>
                 <Link
-                  to="/explore"
+                  to="/discover"
                   className="block px-3 py-2 rounded-md text-base font-medium text-gray-500 hover:text-[#1e293b]"
                 >
-                  Explore
+                  Discover
                 </Link>
                 <button
                   onClick={handleSignOut}

@@ -18,6 +18,7 @@ import UserPublicDashboard from './pages/UserPublicDashboard';
 import PublicItineraryView from './pages/PublicItineraryView';
 import { CountryImagesAdmin } from './components/CountryImagesAdmin';
 import Discover from './pages/Discover';
+import LikedTrips from './pages/LikedTrips';
 
 const RootLayout = () => {
   return (
@@ -56,6 +57,10 @@ export const router = createBrowserRouter([
       {
         path: 'my-itineraries',
         element: <ProtectedRoute><MyItineraries /></ProtectedRoute>
+      },
+      {
+        path: 'liked-trips',
+        element: <ProtectedRoute><LikedTrips /></ProtectedRoute>
       },
       {
         path: 'create-itinerary',
