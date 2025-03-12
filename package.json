@@ -12,6 +12,7 @@
   "dependencies": {
     "@react-google-maps/api": "^2.20.6",
     "@supabase/supabase-js": "^2.x.x",
+    "axios": "^1.8.2",
     "framer-motion": "^12.4.10",
     "lucide-react": "^0.344.0",
     "react": "^18.2.0",

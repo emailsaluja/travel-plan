@@ -179,6 +179,25 @@ export const UserItineraryService = {
     }
   },
 
+  async getAllPublicItineraries() {
+    try {
+      const { data, error } = await supabase
+        .from('user_itineraries')
+        .select(`
+          *,
+          destinations:user_itinerary_destinations(*)
+        `)
+        .eq('is_private', false)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return { data };
+    } catch (error) {
+      console.error('Error fetching public itineraries:', error);
+      throw error;
+    }
+  },
+
   async getItineraryById(id: string) {
     try {
       // Get the current user, but don't require authentication

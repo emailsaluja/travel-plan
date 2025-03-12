@@ -42,6 +42,7 @@ export const router = createBrowserRouter([
       { path: 'how', element: <How /> },
       { path: 'whytravel', element: <WhyTravel /> },
       { path: 'discover', element: <Discover /> },
+      { path: 'discover/:country', element: <Discover /> },
       { path: 'view-itinerary/:id', element: <ViewUserItinerary /> },
       {
         path: 'dashboard',
