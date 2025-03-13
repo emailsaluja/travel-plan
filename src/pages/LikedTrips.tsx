@@ -38,6 +38,57 @@ interface LikedItineraryResponse {
     created_at: string;
 }
 
+// Add ScrollableSection component
+const ScrollableSection: React.FC<{
+    title: string;
+    children: React.ReactNode;
+}> = ({ title, children }) => {
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const scroll = (direction: 'left' | 'right') => {
+        if (scrollContainerRef.current) {
+            const scrollAmount = 600;
+            const newScrollLeft = scrollContainerRef.current.scrollLeft + (direction === 'left' ? -scrollAmount : scrollAmount);
+            scrollContainerRef.current.scrollTo({
+                left: newScrollLeft,
+                behavior: 'smooth'
+            });
+        }
+    };
+
+    return (
+        <div className="mb-12">
+            <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+                <div className="flex space-x-2">
+                    <button
+                        onClick={() => scroll('left')}
+                        className="p-2 rounded-full border border-gray-300 hover:bg-gray-100 transition-colors"
+                    >
+                        <ChevronLeft className="w-5 h-5 text-gray-500" />
+                    </button>
+                    <button
+                        onClick={() => scroll('right')}
+                        className="p-2 rounded-full border border-gray-300 hover:bg-gray-100 transition-colors"
+                    >
+                        <ChevronRight className="w-5 h-5 text-gray-500" />
+                    </button>
+                </div>
+            </div>
+            <div className="relative group">
+                <div
+                    ref={scrollContainerRef}
+                    className="overflow-x-auto pb-4 hide-scrollbar"
+                >
+                    <div className="flex gap-4 min-w-max">
+                        {children}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const LikedTrips: React.FC = () => {
     const [likedTrips, setLikedTrips] = useState<LikedItinerary[]>([]);
     const [loading, setLoading] = useState(true);
@@ -141,6 +192,14 @@ const LikedTrips: React.FC = () => {
         }
     };
 
+    // Add cleanDestination function
+    const cleanDestination = (destination: string) => {
+        // First split by comma and take the first part
+        const mainPart = destination.split(',')[0].trim();
+        // Remove any numbers and extra spaces
+        return mainPart.replace(/\d+/g, '').replace(/\s+/g, ' ').trim();
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-50 pt-16">
@@ -168,23 +227,7 @@ const LikedTrips: React.FC = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 <div className="flex items-center justify-between mb-8">
                     <h1 className="text-2xl font-bold text-gray-900">Liked Trips</h1>
-                    <div className="flex items-center gap-4">
-                        <Heart className="w-6 h-6 text-rose-500" fill="currentColor" />
-                        <div className="flex space-x-2">
-                            <button
-                                onClick={scrollLeft}
-                                className="p-2 rounded-full border border-gray-300 hover:bg-gray-100 transition-colors"
-                            >
-                                <ChevronLeft className="w-5 h-5 text-gray-500" />
-                            </button>
-                            <button
-                                onClick={scrollRight}
-                                className="p-2 rounded-full border border-gray-300 hover:bg-gray-100 transition-colors"
-                            >
-                                <ChevronRight className="w-5 h-5 text-gray-500" />
-                            </button>
-                        </div>
-                    </div>
+                    <Heart className="w-6 h-6 text-rose-500" fill="currentColor" />
                 </div>
 
                 {likedTrips.length === 0 ? (
@@ -202,10 +245,7 @@ const LikedTrips: React.FC = () => {
                         </button>
                     </div>
                 ) : (
-                    <div
-                        ref={scrollContainerRef}
-                        className="flex overflow-x-auto space-x-6 pb-6 scrollbar-hide"
-                    >
+                    <ScrollableSection title="Your Liked Trips">
                         {likedTrips.map((trip) => (
                             <div
                                 key={trip.id}
@@ -270,7 +310,7 @@ const LikedTrips: React.FC = () => {
                                             <div className="flex items-center gap-1 flex-wrap">
                                                 {trip.destinations.map((dest, index) => (
                                                     <React.Fragment key={index}>
-                                                        <span>{dest.destination.split(',')[0]}</span>
+                                                        <span>{cleanDestination(dest.destination)}</span>
                                                         {index < trip.destinations.length - 1 && (
                                                             <ArrowRight className="w-3 h-3 mx-1" />
                                                         )}
@@ -286,7 +326,7 @@ const LikedTrips: React.FC = () => {
                                 </div>
                             </div>
                         ))}
-                    </div>
+                    </ScrollableSection>
                 )}
             </div>
         </div>

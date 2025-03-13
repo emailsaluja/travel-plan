@@ -43,6 +43,13 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
 }) => {
   console.log('UserDayByDayView props:', { startDate, destinations, dayAttractions, dayHotels });
 
+  const cleanDestination = (destination: string) => {
+    // First split by comma and take the first part
+    const mainPart = destination.split(',')[0].trim();
+    // Remove any numbers and extra spaces
+    return mainPart.replace(/\d+/g, '').replace(/\s+/g, ' ').trim();
+  };
+
   const generateDayByDaySchedule = () => {
     const schedule = [];
     let currentDate = new Date(startDate);
@@ -160,7 +167,7 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-gray-500" />
-                <span className="text-gray-600">{day.destination}</span>
+                <span className="text-gray-600">{cleanDestination(day.destination)}</span>
               </div>
             </div>
 
@@ -196,45 +203,47 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
                 </div>
               )}
 
-              {/* Food Spots */}
               <div>
-                <h4 className="text-sm font-medium text-gray-500 mb-1 flex items-center gap-1">
-                  <Utensils className="w-4 h-4 text-[#8B5CF6]" />
-                  Food Spots
-                </h4>
-                <div className="space-y-1">
-                  {foodItems.length > 0 ? (
-                    foodItems.map((food, idx) => (
-                      <div key={idx} className="text-sm text-gray-700">{food}</div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-gray-500">Not specified</p>
-                  )}
-                </div>
+                {/* Food Spots */}
+                {foodItems.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium text-gray-500 mb-1 flex items-center gap-1">
+                      <Utensils className="w-4 h-4 text-[#8B5CF6]" />
+                      Food Spots
+                    </h4>
+                    <div className="space-y-1">
+                      {foodItems.map((food, idx) => (
+                        <div key={idx} className="text-sm text-gray-700">{food}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Hotel */}
+                {day.sleeping && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-1 flex items-center gap-1">
+                      <Bed className="w-4 h-4 text-[#F59E0B]" />
+                      Hotel
+                    </h4>
+                    <p className="text-gray-700 text-sm">{day.sleeping}</p>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-4">
-              {/* Notes */}
-              <div>
+            {/* Notes - Full Width */}
+            {dayNote?.notes && (
+              <div className="mt-4">
                 <h4 className="text-sm font-medium text-gray-500 mb-1 flex items-center gap-1">
                   <StickyNote className="w-4 h-4 text-[#3B82F6]" />
                   Notes
                 </h4>
                 <div className="text-sm text-gray-700 break-words overflow-hidden">
-                  {renderNotesWithLinks(dayNote?.notes || '')}
+                  {renderNotesWithLinks(dayNote.notes)}
                 </div>
               </div>
-
-              {/* Hotel */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-500 mb-1 flex items-center gap-1">
-                  <Bed className="w-4 h-4 text-[#F59E0B]" />
-                  Hotel
-                </h4>
-                <p className="text-gray-700 text-sm">{day.sleeping || 'Not specified'}</p>
-              </div>
-            </div>
+            )}
           </div>
         );
       })}

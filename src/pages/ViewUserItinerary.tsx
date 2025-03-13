@@ -232,17 +232,17 @@ const ViewUserItinerary: React.FC = () => {
         {/* Trip Info */}
         <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
           <div className="max-w-[1400px] mx-auto">
-            <div className="flex items-center gap-4 mb-4">
-              <span className="px-3 py-1 bg-[#00C48C]/20 text-[#00C48C] rounded-full text-sm font-medium">
-                {itinerary.duration} days
-              </span>
-              <span className="px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium">
-                {itinerary.passengers} travelers
-              </span>
-            </div>
             <h1 className="text-4xl font-bold mb-4 text-white">
               {itinerary.trip_name}
             </h1>
+            <div className="flex items-center gap-4 mb-4">
+              <span className="px-3 py-1 bg-[#00C48C]/20 text-[#00C48C] rounded-full text-xs font-medium">
+                {itinerary.duration} days
+              </span>
+              <span className="px-3 py-1 bg-white/20 text-white rounded-full text-xs font-medium">
+                {itinerary.passengers} travelers
+              </span>
+            </div>
             <div className="flex flex-wrap gap-6 text-white/90">
               <div className="flex items-center gap-2">
                 <MapPin className="w-5 h-5" />
@@ -263,16 +263,16 @@ const ViewUserItinerary: React.FC = () => {
           <nav className="flex space-x-8">
             <button
               onClick={() => setActiveTab('overview')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'overview'
+              className={`py-4 px-1 border-b-2 font-medium text-base ${activeTab === 'overview'
                 ? 'border-[#00C48C] text-[#00C48C]'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
             >
-              Overview
+              Destinations
             </button>
             <button
               onClick={() => setActiveTab('dayByDay')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'dayByDay'
+              className={`py-4 px-1 border-b-2 font-medium text-base ${activeTab === 'dayByDay'
                 ? 'border-[#00C48C] text-[#00C48C]'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
@@ -300,7 +300,6 @@ const ViewUserItinerary: React.FC = () => {
                 <div className="w-full lg:w-1/3 space-y-6">
                   <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
                     <div className="p-6">
-                      <h2 className="text-xl font-semibold mb-6 text-[#1e293b]">Destinations</h2>
                       <div className="space-y-6">
                         {itinerary.destinations.map((dest, index) => (
                           <React.Fragment key={index}>
@@ -313,7 +312,7 @@ const ViewUserItinerary: React.FC = () => {
                                 <div>
                                   <div className="font-semibold text-[#1e293b] flex justify-between items-center">
                                     <span>{cleanDestination(dest.destination)}</span>
-                                    <span className="text-[#ea5681]">{dest.nights} days</span>
+                                    <span className="text-[#ea5681] text-xs">{dest.nights} days</span>
                                   </div>
                                   <div className="text-sm text-gray-500">
                                     {formatDate(new Date(new Date(itinerary.start_date).getTime() + index * 24 * 60 * 60 * 1000).toISOString())} -
