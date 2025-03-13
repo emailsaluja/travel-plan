@@ -14,6 +14,7 @@ interface ItineraryTileProps {
   likes?: number;
   createdAt?: string;
   loading?: 'lazy' | 'eager';
+  showLike?: boolean;
 }
 
 const ItineraryTile: React.FC<ItineraryTileProps> = ({
@@ -25,7 +26,8 @@ const ItineraryTile: React.FC<ItineraryTileProps> = ({
   cities = [],
   likes = 0,
   createdAt = "Recently",
-  loading = 'eager'
+  loading = 'eager',
+  showLike = true
 }) => {
   const [isLiked, setIsLiked] = React.useState(false);
   const [likesCount, setLikesCount] = React.useState(likes);
@@ -83,28 +85,32 @@ const ItineraryTile: React.FC<ItineraryTileProps> = ({
           loading={loading}
           className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
         />
-        <button
-          className={`absolute top-2 right-2 p-2 rounded-full 
-            ${isLiked ? 'bg-rose-500 text-white' : 'bg-white text-gray-500'}
-            ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
-            hover:scale-110 transition-all duration-200
-          `}
-          onClick={handleLikeClick}
-          disabled={isLoading}
-        >
-          <Heart className="h-4 w-4" fill={isLiked ? 'currentColor' : 'none'} />
-        </button>
+        {showLike && (
+          <button
+            className={`absolute top-2 right-2 p-2 rounded-full 
+              ${isLiked ? 'bg-rose-500 text-white' : 'bg-white text-gray-500'}
+              ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
+              hover:scale-110 transition-all duration-200
+            `}
+            onClick={handleLikeClick}
+            disabled={isLoading}
+          >
+            <Heart className="h-4 w-4" fill={isLiked ? 'currentColor' : 'none'} />
+          </button>
+        )}
       </div>
 
       <div className="mt-2">
         <h3 className="font-semibold text-gray-900">{title}</h3>
         <p className="text-sm text-gray-500">{duration.toString()} days - {cities.join(', ')}</p>
-        <div className="mt-1 flex items-center">
-          <div className="flex items-center">
-            <Heart className="h-3 w-3 text-rose-500" fill="currentColor" />
-            <span className="ml-1 text-xs text-gray-500">{likesCount}</span>
+        {showLike && (
+          <div className="mt-1 flex items-center">
+            <div className="flex items-center">
+              <Heart className="h-3 w-3 text-rose-500" fill="currentColor" />
+              <span className="ml-1 text-xs text-gray-500">{likesCount}</span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

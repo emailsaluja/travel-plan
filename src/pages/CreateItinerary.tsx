@@ -1520,7 +1520,7 @@ const CreateItinerary: React.FC = () => {
           <div className="flex justify-end space-x-3 mt-6">
             <button
               type="button"
-              onClick={() => navigate('/my-itineraries')}
+              onClick={() => navigate('/dashboard')}
               className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
             >
               Cancel

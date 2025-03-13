@@ -1,5 +1,65 @@
 import { supabase } from '../lib/supabase';
 
+interface UserItineraryDestination {
+  id: string;
+  destination: string;
+  nights: number;
+  discover: string;
+  transport: string;
+  notes: string;
+  food: string;
+  order_index: number;
+}
+
+interface UserItineraryDayAttraction {
+  day_index: number;
+  attractions: string;
+}
+
+interface UserItineraryDayHotel {
+  day_index: number;
+  hotel: string;
+}
+
+interface UserItineraryDayNote {
+  day_index: number;
+  notes: string;
+}
+
+interface UserItineraryData {
+  id: string;
+  trip_name: string;
+  country: string;
+  start_date: string;
+  duration: number;
+  passengers: number;
+  created_at: string;
+  user_id?: string;
+  is_private?: boolean;
+  tags?: string[];
+  destinations: UserItineraryDestination[];
+  day_attractions: UserItineraryDayAttraction[];
+  day_hotels: UserItineraryDayHotel[];
+  day_notes: UserItineraryDayNote[];
+}
+
+interface SupabaseItineraryResponse {
+  id: string;
+  trip_name: string;
+  country: string;
+  start_date: string;
+  duration: number;
+  passengers: number;
+  created_at: string;
+  user_id?: string;
+  is_private?: boolean;
+  tags?: string[];
+  destinations?: UserItineraryDestination[];
+  day_attractions?: UserItineraryDayAttraction[];
+  day_hotels?: UserItineraryDayHotel[];
+  day_notes?: UserItineraryDayNote[];
+}
+
 export interface UserItinerary {
   id: string;
   trip_name: string;
@@ -210,10 +270,28 @@ export const UserItineraryService = {
         .from('user_itineraries')
         .select(`
           *,
-          destinations:user_itinerary_destinations(*),
-          day_attractions:user_itinerary_day_attractions(*),
-          day_hotels:user_itinerary_day_hotels(*),
-          day_notes:user_itinerary_day_notes(*)
+          destinations:user_itinerary_destinations(
+            id,
+            destination,
+            nights,
+            discover,
+            transport,
+            notes,
+            food,
+            order_index
+          ),
+          day_attractions:user_itinerary_day_attractions(
+            day_index,
+            attractions
+          ),
+          day_hotels:user_itinerary_day_hotels(
+            day_index,
+            hotel
+          ),
+          day_notes:user_itinerary_day_notes(
+            day_index,
+            notes
+          )
         `)
         .eq('id', id);
 
@@ -225,7 +303,10 @@ export const UserItineraryService = {
         query.eq('is_private', false);
       }
 
-      const { data, error } = await query.single();
+      const { data, error } = await query.single() as {
+        data: SupabaseItineraryResponse | null;
+        error: any;
+      };
 
       if (error) {
         if (error.code === 'PGRST116') {
@@ -234,7 +315,30 @@ export const UserItineraryService = {
         throw error;
       }
 
-      return { data };
+      if (!data) {
+        throw new Error('Itinerary not found');
+      }
+
+      // Transform the data to match the expected format
+      const transformedData: UserItineraryData = {
+        id: data.id,
+        trip_name: data.trip_name,
+        country: data.country,
+        start_date: data.start_date,
+        duration: data.duration,
+        passengers: data.passengers,
+        created_at: data.created_at,
+        user_id: data.user_id,
+        is_private: data.is_private,
+        tags: data.tags,
+        destinations: (data.destinations?.sort((a: UserItineraryDestination, b: UserItineraryDestination) =>
+          a.order_index - b.order_index) || []) as UserItineraryDestination[],
+        day_attractions: (data.day_attractions || []) as UserItineraryDayAttraction[],
+        day_hotels: (data.day_hotels || []) as UserItineraryDayHotel[],
+        day_notes: (data.day_notes || []) as UserItineraryDayNote[]
+      };
+
+      return { data: transformedData };
     } catch (error) {
       console.error('Error fetching itinerary:', error);
       throw error;

@@ -55,10 +55,6 @@ export const router = createBrowserRouter([
         element: <ProtectedRoute><SavedItineraries /></ProtectedRoute>
       },
       {
-        path: 'my-itineraries',
-        element: <ProtectedRoute><MyItineraries /></ProtectedRoute>
-      },
-      {
         path: 'liked-trips',
         element: <ProtectedRoute><LikedTrips /></ProtectedRoute>
       },

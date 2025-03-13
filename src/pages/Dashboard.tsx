@@ -31,6 +31,8 @@ import { CountryImagesService } from '../services/country-images.service';
 import { UserSettingsService, UserSettings as UserSettingsType } from '../services/user-settings.service';
 import { supabase } from '../lib/supabase';
 import { cleanDestination } from '../utils/stringUtils';
+import ItineraryTile from '../components/ItineraryTile';
+import { LikesService } from '../services/likes.service';
 
 interface Itinerary {
   id: string;
@@ -44,6 +46,7 @@ interface Itinerary {
     destination: string;
     nights: number;
   }[];
+  likesCount?: number;
 }
 
 interface UserSettings {
@@ -195,7 +198,16 @@ const Dashboard = () => {
   const loadItineraries = async () => {
     try {
       const { data: userItineraries } = await UserItineraryService.getUserItineraries();
-      setItineraries(userItineraries || []);
+
+      // Fetch likes count for each itinerary
+      const itinerariesWithLikes = await Promise.all(
+        (userItineraries || []).map(async (itinerary) => {
+          const { count } = await LikesService.getLikesCount(itinerary.id);
+          return { ...itinerary, likesCount: count };
+        })
+      );
+
+      setItineraries(itinerariesWithLikes || []);
     } catch (error) {
       console.error('Error loading itineraries:', error);
     } finally {
@@ -307,9 +319,9 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
+    <div className="min-h-screen">
       {/* Top Navigation */}
-      <nav className="bg-white border-b border-gray-100 fixed top-0 left-0 right-0 z-50">
+      <nav className="bg-white border-b-2 border-gray-300 fixed top-0 left-0 right-0 z-50">
         <div className="max-w-[1400px] mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <Link to="/" className="flex-shrink-0">
@@ -318,13 +330,13 @@ const Dashboard = () => {
 
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-4">
-                <Link to="/liked-trips" className="flex items-center gap-2 text-gray-700">
+                <Link to="/liked-trips" className="flex items-center gap-2 text-gray-700 font-[600] font-['Inter_var']">
                   <div className="w-6 h-6 rounded-full bg-[#00C48C] flex items-center justify-center">
                     <Heart className="w-4 h-4 text-white" />
                   </div>
                   <span>Liked Trips</span>
                 </Link>
-                <Link to="/discover" className="flex items-center gap-2 text-gray-500">
+                <Link to="/discover" className="flex items-center gap-2 text-gray-500 font-[600] font-['Inter_var']">
                   <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
                     <Globe className="w-4 h-4 text-gray-500" />
                   </div>
@@ -333,7 +345,7 @@ const Dashboard = () => {
               </div>
 
               <div className="flex items-center gap-4">
-                <Link to="/invite" className="text-[#00C48C] hover:text-[#00B380] transition-colors">
+                <Link to="/invite" className="text-[#00C48C] hover:text-[#00B380] transition-colors font-[600] font-['Inter_var']">
                   Invite a friend
                 </Link>
                 <button className="relative">
@@ -353,117 +365,117 @@ const Dashboard = () => {
         </div>
       </nav>
 
-      <div className="max-w-[1400px] mx-auto px-4 py-6 pt-20">
-        <div className="flex gap-8">
-          {/* Left Sidebar */}
-          <div className="w-[240px] flex-shrink-0">
-            {/* Profile Section */}
-            <div className="mb-8">
-              <div className="w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-[#00C48C] to-[#00B380] mb-4 shadow-md">
-                <img
-                  src={settings.profile_picture_url || '/images/profile-icon.svg'}
-                  alt="Profile"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <p className="text-gray-500 mb-4">{settings.username}</p>
-              {settings.bio && <p className="text-sm text-gray-600 mb-4">{settings.bio}</p>}
-
-              <div className="flex items-center gap-6 text-sm">
-                <div className="text-center">
-                  <div className="font-medium text-[#1e293b] mb-1">{stats.followers}</div>
-                  <div className="text-gray-500">followers</div>
-                </div>
-                <div className="text-center">
-                  <div className="font-medium text-[#1e293b] mb-1">{stats.following}</div>
-                  <div className="text-gray-500">following</div>
-                </div>
-                <div className="text-center">
-                  <div className="font-medium text-[#1e293b] mb-1">{stats.countries}</div>
-                  <div className="text-gray-500">countries</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Search */}
-            <div className="relative mb-6">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search.."
-                className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+      <div className="flex min-h-screen pt-[60px]">
+        {/* Left Sidebar - 20% width */}
+        <div className="w-[20%] bg-[#F0F8FF] border-r border-gray-300 min-h-screen fixed left-0 px-6 pt-0">
+          {/* Profile Section */}
+          <div className="py-8">
+            <div className="w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-[#00C48C] to-[#00B380] mb-4 shadow-md">
+              <img
+                src={settings.profile_picture_url || '/images/profile-icon.svg'}
+                alt="Profile"
+                className="w-full h-full object-cover"
               />
-              <button className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                <ChevronDown className="w-4 h-4 text-gray-400" />
-              </button>
             </div>
+            <p className="text-gray-500 mb-4">{settings.username}</p>
+            {settings.bio && <p className="text-sm text-gray-600 mb-4">{settings.bio}</p>}
 
-            {/* Navigation Links */}
-            <div className="space-y-4">
-              <div>
-                <button
-                  onClick={() => handleViewChange('trips')}
-                  className={`w-full flex items-center justify-between text-[#1e293b] font-medium p-2 rounded-lg hover:bg-gray-50 transition-colors ${view === 'trips' ? 'bg-gray-50' : ''}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-[#00C48C]" />
-                    <span>Trips</span>
-                  </div>
-                  <span className="bg-[#00C48C]/10 text-[#00C48C] px-2 py-0.5 rounded-full text-sm">
-                    {itineraries.length}
-                  </span>
-                </button>
+            <div className="flex items-center gap-6 text-sm">
+              <div className="text-center">
+                <div className="font-medium text-[#1e293b] mb-1">{stats.followers}</div>
+                <div className="text-gray-500">followers</div>
               </div>
-              <div>
-                <button
-                  onClick={() => handleViewChange('countries')}
-                  className={`w-full flex items-center justify-between text-[#1e293b] font-medium p-2 rounded-lg hover:bg-gray-50 transition-colors ${view === 'countries' ? 'bg-gray-50' : ''}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-[#00C48C]" />
-                    <span>Countries</span>
-                  </div>
-                  <span className="bg-[#00C48C]/10 text-[#00C48C] px-2 py-0.5 rounded-full text-sm">
-                    {Object.keys(countryStats).length}
-                  </span>
-                </button>
+              <div className="text-center">
+                <div className="font-medium text-[#1e293b] mb-1">{stats.following}</div>
+                <div className="text-gray-500">following</div>
+              </div>
+              <div className="text-center">
+                <div className="font-medium text-[#1e293b] mb-1">{stats.countries}</div>
+                <div className="text-gray-500">countries</div>
               </div>
             </div>
+          </div>
 
-            {/* Share Profile and Settings */}
-            <div className="mt-auto pt-6 space-y-2">
+          {/* Search */}
+          <div className="relative mb-6">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search.."
+              className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+            />
+            <button className="absolute right-2 top-1/2 transform -translate-y-1/2">
+              <ChevronDown className="w-4 h-4 text-gray-400" />
+            </button>
+          </div>
+
+          {/* Navigation Links */}
+          <div className="space-y-4">
+            <div>
               <button
-                className="w-full flex items-center gap-2 text-[#1e293b] font-medium p-2 rounded-lg hover:bg-gray-50 transition-colors"
+                onClick={() => handleViewChange('trips')}
+                className={`w-full flex items-center justify-between font-[600] font-['Inter_var'] p-2 rounded-lg transition-colors ${view === 'trips' ? 'bg-[#e5f8f3] text-[#13c892]' : 'text-[#1e293b] hover:bg-[#e5f8f3] hover:text-[#13c892]'}`}
               >
-                <Share2 className="w-4 h-4 text-[#00C48C]" />
-                <span>Share profile</span>
+                <div className="flex items-center gap-2">
+                  <Globe className={`w-4 h-4 ${view === 'trips' ? 'text-[#13c892]' : 'text-[#00C48C]'}`} />
+                  <span>Trips</span>
+                </div>
+                <span className="bg-[#00C48C]/10 text-[#00C48C] px-2 py-0.5 rounded-full text-sm">
+                  {itineraries.length}
+                </span>
               </button>
+            </div>
+            <div>
               <button
-                onClick={() => setIsSettingsOpen(true)}
-                className="w-full flex items-center gap-2 text-[#1e293b] font-medium p-2 rounded-lg hover:bg-gray-50 transition-colors"
+                onClick={() => handleViewChange('countries')}
+                className={`w-full flex items-center justify-between font-[600] font-['Inter_var'] p-2 rounded-lg transition-colors ${view === 'countries' ? 'bg-[#e5f8f3] text-[#13c892]' : 'text-[#1e293b] hover:bg-[#e5f8f3] hover:text-[#13c892]'}`}
               >
-                <Settings className="w-4 h-4 text-[#00C48C]" />
-                <span>Settings</span>
-              </button>
-              <Link
-                to="/admin/country-images"
-                className="w-full flex items-center gap-2 text-[#1e293b] font-medium p-2 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <Globe className="w-4 h-4 text-[#00C48C]" />
-                <span>Manage Country Images</span>
-              </Link>
-              <button
-                onClick={handleSignOut}
-                className="w-full flex items-center gap-2 text-gray-500 font-medium p-2 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <LogOut className="w-4 h-4 text-[#00C48C]" />
-                <span>Sign out</span>
+                <div className="flex items-center gap-2">
+                  <MapPin className={`w-4 h-4 ${view === 'countries' ? 'text-[#13c892]' : 'text-[#00C48C]'}`} />
+                  <span>Countries</span>
+                </div>
+                <span className="bg-[#00C48C]/10 text-[#00C48C] px-2 py-0.5 rounded-full text-sm">
+                  {Object.keys(countryStats).length}
+                </span>
               </button>
             </div>
           </div>
 
-          {/* Main Content */}
-          <div className="flex-1">
+          {/* Share Profile and Settings */}
+          <div className="mt-6 space-y-2">
+            <button
+              className="w-full flex items-center gap-2 text-[#1e293b] font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
+            >
+              <Share2 className="w-4 h-4 text-[#00C48C]" />
+              <span>Share profile</span>
+            </button>
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="w-full flex items-center gap-2 text-[#1e293b] font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
+            >
+              <Settings className="w-4 h-4 text-[#00C48C]" />
+              <span>Settings</span>
+            </button>
+            <Link
+              to="/admin/country-images"
+              className="w-full flex items-center gap-2 text-[#1e293b] font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
+            >
+              <Globe className="w-4 h-4 text-[#00C48C]" />
+              <span>Manage Country Images</span>
+            </Link>
+            <button
+              onClick={handleSignOut}
+              className="w-full flex items-center gap-2 text-gray-500 font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
+            >
+              <LogOut className="w-4 h-4 text-[#00C48C]" />
+              <span>Sign out</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Main Content - 80% width */}
+        <div className="w-[80%] ml-[20%]">
+          <div className="max-w-[1400px] px-8 py-8">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
@@ -523,80 +535,79 @@ const Dashboard = () => {
                 ))}
               </div>
             ) : (
-              // Itineraries Grid View (filtered by country if selected)
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {(selectedCountry ? countryStats[selectedCountry]?.itineraries : itineraries).map((itinerary) => (
+              // Trip Grid
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Create New Trip Card */}
                   <div
-                    key={itinerary.id}
-                    className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                    onClick={() => navigate('/create-itinerary')}
+                    className="cursor-pointer group"
                   >
-                    <div className="relative h-32 overflow-hidden">
-                      <img
-                        src={selectedImages[itinerary.id] || '/images/default-country.jpg'}
-                        alt={`${itinerary.country} landscape`}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-                    </div>
-                    <div className="p-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-medium text-[#1e293b]">{itinerary.trip_name}</h3>
-                        <div className="flex items-center gap-2">
-                          <Link
-                            to={`/create-itinerary?id=${itinerary.id}`}
-                            className="p-2 rounded-lg hover:bg-gray-50 text-gray-400 hover:text-[#00C48C] transition-colors"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Edit className="w-5 h-5" />
-                          </Link>
-                          <button
-                            onClick={(e) => handleDelete(itinerary.id, e)}
-                            className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4 mt-4">
-                        <div className="flex items-center gap-2 text-gray-500">
-                          <MapPin className="w-4 h-4 text-[#00C48C]" />
-                          <span>{itinerary.country}</span>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2 text-gray-600">
-                            <Calendar className="w-4 h-4 text-[#00C48C]" />
-                            <span>{formatDate(itinerary.start_date)}</span>
-                          </div>
-                          <div className="w-1 h-1 bg-gray-300 rounded-full"></div>
-                          <div className="flex items-center gap-2 text-gray-600">
-                            <Clock className="w-4 h-4 text-[#00C48C]" />
-                            <span>{itinerary.duration} days</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 text-gray-600">
-                          <Users className="w-4 h-4 text-[#00C48C]" />
-                          <span>{itinerary.passengers} travelers</span>
-                        </div>
-                      </div>
-
-                      <div className="border-t border-gray-100 pt-4">
-                        <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
-                          <MapPin className="w-4 h-4 text-[#00C48C]" />
-                          <span className="text-sm text-gray-600 flex-1">
-                            {itinerary.destinations?.map((dest, index) => (
-                              <span key={index}>
-                                {cleanDestination(dest.destination)}
-                                {index < itinerary.destinations.length - 1 && <span className="mx-2">•</span>}
-                              </span>
-                            ))}
-                          </span>
-                        </div>
+                    <div className="relative rounded-xl overflow-hidden border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 transition-colors h-48 flex items-center justify-center">
+                      <div className="text-center">
+                        <Plus className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                        <p className="text-gray-600 font-medium">Create New Trip</p>
                       </div>
                     </div>
                   </div>
-                ))}
+
+                  {/* Trip Tiles */}
+                  {(selectedCountry ? countryStats[selectedCountry]?.itineraries : itineraries).map((itinerary) => (
+                    <div
+                      key={itinerary.id}
+                      className="group relative overflow-hidden rounded-xl"
+                    >
+                      <div
+                        onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                        className="cursor-pointer"
+                      >
+                        <ItineraryTile
+                          id={itinerary.id}
+                          title={itinerary.trip_name}
+                          description={`${itinerary.duration} days in ${itinerary.destinations
+                            .map(d => cleanDestination(d.destination))
+                            .join(', ')}`}
+                          imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                          duration={itinerary.duration}
+                          cities={itinerary.destinations.map(d => cleanDestination(d.destination))}
+                          createdAt={itinerary.created_at}
+                          loading="lazy"
+                          showLike={false}
+                        />
+                        <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
+                          <span>Created {formatDate(itinerary.created_at)}</span>
+                          <div className="flex items-center gap-1">
+                            <Heart className="w-4 h-4 text-rose-500" fill="currentColor" />
+                            <span>{itinerary.likesCount || 0}</span>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Action Buttons */}
+                      <div className="absolute top-4 right-4 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/create-itinerary?id=${itinerary.id}`);
+                          }}
+                          className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
+                          title="Edit itinerary"
+                        >
+                          <Edit className="w-4 h-4 text-gray-700" strokeWidth={2} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(itinerary.id, e);
+                          }}
+                          className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
+                          title="Delete itinerary"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" strokeWidth={2} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
