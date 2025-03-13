@@ -111,6 +111,35 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
     });
   };
 
+  const renderNotesWithLinks = (notes: string): React.ReactNode => {
+    // URL regex pattern
+    const urlPattern = /(https?:\/\/[^\s]+)/g;
+
+    if (!notes) return 'No notes';
+
+    const parts = notes.split(urlPattern);
+    const matches = notes.match(urlPattern) || [];
+
+    return parts.map((part: string, index: number): React.ReactNode => {
+      // If this part matches our URL pattern, render it as a link
+      if (matches.includes(part)) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline break-words"
+          >
+            {part}
+          </a>
+        );
+      }
+      // Otherwise render as regular text
+      return <span key={index}>{part}</span>;
+    });
+  };
+
   const schedule = generateDayByDaySchedule();
 
   return (
@@ -135,15 +164,37 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              {/* Hotel */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-500 mb-1 flex items-center gap-1">
-                  <Bed className="w-4 h-4 text-[#F59E0B]" />
-                  Hotel
-                </h4>
-                <p className="text-gray-700 text-sm">{day.sleeping || 'Not specified'}</p>
-              </div>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Places to Visit */}
+              {day.attractions && day.attractions.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-1">
+                    <Sparkles className="w-4 h-4 text-[#EC4899]" />
+                    Places to Visit
+                  </h4>
+                  <div className="space-y-1">
+                    {day.attractions.map((attraction, attrIndex) => {
+                      if (!attraction) return null;
+                      try {
+                        const attractionType = getAttractionIcon(attraction);
+                        const IconComponent = attractionType.icon;
+                        return (
+                          <div
+                            key={attrIndex}
+                            className="flex items-center gap-2"
+                          >
+                            <IconComponent className={`w-4 h-4 ${attractionType.color}`} />
+                            <span className="text-sm font-medium text-gray-700">{attraction}</span>
+                          </div>
+                        );
+                      } catch (error) {
+                        console.error('Error rendering attraction:', error);
+                        return null;
+                      }
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Food Spots */}
               <div>
@@ -161,47 +212,29 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
                   )}
                 </div>
               </div>
+            </div>
 
+            <div className="mt-4 grid grid-cols-2 gap-4">
               {/* Notes */}
               <div>
                 <h4 className="text-sm font-medium text-gray-500 mb-1 flex items-center gap-1">
                   <StickyNote className="w-4 h-4 text-[#3B82F6]" />
                   Notes
                 </h4>
-                <p className="text-sm text-gray-700">{dayNote?.notes || 'No notes'}</p>
-              </div>
-            </div>
-
-            {/* Attractions */}
-            {day.attractions && day.attractions.length > 0 && (
-              <div className="mt-4">
-                <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-1">
-                  <Sparkles className="w-4 h-4 text-[#EC4899]" />
-                  Places to Visit
-                </h4>
-                <div className="space-y-1">
-                  {day.attractions.map((attraction, attrIndex) => {
-                    if (!attraction) return null;
-                    try {
-                      const attractionType = getAttractionIcon(attraction);
-                      const IconComponent = attractionType.icon;
-                      return (
-                        <div
-                          key={attrIndex}
-                          className="flex items-center gap-2"
-                        >
-                          <IconComponent className={`w-4 h-4 ${attractionType.color}`} />
-                          <span className="text-sm font-medium text-gray-700">{attraction}</span>
-                        </div>
-                      );
-                    } catch (error) {
-                      console.error('Error rendering attraction:', error);
-                      return null;
-                    }
-                  })}
+                <div className="text-sm text-gray-700 break-words overflow-hidden">
+                  {renderNotesWithLinks(dayNote?.notes || '')}
                 </div>
               </div>
-            )}
+
+              {/* Hotel */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-500 mb-1 flex items-center gap-1">
+                  <Bed className="w-4 h-4 text-[#F59E0B]" />
+                  Hotel
+                </h4>
+                <p className="text-gray-700 text-sm">{day.sleeping || 'Not specified'}</p>
+              </div>
+            </div>
           </div>
         );
       })}
