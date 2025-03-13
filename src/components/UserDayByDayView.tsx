@@ -1,6 +1,7 @@
 import React from 'react';
 import { Calendar, MapPin, Bed, Navigation, Utensils, StickyNote, Sparkles } from 'lucide-react';
 import { getAttractionIcon } from '../data/attraction-types';
+import { cleanDestination } from '../utils/stringUtils';
 
 interface Destination {
   destination: string;
@@ -42,13 +43,6 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
   dayNotes
 }) => {
   console.log('UserDayByDayView props:', { startDate, destinations, dayAttractions, dayHotels });
-
-  const cleanDestination = (destination: string) => {
-    // First split by comma and take the first part
-    const mainPart = destination.split(',')[0].trim();
-    // Remove any numbers and extra spaces
-    return mainPart.replace(/\d+/g, '').replace(/\s+/g, ' ').trim();
-  };
 
   const generateDayByDaySchedule = () => {
     const schedule = [];

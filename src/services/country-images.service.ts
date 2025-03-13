@@ -7,6 +7,9 @@ interface Country {
     folder_name: string;
 }
 
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const imageCache: Record<string, { urls: string[], timestamp: number }> = {};
+
 export const CountryImagesService = {
     async getCountries(): Promise<Country[]> {
         try {
@@ -20,6 +23,80 @@ export const CountryImagesService = {
         } catch (error) {
             console.error('Error fetching countries:', error);
             return [];
+        }
+    },
+
+    async batchGetCountryImages(countries: string[]): Promise<Record<string, string[]>> {
+        const result: Record<string, string[]> = {};
+        const uncachedCountries: string[] = [];
+
+        // Check cache first
+        countries.forEach(country => {
+            const cached = imageCache[country];
+            if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+                result[country] = cached.urls;
+            } else {
+                uncachedCountries.push(country);
+            }
+        });
+
+        if (uncachedCountries.length === 0) {
+            return result;
+        }
+
+        try {
+            // Get all country folder names in one query
+            const { data: countryData, error: countryError } = await supabase
+                .from('countries')
+                .select('name,folder_name')
+                .in('name', uncachedCountries);
+
+            if (countryError) throw countryError;
+
+            // Create a map for quick lookup
+            const folderMap = new Map(countryData?.map(c => [c.name, c.folder_name]) || []);
+
+            // Get all images in parallel
+            const promises = uncachedCountries.map(async country => {
+                const folderName = folderMap.get(country);
+                if (!folderName) return [country, []];
+
+                try {
+                    const { data: files, error } = await supabase.storage
+                        .from('country-images')
+                        .list(`${folderName}/`);
+
+                    if (error) throw error;
+
+                    const urls = (files || []).map(file => {
+                        const { data: { publicUrl } } = supabase.storage
+                            .from('country-images')
+                            .getPublicUrl(`${folderName}/${file.name}`);
+                        return publicUrl;
+                    });
+
+                    // Update cache
+                    imageCache[country] = {
+                        urls,
+                        timestamp: Date.now()
+                    };
+
+                    return [country, urls];
+                } catch (error) {
+                    console.error(`Error fetching images for ${country}:`, error);
+                    return [country, []];
+                }
+            });
+
+            const results = await Promise.all(promises);
+            results.forEach(([country, urls]) => {
+                result[country] = urls;
+            });
+
+            return result;
+        } catch (error) {
+            console.error('Error in batchGetCountryImages:', error);
+            return result;
         }
     },
 

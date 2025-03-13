@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { MapPin, ChevronUp, ChevronDown } from 'lucide-react';
+import { cleanDestination } from '../utils/stringUtils';
 
 interface Location {
   destination: string;
@@ -24,11 +25,11 @@ const UserItineraryMap: React.FC<UserItineraryMapProps> = ({ destinations }) => 
         const color = index === 0 ? '0x4ade80' :
           index === destinations.length - 1 ? '0xef4444' :
             '0x3b82f6';
-        return `markers=color:${color}|label:${label}|${encodeURIComponent(loc.destination)}`;
+        return `markers=color:${color}|label:${label}|${encodeURIComponent(cleanDestination(loc.destination))}`;
       }).join('&');
 
       const path = `path=color:0x3b82f6|weight:3|${destinations
-        .map(loc => encodeURIComponent(loc.destination))
+        .map(loc => encodeURIComponent(cleanDestination(loc.destination)))
         .join('|')}`;
 
       return `https://maps.googleapis.com/maps/api/staticmap?${markers}&${path}&size=1000x800&scale=2&key=${apiKey}`;

@@ -4,6 +4,7 @@ import { UserItineraryService } from '../services/user-itinerary.service';
 import { CountryImagesService } from '../services/country-images.service';
 import ItineraryTile from '../components/ItineraryTile';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { cleanDestination } from '../utils/stringUtils';
 
 // Country-specific information
 const countryInfo: Record<string, {
@@ -300,13 +301,6 @@ const Discover: React.FC = () => {
     const [countryImages, setCountryImages] = useState<Record<string, string[]>>({});
     const [selectedImages, setSelectedImages] = useState<Record<string, string>>({});
 
-    // Helper function to strip country name from destination
-    const stripCountryFromDestination = (destination: string, country: string) => {
-        // Remove country name and comma if they appear at the end
-        const regex = new RegExp(`\\s*,\\s*${country}$`, 'i');
-        return destination.replace(regex, '').trim();
-    };
-
     // Group itineraries by country
     const countryStats = React.useMemo(() => {
         const stats: Record<string, { count: number; itineraries: Itinerary[] }> = {};
@@ -328,84 +322,50 @@ const Discover: React.FC = () => {
     useEffect(() => {
         const fetchCountryImages = async () => {
             const countries = Object.keys(countryStats);
-            const images: Record<string, string[]> = {};
 
-            console.log('Fetching images for countries:', countries);
+            try {
+                const images = await CountryImagesService.batchGetCountryImages(countries);
+                setCountryImages(images);
 
-            for (const country of countries) {
-                try {
-                    console.log(`Fetching images for ${country}...`);
-                    const imageUrls = await CountryImagesService.getCountryImages(country);
-                    console.log(`Received ${imageUrls.length} images for ${country}:`, imageUrls);
+                const selected: Record<string, string> = {};
 
-                    if (imageUrls && imageUrls.length > 0) {
-                        // Ensure URLs are properly formatted and filter out low-quality images
-                        const formattedUrls = imageUrls.map(url => {
-                            try {
-                                const urlObj = new URL(url);
-                                // Add quality parameters for Supabase storage URLs
-                                if (url.includes('supabase.co')) {
-                                    // Ensure we're getting the highest quality version
-                                    urlObj.searchParams.set('quality', '100');
-                                    urlObj.searchParams.set('width', '1920');
-                                    return urlObj.toString();
-                                }
-                                return url;
-                            } catch {
-                                console.error(`Invalid URL format: ${url}`);
-                                return null;
-                            }
-                        }).filter(url => url !== null) as string[];
-
-                        const sortedUrls = formattedUrls.sort((a, b) => {
-                            const aIsUnsplash = a.includes('unsplash.com');
-                            const bIsUnsplash = b.includes('unsplash.com');
-                            if (aIsUnsplash && !bIsUnsplash) return -1;
-                            if (!aIsUnsplash && bIsUnsplash) return 1;
-                            return 0;
-                        });
-
-                        if (sortedUrls.length > 0) {
-                            images[country] = sortedUrls;
-                            console.log(`Sorted URLs for ${country}:`, sortedUrls);
+                // Select hero images for countries (prioritize high-quality images)
+                Object.keys(countryStats).forEach(country => {
+                    const countryImageList = images[country] || [];
+                    if (countryImageList.length > 0) {
+                        // For hero images, always use the first (highest quality) image
+                        const imageUrl = new URL(countryImageList[0]);
+                        if (imageUrl.hostname.includes('supabase.co')) {
+                            imageUrl.searchParams.set('quality', '100');
+                            imageUrl.searchParams.set('width', '1920');
                         }
+                        selected[country] = imageUrl.toString();
                     }
-                } catch (error) {
-                    console.error(`Error fetching images for ${country}:`, error);
-                }
+                });
+
+                // Select images for itineraries
+                itineraries.forEach(itinerary => {
+                    const countryImageList = images[itinerary.country] || [];
+                    if (countryImageList.length > 0) {
+                        // For itinerary tiles, use smaller images
+                        const imageUrl = new URL(countryImageList[Math.floor(Math.random() * countryImageList.length)]);
+                        if (imageUrl.hostname.includes('supabase.co')) {
+                            imageUrl.searchParams.set('quality', '90');
+                            imageUrl.searchParams.set('width', '800');
+                        }
+                        selected[itinerary.id] = imageUrl.toString();
+                    }
+                });
+
+                setSelectedImages(selected);
+            } catch (error) {
+                // Handle error silently
             }
-
-            console.log('Final images object:', images);
-            setCountryImages(images);
-
-            const selected: Record<string, string> = {};
-
-            // Select hero images for countries (prioritize high-quality images)
-            Object.keys(countryStats).forEach(country => {
-                const countryImageList = images[country] || [];
-                if (countryImageList.length > 0) {
-                    // For hero images, always use the first (highest quality) image
-                    selected[country] = countryImageList[0];
-                    console.log(`Selected hero image for ${country}:`, countryImageList[0]);
-                }
-            });
-
-            // Select images for itineraries
-            itineraries.forEach(itinerary => {
-                const countryImageList = images[itinerary.country] || [];
-                if (countryImageList.length > 0) {
-                    // For itinerary tiles, we can use any high-quality image
-                    const randomIndex = Math.floor(Math.random() * countryImageList.length);
-                    selected[itinerary.id] = countryImageList[randomIndex];
-                    console.log(`Selected image for itinerary ${itinerary.id}:`, countryImageList[randomIndex]);
-                }
-            });
-
-            console.log('Final selected images:', selected);
-            setSelectedImages(selected);
         };
 
-        fetchCountryImages();
+        if (Object.keys(countryStats).length > 0) {
+            fetchCountryImages();
+        }
     }, [countryStats, itineraries]);
 
     const loadItineraries = async () => {
@@ -413,7 +373,7 @@ const Discover: React.FC = () => {
             const { data: allItineraries } = await UserItineraryService.getAllPublicItineraries();
             setItineraries(allItineraries || []);
         } catch (error) {
-            console.error('Error loading itineraries:', error);
+            // Handle error silently
         } finally {
             setLoading(false);
         }
@@ -488,7 +448,6 @@ const Discover: React.FC = () => {
                             }}
                             onError={(e) => {
                                 const target = e.target as HTMLImageElement;
-                                console.error(`Failed to load image: ${target.src}`);
                                 target.src = '/images/empty-state.svg';
                             }}
                             loading="eager"
@@ -605,7 +564,7 @@ const Discover: React.FC = () => {
                                     <h4 className="font-medium mb-1.5">Popular Cities</h4>
                                     <div className="space-y-0.5 text-gray-600">
                                         {Array.from(new Set(countryData.itineraries.flatMap(i =>
-                                            i.destinations.map(d => stripCountryFromDestination(d.destination, normalizedUrlCountry))
+                                            i.destinations.map(d => cleanDestination(d.destination))
                                         )))
                                             .slice(0, 5)
                                             .map(city => (
@@ -630,14 +589,15 @@ const Discover: React.FC = () => {
                                     id={itinerary.id}
                                     title={itinerary.trip_name}
                                     description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => stripCountryFromDestination(d.destination, itinerary.country))
+                                        .map(d => cleanDestination(d.destination))
                                         .join(', ')}`}
                                     imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
                                     duration={itinerary.duration}
                                     cities={itinerary.destinations.map(d =>
-                                        stripCountryFromDestination(d.destination, itinerary.country)
+                                        cleanDestination(d.destination)
                                     )}
                                     createdAt={itinerary.created_at}
+                                    loading="lazy"
                                 />
                             </div>
                         ))}
@@ -664,12 +624,11 @@ const Discover: React.FC = () => {
                                     src={selectedImages[country] || '/images/empty-state.svg'}
                                     alt={country}
                                     className="absolute inset-0 w-full h-full object-cover"
+                                    loading="lazy"
                                     onError={(e) => {
                                         const target = e.target as HTMLImageElement;
-                                        console.error(`Failed to load image: ${target.src}`);
                                         target.src = '/images/empty-state.svg';
                                     }}
-                                    loading="lazy"
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/60"></div>
                                 <div className="absolute inset-0 p-4 flex flex-col justify-end">
@@ -697,14 +656,15 @@ const Discover: React.FC = () => {
                                     id={itinerary.id}
                                     title={itinerary.trip_name}
                                     description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => stripCountryFromDestination(d.destination, itinerary.country))
+                                        .map(d => cleanDestination(d.destination))
                                         .join(', ')}`}
                                     imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
                                     duration={itinerary.duration}
                                     cities={itinerary.destinations.map(d =>
-                                        stripCountryFromDestination(d.destination, itinerary.country)
+                                        cleanDestination(d.destination)
                                     )}
                                     createdAt={itinerary.created_at}
+                                    loading="lazy"
                                 />
                             </div>
                         ))}
@@ -724,14 +684,15 @@ const Discover: React.FC = () => {
                                     id={itinerary.id}
                                     title={itinerary.trip_name}
                                     description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => stripCountryFromDestination(d.destination, itinerary.country))
+                                        .map(d => cleanDestination(d.destination))
                                         .join(', ')}`}
                                     imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
                                     duration={itinerary.duration}
                                     cities={itinerary.destinations.map(d =>
-                                        stripCountryFromDestination(d.destination, itinerary.country)
+                                        cleanDestination(d.destination)
                                     )}
                                     createdAt={itinerary.created_at}
+                                    loading="lazy"
                                 />
                             </div>
                         ))}
@@ -751,14 +712,15 @@ const Discover: React.FC = () => {
                                     id={itinerary.id}
                                     title={itinerary.trip_name}
                                     description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => stripCountryFromDestination(d.destination, itinerary.country))
+                                        .map(d => cleanDestination(d.destination))
                                         .join(', ')}`}
                                     imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
                                     duration={itinerary.duration}
                                     cities={itinerary.destinations.map(d =>
-                                        stripCountryFromDestination(d.destination, itinerary.country)
+                                        cleanDestination(d.destination)
                                     )}
                                     createdAt={itinerary.created_at}
+                                    loading="lazy"
                                 />
                             </div>
                         ))}
@@ -778,14 +740,15 @@ const Discover: React.FC = () => {
                                     id={itinerary.id}
                                     title={itinerary.trip_name}
                                     description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => stripCountryFromDestination(d.destination, itinerary.country))
+                                        .map(d => cleanDestination(d.destination))
                                         .join(', ')}`}
                                     imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
                                     duration={itinerary.duration}
                                     cities={itinerary.destinations.map(d =>
-                                        stripCountryFromDestination(d.destination, itinerary.country)
+                                        cleanDestination(d.destination)
                                     )}
                                     createdAt={itinerary.created_at}
+                                    loading="lazy"
                                 />
                             </div>
                         ))}
@@ -805,14 +768,15 @@ const Discover: React.FC = () => {
                                     id={itinerary.id}
                                     title={itinerary.trip_name}
                                     description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => stripCountryFromDestination(d.destination, itinerary.country))
+                                        .map(d => cleanDestination(d.destination))
                                         .join(', ')}`}
                                     imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
                                     duration={itinerary.duration}
                                     cities={itinerary.destinations.map(d =>
-                                        stripCountryFromDestination(d.destination, itinerary.country)
+                                        cleanDestination(d.destination)
                                     )}
                                     createdAt={itinerary.created_at}
+                                    loading="lazy"
                                 />
                             </div>
                         ))}
@@ -832,14 +796,15 @@ const Discover: React.FC = () => {
                                     id={itinerary.id}
                                     title={itinerary.trip_name}
                                     description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => stripCountryFromDestination(d.destination, itinerary.country))
+                                        .map(d => cleanDestination(d.destination))
                                         .join(', ')}`}
                                     imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
                                     duration={itinerary.duration}
                                     cities={itinerary.destinations.map(d =>
-                                        stripCountryFromDestination(d.destination, itinerary.country)
+                                        cleanDestination(d.destination)
                                     )}
                                     createdAt={itinerary.created_at}
+                                    loading="lazy"
                                 />
                             </div>
                         ))}

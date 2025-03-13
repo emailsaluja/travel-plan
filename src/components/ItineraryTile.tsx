@@ -13,17 +13,19 @@ interface ItineraryTileProps {
   cities?: string[];
   likes?: number;
   createdAt?: string;
+  loading?: 'lazy' | 'eager';
 }
 
-const ItineraryTile: React.FC<ItineraryTileProps> = ({ 
-  id, 
-  title, 
-  description, 
+const ItineraryTile: React.FC<ItineraryTileProps> = ({
+  id,
+  title,
+  description,
   imageUrl,
   duration = 7,
   cities = [],
   likes = 0,
-  createdAt = "Recently"
+  createdAt = "Recently",
+  loading = 'eager'
 }) => {
   const [isLiked, setIsLiked] = React.useState(false);
   const [likesCount, setLikesCount] = React.useState(likes);
@@ -42,7 +44,7 @@ const ItineraryTile: React.FC<ItineraryTileProps> = ({
 
   const handleLikeClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     if (!isAuthenticated) {
       navigate('/signin');
       return;
@@ -70,17 +72,18 @@ const ItineraryTile: React.FC<ItineraryTileProps> = ({
   };
 
   return (
-    <div 
+    <div
       className="flex-shrink-0 w-72 cursor-pointer group"
       onClick={handleClick}
     >
       <div className="relative rounded-xl overflow-hidden">
-        <img 
-          src={imageUrl} 
+        <img
+          src={imageUrl}
           alt={title}
+          loading={loading}
           className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
         />
-        <button 
+        <button
           className={`absolute top-2 right-2 p-2 rounded-full 
             ${isLiked ? 'bg-rose-500 text-white' : 'bg-white text-gray-500'}
             ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
@@ -92,7 +95,7 @@ const ItineraryTile: React.FC<ItineraryTileProps> = ({
           <Heart className="h-4 w-4" fill={isLiked ? 'currentColor' : 'none'} />
         </button>
       </div>
-      
+
       <div className="mt-2">
         <h3 className="font-semibold text-gray-900">{title}</h3>
         <p className="text-sm text-gray-500">{duration.toString()} days - {cities.join(', ')}</p>

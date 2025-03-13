@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { MapPin, Calendar, Clock, Users, ArrowLeft } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { cleanDestination } from '../utils/stringUtils';
 
 interface Itinerary {
     id: string;
@@ -144,7 +145,7 @@ const PublicItineraryView = () => {
                                     <MapPin className="w-6 h-6 text-[#00C48C]" />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-medium text-[#1e293b]">{dest.destination}</h3>
+                                    <h3 className="text-lg font-medium text-[#1e293b]">{cleanDestination(dest.destination)}</h3>
                                     <p className="text-gray-500">{dest.nights} nights</p>
                                 </div>
                             </div>

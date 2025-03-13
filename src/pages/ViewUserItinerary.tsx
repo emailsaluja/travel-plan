@@ -9,6 +9,7 @@ import UserDayByDayView from '../components/UserDayByDayView';
 import { CountryImagesService } from '../services/country-images.service';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { cleanDestination } from '../utils/stringUtils';
 
 const ViewUserItinerary: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -64,14 +65,6 @@ const ViewUserItinerary: React.FC = () => {
       fetchItinerary();
     }
   }, [id, isAuthenticated, user]);
-
-  // Add this helper function to remove country from destination
-  const cleanDestination = (destination: string) => {
-    // First split by comma and take the first part
-    const mainPart = destination.split(',')[0].trim();
-    // Remove any numbers and extra spaces
-    return mainPart.replace(/\d+/g, '').replace(/\s+/g, ' ').trim();
-  };
 
   useEffect(() => {
     const fetchDistanceInfo = async () => {

@@ -30,6 +30,7 @@ import { ProfileSettingsPopup } from '../components/ProfileSettingsPopup';
 import { CountryImagesService } from '../services/country-images.service';
 import { UserSettingsService, UserSettings as UserSettingsType } from '../services/user-settings.service';
 import { supabase } from '../lib/supabase';
+import { cleanDestination } from '../utils/stringUtils';
 
 interface Itinerary {
   id: string;
@@ -586,7 +587,7 @@ const Dashboard = () => {
                           <span className="text-sm text-gray-600 flex-1">
                             {itinerary.destinations?.map((dest, index) => (
                               <span key={index}>
-                                {dest.destination.split(',')[0].trim()}
+                                {cleanDestination(dest.destination)}
                                 {index < itinerary.destinations.length - 1 && <span className="mx-2">•</span>}
                               </span>
                             ))}

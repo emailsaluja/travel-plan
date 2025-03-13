@@ -5,6 +5,7 @@ import { UserItineraryService } from '../services/user-itinerary.service';
 import { Heart, Calendar, MapPin, Users, Clock, ArrowRight, ChevronLeft, ChevronRight, Copy, ExternalLink } from 'lucide-react';
 import { CountryImagesService } from '../services/country-images.service';
 import { toast } from 'react-hot-toast';
+import { cleanDestination } from '../utils/stringUtils';
 
 interface LikedItinerary {
     id: string;
@@ -190,14 +191,6 @@ const LikedTrips: React.FC = () => {
         } finally {
             setCopying(prev => ({ ...prev, [tripId]: false }));
         }
-    };
-
-    // Add cleanDestination function
-    const cleanDestination = (destination: string) => {
-        // First split by comma and take the first part
-        const mainPart = destination.split(',')[0].trim();
-        // Remove any numbers and extra spaces
-        return mainPart.replace(/\d+/g, '').replace(/\s+/g, ' ').trim();
     };
 
     if (loading) {

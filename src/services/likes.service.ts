@@ -1,63 +1,67 @@
 import { supabase } from '../lib/supabase';
 
+interface Itinerary {
+  id: string;
+  title: string;
+  description: string;
+  image_url: string;
+  duration: number;
+  cities: string[];
+  likes: number;
+  created_at: string;
+}
+
+interface LikedItinerary {
+  itinerary_id: string;
+  itineraries: Itinerary;
+}
+
 export class LikesService {
   static async likeItinerary(itineraryId: string) {
     try {
-      console.log('LikesService: Attempting to like itinerary:', itineraryId);
       const { data: user } = await supabase.auth.getUser();
-      console.log('Current user:', user);
-      
+
       if (!user.user) {
-        console.error('No authenticated user found');
         throw new Error('Not authenticated');
       }
 
       const { data, error } = await supabase
         .from('likes')
         .insert([
-          { 
-            user_id: user.user.id, 
+          {
+            user_id: user.user.id,
             itinerary_id: itineraryId
           }
         ])
         .select()
         .single();
 
-      console.log('Like operation result:', { data, error });
-
       if (error) throw error;
       return { data, error: null };
-    } catch (error) {
-      console.error('Error in likeItinerary:', error);
+    } catch (error: any) {
       return { data: null, error: error.message };
     }
   }
 
   static async unlikeItinerary(itineraryId: string) {
     try {
-      console.log('LikesService: Attempting to unlike itinerary:', itineraryId);
       const { data: user } = await supabase.auth.getUser();
-      console.log('Current user:', user);
 
       if (!user.user) {
-        console.error('No authenticated user found');
         throw new Error('Not authenticated');
       }
 
       const { error } = await supabase
         .from('likes')
         .delete()
-        .match({ 
-          user_id: user.user.id, 
-          itinerary_id: itineraryId 
+        .match({
+          user_id: user.user.id,
+          itinerary_id: itineraryId
         });
-
-      console.log('Unlike operation result:', { error });
 
       if (error) throw error;
       return { error: null };
-    } catch (error) {
-      console.error('Error in unlikeItinerary:', error);
+    } catch (error: any) {
       return { error: error.message };
     }
   }
@@ -67,11 +71,6 @@ export class LikesService {
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) return { isLiked: false, error: null };
 
-      console.log('Checking like for:', {
-        user_id: user.user.id,
-        itinerary_id: itineraryId
-      });
-
       const { data, error } = await supabase
         .from('likes')
         .select('id')
@@ -79,14 +78,10 @@ export class LikesService {
         .eq('itinerary_id', itineraryId)
         .maybeSingle();
 
-      if (error) {
-        console.error('Like check error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       return { isLiked: !!data, error: null };
-    } catch (error) {
-      console.error('Like check failed:', error);
+    } catch (error: any) {
       return { isLiked: false, error: error.message };
     }
   }
@@ -100,7 +95,7 @@ export class LikesService {
 
       if (error) throw error;
       return { count: count || 0, error: null };
-    } catch (error) {
+    } catch (error: any) {
       return { count: 0, error: error.message };
     }
   }
@@ -128,8 +123,8 @@ export class LikesService {
         .eq('user_id', user.user.id);
 
       if (error) throw error;
-      return { 
-        data: data?.map(item => ({
+      return {
+        data: (data as unknown as LikedItinerary[])?.map(item => ({
           id: item.itineraries.id,
           title: item.itineraries.title,
           description: item.itineraries.description,
@@ -138,11 +133,10 @@ export class LikesService {
           cities: item.itineraries.cities,
           likes: item.itineraries.likes,
           createdAt: item.itineraries.created_at
-        })), 
-        error: null 
+        })),
+        error: null
       };
-    } catch (error) {
-      console.error('Error fetching liked itineraries:', error);
+    } catch (error: any) {
       return { data: null, error: error.message };
     }
   }
