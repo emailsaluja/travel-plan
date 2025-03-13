@@ -659,7 +659,7 @@ const Discover: React.FC = () => {
                             onClick={() => handleCountryClick(country)}
                             className="relative overflow-hidden rounded-lg cursor-pointer transform transition-transform hover:scale-[1.02] shadow-md w-[280px]"
                         >
-                            <div className="relative pb-[66.67%]">
+                            <div className="relative pb-[133.34%]">
                                 <img
                                     src={selectedImages[country] || '/images/empty-state.svg'}
                                     alt={country}

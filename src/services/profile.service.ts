@@ -57,12 +57,18 @@ export class ProfileService {
         }
     }
 
-    static async updateProfile(settings: Partial<ProfileSettings>) {
+    static async updateProfile(settings: Partial<ProfileSettings>, userId?: string) {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-
-            if (!user) {
-                throw new Error('User not authenticated');
+            // If userId is not provided, get it from the current session
+            let profileUserId: string;
+            if (userId) {
+                profileUserId = userId;
+            } else {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                    throw new Error('User not authenticated');
+                }
+                profileUserId = user.id;
             }
 
             // If updating username, check if it's unique
@@ -71,7 +77,7 @@ export class ProfileService {
                     .from('user_profiles')
                     .select('*', { count: 'exact', head: true })
                     .eq('username', settings.username)
-                    .neq('user_id', user.id);
+                    .neq('user_id', profileUserId);
 
                 if (checkError) {
                     throw checkError;
@@ -82,14 +88,25 @@ export class ProfileService {
                 }
             }
 
-            // Update the profile
+            // Get existing profile
+            const { data: existingProfile } = await supabase
+                .from('user_profiles')
+                .select('*')
+                .eq('user_id', profileUserId)
+                .single();
+
+            // Prepare the data to save
+            const dataToSave = {
+                user_id: profileUserId,
+                ...existingProfile, // Keep existing data
+                ...settings, // Override with new settings
+                updated_at: new Date().toISOString()
+            };
+
+            // Update or insert the profile
             const { data, error } = await supabase
                 .from('user_profiles')
-                .upsert({
-                    user_id: user.id,
-                    ...settings,
-                    updated_at: new Date().toISOString()
-                })
+                .upsert(dataToSave)
                 .select('*')
                 .single();
 
