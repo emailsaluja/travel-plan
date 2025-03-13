@@ -1,26 +1,37 @@
 import { supabase } from '../lib/supabase';
 
 export interface ProfileSettings {
+    user_id: string;
     username: string;
     full_name: string;
+    bio: string;
     measurement_system: 'metric' | 'imperial';
     privacy_setting: 'everyone' | 'approved_only';
+    profile_picture_url?: string;
+    hero_banner_url?: string;
+    created_at?: string;
+    updated_at?: string;
 }
 
 export class ProfileService {
-    static async getProfile() {
+    static async getProfile(userId?: string) {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-
-            if (!user) {
-                throw new Error('User not authenticated');
+            let profileUserId: string;
+            if (userId) {
+                profileUserId = userId;
+            } else {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                    throw new Error('User not authenticated');
+                }
+                profileUserId = user.id;
             }
 
             // Try to get existing profile
             const { data: existingProfile, error: fetchError } = await supabase
                 .from('user_profiles')
                 .select('*')
-                .eq('user_id', user.id)
+                .eq('user_id', profileUserId)
                 .single();
 
             // If profile exists, return it
@@ -30,22 +41,21 @@ export class ProfileService {
 
             // If no profile exists, create one with default values
             const defaultProfile: ProfileSettings = {
-                username: user.email?.split('@')[0] || '',
+                user_id: profileUserId,
+                username: profileUserId.split('-')[0], // Use first part of UUID as default username
                 full_name: '',
+                bio: '',
                 measurement_system: 'metric',
-                privacy_setting: 'approved_only'
+                privacy_setting: 'approved_only',
+                profile_picture_url: '',
+                hero_banner_url: '',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
             };
 
             const { data: newProfile, error: insertError } = await supabase
                 .from('user_profiles')
-                .insert([
-                    {
-                        user_id: user.id,
-                        ...defaultProfile,
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                    }
-                ])
+                .insert([defaultProfile])
                 .select()
                 .single();
 

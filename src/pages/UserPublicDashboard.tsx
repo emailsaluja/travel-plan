@@ -45,7 +45,7 @@ const UserPublicDashboard = () => {
             setLoading(true);
             setError(null);
 
-            // First check if the profile exists using the public schema
+            // Get profile data from user_profiles table
             const { data: profileData, error: profileError } = await supabase
                 .from('user_profiles')
                 .select('*')
@@ -63,24 +63,8 @@ const UserPublicDashboard = () => {
                 return;
             }
 
-            // Fetch user settings to get profile picture and hero banner
-            const { data: userSettings, error: settingsError } = await supabase
-                .from('user_settings')
-                .select('profile_picture_url, hero_banner_url')
-                .eq('user_id', profileData.user_id)
-                .maybeSingle();
-
-            if (settingsError) {
-                console.error('Settings fetch error:', settingsError);
-                // Don't return here, continue with default values
-            }
-
-            // Combine profile data with user settings, ensuring we have default values
-            setProfile({
-                ...profileData,
-                profile_picture_url: userSettings?.profile_picture_url || null,
-                hero_banner_url: userSettings?.hero_banner_url || null
-            });
+            // Set profile data directly since all fields are now in user_profiles
+            setProfile(profileData);
 
             // Get public itineraries using the public schema
             const { data: itinerariesData, error: itinerariesError } = await supabase

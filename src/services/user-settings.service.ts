@@ -1,9 +1,10 @@
 import { supabase } from '../lib/supabase';
-import { ProfileService } from './profile.service';
+import { ProfileService, ProfileSettings } from './profile.service';
 
 export interface UserSettings {
     user_id: string;
     username: string;
+    full_name: string;
     bio: string;
     profile_picture_url?: string;
     hero_banner_url?: string;
@@ -19,25 +20,28 @@ export const UserSettingsService = {
                 throw new Error('User not authenticated');
             }
 
-            const { data, error } = await supabase
-                .from('user_settings')
-                .select('*')
-                .eq('user_id', userId)
-                .maybeSingle();
+            const { data: profile } = await ProfileService.getProfile(userId);
 
-            if (error) throw error;
-
-            if (!data) {
+            if (!profile) {
                 return {
                     user_id: userId,
                     username: '@user',
+                    full_name: '',
                     bio: '',
                     profile_picture_url: '',
                     hero_banner_url: '',
                 };
             }
 
-            return data;
+            return {
+                user_id: profile.user_id,
+                username: profile.username,
+                full_name: profile.full_name,
+                bio: profile.bio,
+                profile_picture_url: profile.profile_picture_url,
+                hero_banner_url: profile.hero_banner_url,
+                updated_at: profile.updated_at
+            };
         } catch (error) {
             console.error('Error fetching user settings:', error);
             return null;
@@ -66,7 +70,7 @@ export const UserSettingsService = {
                 .from('user-images')
                 .upload(fileName, file, {
                     upsert: true,
-                    contentType: file.type // This ensures the correct MIME type is sent
+                    contentType: file.type
                 });
 
             if (uploadError) {
@@ -111,7 +115,7 @@ export const UserSettingsService = {
                 .from('user-images')
                 .upload(fileName, file, {
                     upsert: true,
-                    contentType: file.type // This ensures the correct MIME type is sent
+                    contentType: file.type
                 });
 
             if (uploadError) {
@@ -136,63 +140,22 @@ export const UserSettingsService = {
 
     async saveUserSettings(settings: UserSettings, userId: string): Promise<boolean> {
         try {
-            // First check if settings exist
-            const { data: existingSettings } = await supabase
-                .from('user_settings')
-                .select('*')
-                .eq('user_id', userId)
-                .single();
+            // Get existing profile
+            const { data: existingProfile } = await ProfileService.getProfile(userId);
 
-            const settingsToSave = {
+            // Update profile with new settings
+            await ProfileService.updateProfile({
                 user_id: userId,
                 username: settings.username,
+                full_name: settings.full_name,
                 bio: settings.bio,
                 profile_picture_url: settings.profile_picture_url,
                 hero_banner_url: settings.hero_banner_url,
-                updated_at: new Date().toISOString()
-            };
+                // Keep existing profile data
+                measurement_system: existingProfile?.measurement_system || 'metric',
+                privacy_setting: existingProfile?.privacy_setting || 'approved_only'
+            }, userId);
 
-            // Start a transaction by using Promise.all to ensure both updates succeed or fail together
-            let error;
-            if (existingSettings) {
-                // If username has changed, update both tables
-                if (existingSettings.username !== settings.username) {
-                    try {
-                        // Update user_profiles first to check for username uniqueness
-                        await ProfileService.updateProfile({ username: settings.username }, userId);
-
-                        // If username update succeeds, update user_settings
-                        const { error: updateError } = await supabase
-                            .from('user_settings')
-                            .update(settingsToSave)
-                            .eq('user_id', userId);
-                        error = updateError;
-                    } catch (profileError) {
-                        // If updating profile fails (e.g., username taken), throw the error
-                        throw profileError;
-                    }
-                } else {
-                    // If username hasn't changed, just update user_settings
-                    const { error: updateError } = await supabase
-                        .from('user_settings')
-                        .update(settingsToSave)
-                        .eq('user_id', userId);
-                    error = updateError;
-                }
-            } else {
-                // For new settings, create entries in both tables
-                try {
-                    await ProfileService.updateProfile({ username: settings.username }, userId);
-                    const { error: insertError } = await supabase
-                        .from('user_settings')
-                        .insert([settingsToSave]);
-                    error = insertError;
-                } catch (profileError) {
-                    throw profileError;
-                }
-            }
-
-            if (error) throw error;
             return true;
         } catch (error) {
             console.error('Error saving user settings:', error);

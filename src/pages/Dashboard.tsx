@@ -47,6 +47,7 @@ interface Itinerary {
 
 interface UserSettings {
   username: string;
+  full_name: string;
   bio: string;
   profilePicture?: string;
   heroBanner?: string;
@@ -67,6 +68,7 @@ const Dashboard = () => {
   const [settings, setSettings] = useState<UserSettingsType>({
     user_id: '',
     username: '@user',
+    full_name: '',
     bio: '',
     profile_picture_url: '',
     hero_banner_url: '',
@@ -704,6 +706,19 @@ const Dashboard = () => {
                   type="text"
                   value={settings.username}
                   onChange={(e) => setSettings(prev => ({ ...prev, username: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
+                />
+              </div>
+
+              {/* Full Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  value={settings.full_name}
+                  onChange={(e) => setSettings(prev => ({ ...prev, full_name: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
                 />
               </div>
