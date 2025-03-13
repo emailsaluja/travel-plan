@@ -800,7 +800,7 @@ const CreateItinerary: React.FC = () => {
                     >
                       <div>
                         {day.transport.includes('Drive') && <Car className="w-6 h-6 text-[#14B8A6]" />}
-                        {day.transport.includes('Air') && <Plane className="w-6 h-6 text-[#14B8A6]" />}
+                        {day.transport.includes('Flight') && <Plane className="w-6 h-6 text-[#14B8A6]" />}
                         {day.transport.includes('Train') && <Train className="w-6 h-6 text-[#14B8A6]" />}
                         {day.transport.includes('Bus') && <BusIcon className="w-6 h-6 text-[#14B8A6]" />}
                       </div>
