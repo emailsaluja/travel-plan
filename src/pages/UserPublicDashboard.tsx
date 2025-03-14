@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { MapPin, Calendar, Clock, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CountryImagesService } from '../services/country-images.service';
+import { cleanDestination } from '../utils/stringUtils';
 
 interface UserProfile {
     username: string;
@@ -195,7 +196,6 @@ const UserPublicDashboard = () => {
                         </div>
                         <div className="mb-4 text-white">
                             <h1 className="text-3xl font-bold mb-2">{profile.full_name}</h1>
-                            <p className="text-white/90 mb-2">@{profile.username}</p>
                             {itineraries.length > 0 && (
                                 <div className="flex items-center gap-2 text-white/80">
                                     <MapPin className="w-4 h-4" />
@@ -247,39 +247,22 @@ const UserPublicDashboard = () => {
                                     </div>
                                 </div>
                                 <div className="p-4">
-                                    <h3 className="text-lg font-medium text-[#1e293b] mb-4">
-                                        {itinerary.trip_name}
-                                    </h3>
-
-                                    <div className="space-y-4">
-                                        <div className="flex items-center gap-2 text-gray-500">
-                                            <MapPin className="w-4 h-4 text-[#00C48C]" />
-                                            <span>{itinerary.country}</span>
+                                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                                        <div className="flex items-center gap-1">
+                                            <Calendar className="w-4 h-4" />
+                                            <span>{formatDate(itinerary.start_date)}</span>
                                         </div>
-                                        {itinerary.destinations && itinerary.destinations.length > 0 && (
-                                            <div className="flex items-center gap-2 text-gray-500">
-                                                <span className="text-sm italic">
-                                                    Visiting: {itinerary.destinations.map(d =>
-                                                        d.destination.split(',')[0].trim()
-                                                    ).join(' → ')}
-                                                </span>
-                                            </div>
-                                        )}
-                                        <div className="flex items-center gap-4">
-                                            <div className="flex items-center gap-2 text-gray-600">
-                                                <Calendar className="w-4 h-4 text-[#00C48C]" />
-                                                <span>{formatDate(itinerary.start_date)}</span>
-                                            </div>
-                                            <div className="w-1 h-1 bg-gray-300 rounded-full"></div>
-                                            <div className="flex items-center gap-2 text-gray-600">
-                                                <Clock className="w-4 h-4 text-[#00C48C]" />
-                                                <span>{itinerary.duration} days</span>
-                                            </div>
+                                        <div className="flex items-center gap-1">
+                                            <Clock className="w-4 h-4" />
+                                            <span>{itinerary.duration} days</span>
                                         </div>
-                                        <div className="flex items-center gap-2 text-gray-600">
-                                            <Users className="w-4 h-4 text-[#00C48C]" />
-                                            <span>{itinerary.passengers} travelers</span>
+                                        <div className="flex items-center gap-1">
+                                            <Users className="w-4 h-4" />
+                                            <span>{itinerary.passengers}</span>
                                         </div>
+                                    </div>
+                                    <div className="mt-2 text-sm text-gray-600">
+                                        {itinerary.destinations.map(d => cleanDestination(d.destination)).join(' → ')}
                                     </div>
                                 </div>
                             </Link>

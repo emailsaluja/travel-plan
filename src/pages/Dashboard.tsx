@@ -22,7 +22,9 @@ import {
   User,
   Image,
   Upload,
-  Heart
+  Heart,
+  Copy,
+  Eye
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserItineraryService } from '../services/user-itinerary.service';
@@ -55,6 +57,9 @@ interface UserSettings {
   bio: string;
   profilePicture?: string;
   heroBanner?: string;
+  website_url?: string;
+  youtube_url?: string;
+  instagram_url?: string;
 }
 
 const Dashboard = () => {
@@ -65,7 +70,7 @@ const Dashboard = () => {
   const [itineraries, setItineraries] = useState<Itinerary[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [view, setView] = useState<'trips' | 'countries'>('trips');
+  const [view, setView] = useState<'trips' | 'countries' | 'upcoming' | 'past' | 'liked'>('trips');
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [countryImages, setCountryImages] = useState<Record<string, string[]>>({});
   const [selectedImages, setSelectedImages] = useState<Record<string, string>>({});
@@ -76,11 +81,30 @@ const Dashboard = () => {
     bio: '',
     profile_picture_url: '',
     hero_banner_url: '',
+    website_url: '',
+    youtube_url: '',
+    instagram_url: '',
   });
   const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
   const [heroBannerFile, setHeroBannerFile] = useState<File | null>(null);
   const [profilePicturePreview, setProfilePicturePreview] = useState<string>('');
   const [heroBannerPreview, setHeroBannerPreview] = useState<string>('');
+  const [likedTrips, setLikedTrips] = useState<Itinerary[]>([]);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [originalSettings, setOriginalSettings] = useState<UserSettingsType>({
+    user_id: '',
+    username: '@user',
+    full_name: '',
+    bio: '',
+    profile_picture_url: '',
+    hero_banner_url: '',
+    website_url: '',
+    youtube_url: '',
+    instagram_url: '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isUsernameSet, setIsUsernameSet] = useState(false);
 
   const stats = {
     followers: 0,
@@ -103,7 +127,7 @@ const Dashboard = () => {
     getUserId();
   }, []);
 
-  // Update loadUserSettings to handle loading state
+  // Update loadUserSettings to check if username exists
   useEffect(() => {
     const loadUserSettings = async () => {
       if (!userId) return;
@@ -112,6 +136,8 @@ const Dashboard = () => {
         const userSettings = await UserSettingsService.getUserSettings(userId);
         if (userSettings) {
           setSettings(userSettings);
+          // If username exists and is not the default, mark it as set
+          setIsUsernameSet(!!userSettings.username && userSettings.username !== '@user');
           if (userSettings.profile_picture_url) {
             setProfilePicturePreview(userSettings.profile_picture_url);
           }
@@ -188,7 +214,7 @@ const Dashboard = () => {
     setSelectedCountry(country);
   };
 
-  const handleViewChange = (newView: 'trips' | 'countries') => {
+  const handleViewChange = (newView: 'trips' | 'countries' | 'upcoming' | 'past' | 'liked') => {
     setView(newView);
     setSelectedCountry(null);
     // Update URL without hash
@@ -207,7 +233,14 @@ const Dashboard = () => {
         })
       );
 
-      setItineraries(itinerariesWithLikes || []);
+      // Sort itineraries by created_at date in descending order (newest first)
+      const sortedItineraries = itinerariesWithLikes.sort((a, b) => {
+        const dateA = new Date(a.created_at);
+        const dateB = new Date(b.created_at);
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      setItineraries(sortedItineraries || []);
     } catch (error) {
       console.error('Error loading itineraries:', error);
     } finally {
@@ -222,6 +255,16 @@ const Dashboard = () => {
       day: 'numeric',
       year: 'numeric'
     });
+  };
+
+  const getDaysUntilStart = (startDate: string) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tripDate = new Date(startDate);
+    tripDate.setHours(0, 0, 0, 0);
+    const diffTime = tripDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
   };
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
@@ -282,39 +325,146 @@ const Dashboard = () => {
     }
   };
 
+  const checkUsernameUniqueness = async (username: string, currentUserId: string): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('user_id')
+      .eq('username', username)
+      .neq('user_id', currentUserId)
+      .single();
+
+    if (error && error.code === 'PGRST116') {
+      // No matching username found, which means it's unique
+      return true;
+    }
+
+    // If we found a user with this username, it's not unique
+    return !data;
+  };
+
   const handleSaveSettings = async () => {
-    if (!userId) return;
-
     try {
-      let updatedSettings = { ...settings };
+      setIsSaving(true);
+      setError(null);
 
-      // Upload profile picture if changed
-      if (profilePictureFile) {
-        const profilePictureUrl = await UserSettingsService.uploadProfilePicture(profilePictureFile, userId);
-        if (profilePictureUrl) {
-          updatedSettings.profile_picture_url = profilePictureUrl;
+      // Check username uniqueness before saving
+      if (settings.username !== originalSettings.username) {
+        const isUnique = await checkUsernameUniqueness(settings.username, settings.user_id);
+        if (!isUnique) {
+          setError('This username is already taken. Please choose another one.');
+          setIsSaving(false);
+          return;
         }
       }
 
-      // Upload hero banner if changed
-      if (heroBannerFile) {
-        const heroBannerUrl = await UserSettingsService.uploadHeroBanner(heroBannerFile, userId);
-        if (heroBannerUrl) {
-          updatedSettings.hero_banner_url = heroBannerUrl;
-        }
+      const { error: updateError } = await supabase
+        .from('user_profiles')
+        .update({
+          username: settings.username,
+          full_name: settings.full_name,
+          bio: settings.bio,
+          website_url: settings.website_url,
+          youtube_url: settings.youtube_url,
+          instagram_url: settings.instagram_url
+        })
+        .eq('user_id', settings.user_id);
+
+      if (updateError) {
+        throw updateError;
       }
 
-      // Save settings
-      const success = await UserSettingsService.saveUserSettings(updatedSettings, userId);
-      if (success) {
-        setSettings(updatedSettings);
-        setIsSettingsOpen(false);
-      } else {
-        throw new Error('Failed to save settings');
-      }
+      setOriginalSettings(settings);
+      setIsSettingsOpen(false);
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Add this new function to get upcoming trips
+  const getUpcomingTrips = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return itineraries
+      .filter(itinerary => {
+        const startDate = new Date(itinerary.start_date);
+        startDate.setHours(0, 0, 0, 0);
+        return startDate >= today;
+      })
+      .sort((a, b) => {
+        const startDateA = new Date(a.start_date);
+        const startDateB = new Date(b.start_date);
+        return startDateA.getTime() - startDateB.getTime();
+      });
+  };
+
+  const upcomingTrips = getUpcomingTrips();
+
+  // Add this new function to get past trips
+  const getPastTrips = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return itineraries
+      .filter(itinerary => {
+        const startDate = new Date(itinerary.start_date);
+        startDate.setHours(0, 0, 0, 0);
+        return startDate < today;
+      })
+      .sort((a, b) => {
+        const startDateA = new Date(a.start_date);
+        const startDateB = new Date(b.start_date);
+        return startDateB.getTime() - startDateA.getTime(); // Most recent first
+      });
+  };
+
+  const pastTrips = getPastTrips();
+
+  // Add function to load liked trips
+  const loadLikedTrips = async () => {
+    try {
+      const { data } = await UserItineraryService.getLikedItineraries();
+      const likedItineraries = data?.map((item: any) => ({
+        id: item.id,
+        trip_name: item.trip_name,
+        country: item.country,
+        start_date: item.start_date,
+        duration: item.duration,
+        passengers: item.passengers,
+        created_at: item.created_at,
+        destinations: item.destinations,
+        likesCount: item.likes_count
+      }));
+      setLikedTrips(likedItineraries || []);
     } catch (error) {
-      console.error('Error saving settings:', error);
-      alert('Failed to save settings. Please try again.');
+      console.error('Error loading liked trips:', error);
+    }
+  };
+
+  // Load liked trips when component mounts
+  useEffect(() => {
+    loadLikedTrips();
+  }, []);
+
+  const handleCopyTrip = async (id: string) => {
+    try {
+      await UserItineraryService.copyItinerary(id);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+      await loadItineraries(); // Refresh the trips list
+    } catch (error) {
+      console.error('Error copying itinerary:', error);
+    }
+  };
+
+  const handleUnlike = async (id: string) => {
+    try {
+      await LikesService.unlikeItinerary(id);
+      await loadLikedTrips(); // Refresh liked trips
+    } catch (error) {
+      console.error('Error unliking itinerary:', error);
     }
   };
 
@@ -322,8 +472,8 @@ const Dashboard = () => {
     <div className="min-h-screen">
       {/* Top Navigation */}
       <nav className="bg-white border-b-2 border-gray-300 fixed top-0 left-0 right-0 z-50">
-        <div className="max-w-[1400px] mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
+        <div className="w-full mx-auto">
+          <div className="flex items-center justify-between h-[60px] px-6">
             <Link to="/" className="flex-shrink-0">
               <img src="/images/stippl-logo.svg" alt="Stippl" className="h-8" />
             </Link>
@@ -367,7 +517,7 @@ const Dashboard = () => {
 
       <div className="flex min-h-screen pt-[60px]">
         {/* Left Sidebar - 20% width */}
-        <div className="w-[20%] bg-[#F0F8FF] border-r border-gray-300 min-h-screen fixed left-0 px-6 pt-0">
+        <div className="w-[20%] bg-[#F0F8FF] border-r border-gray-300 min-h-screen fixed left-0 px-6 pt-0 flex flex-col">
           {/* Profile Section */}
           <div className="py-8">
             <div className="w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-[#00C48C] to-[#00B380] mb-4 shadow-md">
@@ -377,7 +527,12 @@ const Dashboard = () => {
                 className="w-full h-full object-cover"
               />
             </div>
-            <p className="text-gray-500 mb-4">{settings.username}</p>
+            {settings.full_name && (
+              <p className="text-gray-700 font-medium mb-1">{settings.full_name}</p>
+            )}
+            <Link to={`/${cleanDestination(settings.username.replace('@', ''))}`} className="text-[#00C48C] text-sm hover:underline mb-4 inline-block">
+              {`localhost:3000/${cleanDestination(settings.username.replace('@', ''))}`}
+            </Link>
             {settings.bio && <p className="text-sm text-gray-600 mb-4">{settings.bio}</p>}
 
             <div className="flex items-center gap-6 text-sm">
@@ -410,7 +565,7 @@ const Dashboard = () => {
           </div>
 
           {/* Navigation Links */}
-          <div className="space-y-4">
+          <div className="space-y-4 flex-1">
             <div>
               <button
                 onClick={() => handleViewChange('trips')}
@@ -422,6 +577,48 @@ const Dashboard = () => {
                 </div>
                 <span className="bg-[#00C48C]/10 text-[#00C48C] px-2 py-0.5 rounded-full text-sm">
                   {itineraries.length}
+                </span>
+              </button>
+            </div>
+            <div>
+              <button
+                onClick={() => handleViewChange('liked')}
+                className={`w-full flex items-center justify-between font-[600] font-['Inter_var'] p-2 rounded-lg transition-colors ${view === 'liked' ? 'bg-[#e5f8f3] text-[#13c892]' : 'text-[#1e293b] hover:bg-[#e5f8f3] hover:text-[#13c892]'}`}
+              >
+                <div className="flex items-center gap-2">
+                  <Heart className={`w-4 h-4 ${view === 'liked' ? 'text-[#13c892]' : 'text-[#00C48C]'}`} />
+                  <span>Liked Trips</span>
+                </div>
+                <span className="bg-[#00C48C]/10 text-[#00C48C] px-2 py-0.5 rounded-full text-sm">
+                  {likedTrips.length}
+                </span>
+              </button>
+            </div>
+            <div>
+              <button
+                onClick={() => handleViewChange('upcoming')}
+                className={`w-full flex items-center justify-between font-[600] font-['Inter_var'] p-2 rounded-lg transition-colors ${view === 'upcoming' ? 'bg-[#e5f8f3] text-[#13c892]' : 'text-[#1e293b] hover:bg-[#e5f8f3] hover:text-[#13c892]'}`}
+              >
+                <div className="flex items-center gap-2">
+                  <Clock className={`w-4 h-4 ${view === 'upcoming' ? 'text-[#13c892]' : 'text-[#00C48C]'}`} />
+                  <span>Upcoming Trips</span>
+                </div>
+                <span className="bg-[#00C48C]/10 text-[#00C48C] px-2 py-0.5 rounded-full text-sm">
+                  {upcomingTrips.length}
+                </span>
+              </button>
+            </div>
+            <div>
+              <button
+                onClick={() => handleViewChange('past')}
+                className={`w-full flex items-center justify-between font-[600] font-['Inter_var'] p-2 rounded-lg transition-colors ${view === 'past' ? 'bg-[#e5f8f3] text-[#13c892]' : 'text-[#1e293b] hover:bg-[#e5f8f3] hover:text-[#13c892]'}`}
+              >
+                <div className="flex items-center gap-2">
+                  <Calendar className={`w-4 h-4 ${view === 'past' ? 'text-[#13c892]' : 'text-[#00C48C]'}`} />
+                  <span>Past Trips</span>
+                </div>
+                <span className="bg-[#00C48C]/10 text-[#00C48C] px-2 py-0.5 rounded-full text-sm">
+                  {pastTrips.length}
                 </span>
               </button>
             </div>
@@ -442,34 +639,36 @@ const Dashboard = () => {
           </div>
 
           {/* Share Profile and Settings */}
-          <div className="mt-6 space-y-2">
-            <button
-              className="w-full flex items-center gap-2 text-[#1e293b] font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
-            >
-              <Share2 className="w-4 h-4 text-[#00C48C]" />
-              <span>Share profile</span>
-            </button>
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="w-full flex items-center gap-2 text-[#1e293b] font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
-            >
-              <Settings className="w-4 h-4 text-[#00C48C]" />
-              <span>Settings</span>
-            </button>
-            <Link
-              to="/admin/country-images"
-              className="w-full flex items-center gap-2 text-[#1e293b] font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
-            >
-              <Globe className="w-4 h-4 text-[#00C48C]" />
-              <span>Manage Country Images</span>
-            </Link>
-            <button
-              onClick={handleSignOut}
-              className="w-full flex items-center gap-2 text-gray-500 font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
-            >
-              <LogOut className="w-4 h-4 text-[#00C48C]" />
-              <span>Sign out</span>
-            </button>
+          <div className="mt-auto pt-6 border-t border-gray-200 mb-8">
+            <div className="space-y-2">
+              <button
+                className="w-full flex items-center gap-2 text-[#1e293b] font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
+              >
+                <Share2 className="w-4 h-4 text-[#00C48C]" />
+                <span>Share profile</span>
+              </button>
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="w-full flex items-center gap-2 text-[#1e293b] font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
+              >
+                <Settings className="w-4 h-4 text-[#00C48C]" />
+                <span>Settings</span>
+              </button>
+              <Link
+                to="/admin/country-images"
+                className="w-full flex items-center gap-2 text-[#1e293b] font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
+              >
+                <Globe className="w-4 h-4 text-[#00C48C]" />
+                <span>Manage Country Images</span>
+              </Link>
+              <button
+                onClick={handleSignOut}
+                className="w-full flex items-center gap-2 text-gray-500 font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
+              >
+                <LogOut className="w-4 h-4 text-[#00C48C]" />
+                <span>Sign out</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -481,9 +680,30 @@ const Dashboard = () => {
               <div className="flex items-center gap-2">
                 {view === 'trips' ? (
                   <>
+                    <Globe className="w-5 h-5 text-[#00C48C]" />
+                    <h2 className="text-lg font-medium text-[#1e293b]">
+                      {selectedCountry ? `${countryStats[selectedCountry]?.count} trips in ${selectedCountry}` : `${itineraries.length} total trips`}
+                    </h2>
+                  </>
+                ) : view === 'liked' ? (
+                  <>
+                    <Heart className="w-5 h-5 text-[#00C48C]" />
+                    <h2 className="text-lg font-medium text-[#1e293b]">
+                      {likedTrips.length} liked trips
+                    </h2>
+                  </>
+                ) : view === 'upcoming' ? (
+                  <>
                     <Clock className="w-5 h-5 text-[#00C48C]" />
                     <h2 className="text-lg font-medium text-[#1e293b]">
-                      {selectedCountry ? `${countryStats[selectedCountry]?.count} trips in ${selectedCountry}` : `${itineraries.length} upcoming trips`}
+                      {upcomingTrips.length} upcoming trips
+                    </h2>
+                  </>
+                ) : view === 'past' ? (
+                  <>
+                    <Calendar className="w-5 h-5 text-[#00C48C]" />
+                    <h2 className="text-lg font-medium text-[#1e293b]">
+                      {pastTrips.length} past trips
                     </h2>
                   </>
                 ) : (
@@ -534,25 +754,86 @@ const Dashboard = () => {
                   </div>
                 ))}
               </div>
+            ) : view === 'liked' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {likedTrips.map((itinerary) => (
+                  <div
+                    key={itinerary.id}
+                    className="group relative overflow-hidden rounded-xl"
+                  >
+                    <div className="cursor-pointer">
+                      <ItineraryTile
+                        id={itinerary.id}
+                        title={itinerary.trip_name}
+                        description={`${itinerary.duration} days in ${itinerary.destinations
+                          .map(d => cleanDestination(d.destination))
+                          .join(', ')}`}
+                        imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                        duration={itinerary.duration}
+                        cities={itinerary.destinations.map(d => cleanDestination(d.destination))}
+                        createdAt={itinerary.created_at}
+                        loading="lazy"
+                        showLike={false}
+                      />
+                      <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
+                        <span>Start in {getDaysUntilStart(itinerary.start_date)} days</span>
+                      </div>
+                    </div>
+                    {/* Action Buttons for Liked Trips */}
+                    <div className="absolute top-4 right-4 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
+                      <button
+                        onClick={() => handleCopyTrip(itinerary.id)}
+                        className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
+                        title={copiedId === itinerary.id ? "Copied!" : "Copy itinerary"}
+                      >
+                        <Copy className="w-4 h-4 text-gray-700" strokeWidth={2} />
+                      </button>
+                      <button
+                        onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                        className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
+                        title="View itinerary"
+                      >
+                        <Eye className="w-4 h-4 text-gray-700" strokeWidth={2} />
+                      </button>
+                      <button
+                        onClick={() => handleUnlike(itinerary.id)}
+                        className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
+                        title="Unlike itinerary"
+                      >
+                        <Heart className="w-4 h-4 text-rose-500" fill="currentColor" strokeWidth={2} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : (
               // Trip Grid
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {/* Create New Trip Card */}
-                  <div
-                    onClick={() => navigate('/create-itinerary')}
-                    className="cursor-pointer group"
-                  >
-                    <div className="relative rounded-xl overflow-hidden border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 transition-colors h-48 flex items-center justify-center">
-                      <div className="text-center">
-                        <Plus className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                        <p className="text-gray-600 font-medium">Create New Trip</p>
+                  {/* Create New Trip Card - Only show in main trips view */}
+                  {(view === 'trips' || (view === 'countries' && selectedCountry)) && (
+                    <div
+                      onClick={() => navigate('/create-itinerary')}
+                      className="cursor-pointer group"
+                    >
+                      <div className="relative rounded-xl overflow-hidden border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 transition-colors h-48 flex items-center justify-center">
+                        <div className="text-center">
+                          <Plus className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-gray-600 font-medium">Create New Trip</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Trip Tiles */}
-                  {(selectedCountry ? countryStats[selectedCountry]?.itineraries : itineraries).map((itinerary) => (
+                  {(view === 'upcoming'
+                    ? upcomingTrips
+                    : view === 'past'
+                      ? pastTrips
+                      : selectedCountry
+                        ? countryStats[selectedCountry]?.itineraries
+                        : itineraries
+                  ).map((itinerary) => (
                     <div
                       key={itinerary.id}
                       className="group relative overflow-hidden rounded-xl"
@@ -575,7 +856,7 @@ const Dashboard = () => {
                           showLike={false}
                         />
                         <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
-                          <span>Created {formatDate(itinerary.created_at)}</span>
+                          <span>Start in {getDaysUntilStart(itinerary.start_date)} days</span>
                           <div className="flex items-center gap-1">
                             <Heart className="w-4 h-4 text-rose-500" fill="currentColor" />
                             <span>{itinerary.likesCount || 0}</span>
@@ -616,8 +897,8 @@ const Dashboard = () => {
 
       {/* Settings Popup */}
       {isSettingsOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-6 overflow-y-auto">
+          <div className="bg-white rounded-xl p-6 w-full max-w-4xl">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold text-gray-900">Profile Settings</h2>
               <button
@@ -628,127 +909,191 @@ const Dashboard = () => {
               </button>
             </div>
 
-            <div className="space-y-6">
-              {/* Profile Picture Upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Profile Picture
-                </label>
-                <div className="flex items-center space-x-4">
-                  <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-gray-200">
-                    {profilePicturePreview ? (
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600 text-sm">{error}</p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-6">
+              {/* Left Column */}
+              <div className="space-y-6">
+                {/* Profile Picture Upload */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Profile Picture
+                  </label>
+                  <div className="flex items-center space-x-4">
+                    <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-gray-200">
+                      {profilePicturePreview ? (
+                        <img
+                          src={profilePicturePreview}
+                          alt="Profile"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                          <User className="w-12 h-12 text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleProfilePictureChange}
+                        className="hidden"
+                        id="profile-picture"
+                      />
+                      <label
+                        htmlFor="profile-picture"
+                        className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload Picture
+                      </label>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Recommended: 400x400px, max 2MB
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Username */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Username
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={settings.username}
+                      onChange={(e) => setSettings(prev => ({ ...prev, username: e.target.value }))}
+                      disabled={isUsernameSet}
+                      className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent ${isUsernameSet ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                    />
+                    {isUsernameSet && (
+                      <div className="mt-1 text-xs text-gray-500">
+                        Username cannot be changed once set
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Full Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.full_name}
+                    onChange={(e) => setSettings(prev => ({ ...prev, full_name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
+                  />
+                </div>
+
+                {/* Bio */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Bio
+                  </label>
+                  <textarea
+                    value={settings.bio}
+                    onChange={(e) => setSettings(prev => ({ ...prev, bio: e.target.value }))}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Right Column */}
+              <div className="space-y-6">
+                {/* Hero Banner Upload */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Hero Banner
+                  </label>
+                  <div className="relative w-full h-32 rounded-lg overflow-hidden border-2 border-gray-200">
+                    {heroBannerPreview ? (
                       <img
-                        src={profilePicturePreview}
-                        alt="Profile"
+                        src={heroBannerPreview}
+                        alt="Hero Banner"
                         className="w-full h-full object-cover"
                       />
                     ) : (
                       <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                        <User className="w-12 h-12 text-gray-400" />
+                        <Image className="w-8 h-8 text-gray-400" />
                       </div>
                     )}
                   </div>
-                  <div>
+                  <div className="mt-2">
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={handleProfilePictureChange}
+                      onChange={handleHeroBannerChange}
                       className="hidden"
-                      id="profile-picture"
+                      id="hero-banner"
                     />
                     <label
-                      htmlFor="profile-picture"
+                      htmlFor="hero-banner"
                       className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
                     >
                       <Upload className="w-4 h-4 mr-2" />
-                      Upload Picture
+                      Upload Banner
                     </label>
                     <p className="mt-1 text-xs text-gray-500">
-                      Recommended: 400x400px, max 2MB
+                      Recommended: 1920x1080px, max 5MB
                     </p>
                   </div>
                 </div>
-              </div>
 
-              {/* Hero Banner Upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hero Banner
-                </label>
-                <div className="relative w-full h-32 rounded-lg overflow-hidden border-2 border-gray-200">
-                  {heroBannerPreview ? (
-                    <img
-                      src={heroBannerPreview}
-                      alt="Hero Banner"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                      <Image className="w-8 h-8 text-gray-400" />
-                    </div>
-                  )}
-                </div>
-                <div className="mt-2">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleHeroBannerChange}
-                    className="hidden"
-                    id="hero-banner"
-                  />
-                  <label
-                    htmlFor="hero-banner"
-                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload Banner
+                {/* Website URL */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Website URL
                   </label>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Recommended: 1920x1080px, max 5MB
-                  </p>
+                  <input
+                    type="url"
+                    value={settings.website_url || ''}
+                    onChange={(e) => setSettings(prev => ({ ...prev, website_url: e.target.value }))}
+                    placeholder="https://your-website.com"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
+                  />
+                </div>
+
+                {/* YouTube URL */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    YouTube Channel
+                  </label>
+                  <input
+                    type="url"
+                    value={settings.youtube_url || ''}
+                    onChange={(e) => setSettings(prev => ({ ...prev, youtube_url: e.target.value }))}
+                    placeholder="https://youtube.com/@yourchannel"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
+                  />
+                </div>
+
+                {/* Instagram URL */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Instagram Profile
+                  </label>
+                  <input
+                    type="url"
+                    value={settings.instagram_url || ''}
+                    onChange={(e) => setSettings(prev => ({ ...prev, instagram_url: e.target.value }))}
+                    placeholder="https://instagram.com/yourusername"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
+                  />
                 </div>
               </div>
+            </div>
 
-              {/* Username */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Username
-                </label>
-                <input
-                  type="text"
-                  value={settings.username}
-                  onChange={(e) => setSettings(prev => ({ ...prev, username: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
-                />
-              </div>
-
-              {/* Full Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  value={settings.full_name}
-                  onChange={(e) => setSettings(prev => ({ ...prev, full_name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
-                />
-              </div>
-
-              {/* Bio */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Bio
-                </label>
-                <textarea
-                  value={settings.bio}
-                  onChange={(e) => setSettings(prev => ({ ...prev, bio: e.target.value }))}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
-                />
-              </div>
-
-              {/* Save Button */}
+            {/* Save Button - Full Width */}
+            <div className="mt-6">
               <button
                 onClick={handleSaveSettings}
                 className="w-full bg-[#00C48C] text-white py-2 px-4 rounded-md hover:bg-[#00B37D] transition-colors"

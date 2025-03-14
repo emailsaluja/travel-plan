@@ -6,8 +6,11 @@ export interface UserSettings {
     username: string;
     full_name: string;
     bio: string;
-    profile_picture_url?: string;
-    hero_banner_url?: string;
+    profile_picture_url: string;
+    hero_banner_url: string;
+    website_url: string;
+    youtube_url: string;
+    instagram_url: string;
     updated_at?: string;
 }
 
@@ -30,6 +33,9 @@ export const UserSettingsService = {
                     bio: '',
                     profile_picture_url: '',
                     hero_banner_url: '',
+                    website_url: '',
+                    youtube_url: '',
+                    instagram_url: '',
                 };
             }
 
@@ -40,6 +46,9 @@ export const UserSettingsService = {
                 bio: profile.bio,
                 profile_picture_url: profile.profile_picture_url,
                 hero_banner_url: profile.hero_banner_url,
+                website_url: profile.website_url,
+                youtube_url: profile.youtube_url,
+                instagram_url: profile.instagram_url,
                 updated_at: profile.updated_at
             };
         } catch (error) {
@@ -151,6 +160,9 @@ export const UserSettingsService = {
                 bio: settings.bio,
                 profile_picture_url: settings.profile_picture_url,
                 hero_banner_url: settings.hero_banner_url,
+                website_url: settings.website_url,
+                youtube_url: settings.youtube_url,
+                instagram_url: settings.instagram_url,
                 // Keep existing profile data
                 measurement_system: existingProfile?.measurement_system || 'metric',
                 privacy_setting: existingProfile?.privacy_setting || 'approved_only'
