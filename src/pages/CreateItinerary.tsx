@@ -972,6 +972,16 @@ const CreateItinerary: React.FC = () => {
             />
           </div>
         )}
+
+        {showTripSummaryEdit && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <TripSummaryEdit
+              tripSummary={tripSummary}
+              onClose={() => setShowTripSummaryEdit(false)}
+              onUpdate={handleTripSummaryUpdate}
+            />
+          </div>
+        )}
         <div className="pt-[60px]">
           <div className="min-h-screen bg-[#f8fafc]">
             <div className="max-w-[1400px] mx-auto px-4 py-6 pt-20">
