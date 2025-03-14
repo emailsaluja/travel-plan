@@ -19,7 +19,8 @@ import {
   Landmark,
   TreePine,
   Castle,
-  Church
+  Church,
+  Star
 } from 'lucide-react';
 import { countries } from '../data/countries';
 
@@ -50,7 +51,8 @@ const AVAILABLE_TAGS = [
   { id: 'museum', icon: Landmark, label: 'Museum' },
   { id: 'park', icon: TreePine, label: 'Park' },
   { id: 'castle', icon: Castle, label: 'Castle' },
-  { id: 'temple', icon: Church, label: 'Temple' }
+  { id: 'temple', icon: Church, label: 'Temple' },
+  { id: 'once-in-a-life', icon: Star, label: 'Once in a Life' }
 ];
 
 interface TripSummaryEditProps {

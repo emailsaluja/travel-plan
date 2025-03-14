@@ -672,6 +672,14 @@ const Discover: React.FC = () => {
 
                 {/* Bucket List Experiences Section */}
                 <ScrollableSection title="Bucket List Experiences">
+                    <div className="flex flex-col items-start mb-4">
+                        <button
+                            onClick={() => navigate('/discover/onceinlife')}
+                            className="text-[#00C48C] hover:text-[#00B380] flex items-center gap-2 mb-4"
+                        >
+                            View Once in a Life Experiences →
+                        </button>
+                    </div>
                     {itineraries
                         .filter(itinerary => itinerary.tags?.includes('bucket-list'))
                         .map((itinerary) => (

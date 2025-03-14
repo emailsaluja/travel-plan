@@ -1,3 +1,4 @@
+import React from 'react';
 import { createBrowserRouter, Outlet } from 'react-router-dom';
 import Navigation1 from './components/Navigation1';
 import Home from './pages/Home';
@@ -20,6 +21,7 @@ import { CountryImagesAdmin } from './components/CountryImagesAdmin';
 import Discover from './pages/Discover';
 import LikedTrips from './pages/LikedTrips';
 import AdminDashboard from './pages/AdminDashboard';
+import OnceInLife from './pages/discover/OnceInLife';
 
 const RootLayout = () => {
   return (
@@ -45,6 +47,7 @@ export const router = createBrowserRouter([
       { path: 'whytravel', element: <WhyTravel /> },
       { path: 'discover', element: <Discover /> },
       { path: 'discover/:country', element: <Discover /> },
+      { path: 'discover/onceinlife', element: <OnceInLife /> },
       { path: 'view-itinerary/:id', element: <ViewUserItinerary /> },
       {
         path: 'dashboard',
