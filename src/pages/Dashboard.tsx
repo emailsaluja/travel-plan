@@ -761,7 +761,10 @@ const Dashboard = () => {
                     key={itinerary.id}
                     className="group relative overflow-hidden rounded-xl"
                   >
-                    <div className="cursor-pointer">
+                    <div
+                      onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                      className="cursor-pointer"
+                    >
                       <ItineraryTile
                         id={itinerary.id}
                         title={itinerary.trip_name}
@@ -779,29 +782,30 @@ const Dashboard = () => {
                         <span>Start in {getDaysUntilStart(itinerary.start_date)} days</span>
                       </div>
                     </div>
-                    {/* Action Buttons for Liked Trips */}
-                    <div className="absolute top-4 right-4 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
-                      <button
-                        onClick={() => handleCopyTrip(itinerary.id)}
-                        className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
-                        title={copiedId === itinerary.id ? "Copied!" : "Copy itinerary"}
-                      >
-                        <Copy className="w-4 h-4 text-gray-700" strokeWidth={2} />
-                      </button>
-                      <button
-                        onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
-                        className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
-                        title="View itinerary"
-                      >
-                        <Eye className="w-4 h-4 text-gray-700" strokeWidth={2} />
-                      </button>
-                      <button
-                        onClick={() => handleUnlike(itinerary.id)}
-                        className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
-                        title="Unlike itinerary"
-                      >
-                        <Heart className="w-4 h-4 text-rose-500" fill="currentColor" strokeWidth={2} />
-                      </button>
+                    {/* Action Buttons for Liked Trips - Centered */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
+                      <div className="flex items-center gap-3 bg-black/20 backdrop-blur-sm p-3 rounded-lg">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyTrip(itinerary.id);
+                          }}
+                          className="p-2 bg-white rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
+                          title={copiedId === itinerary.id ? "Copied!" : "Copy itinerary"}
+                        >
+                          <Copy className="w-4 h-4 text-gray-700" strokeWidth={2} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUnlike(itinerary.id);
+                          }}
+                          className="p-2 bg-white rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
+                          title="Unlike itinerary"
+                        >
+                          <Heart className="w-4 h-4 text-rose-500" fill="currentColor" strokeWidth={2} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -864,27 +868,29 @@ const Dashboard = () => {
                         </div>
                       </div>
                       {/* Action Buttons */}
-                      <div className="absolute top-4 right-4 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/create-itinerary?id=${itinerary.id}`);
-                          }}
-                          className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
-                          title="Edit itinerary"
-                        >
-                          <Edit className="w-4 h-4 text-gray-700" strokeWidth={2} />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(itinerary.id, e);
-                          }}
-                          className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
-                          title="Delete itinerary"
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" strokeWidth={2} />
-                        </button>
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
+                        <div className="flex items-center gap-3 bg-black/20 backdrop-blur-sm p-3 rounded-lg">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/create-itinerary?id=${itinerary.id}`);
+                            }}
+                            className="p-2 bg-white rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
+                            title="Edit itinerary"
+                          >
+                            <Edit className="w-4 h-4 text-gray-700" strokeWidth={2} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(itinerary.id, e);
+                            }}
+                            className="p-2 bg-white rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
+                            title="Delete itinerary"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" strokeWidth={2} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
