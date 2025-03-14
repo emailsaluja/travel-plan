@@ -47,6 +47,7 @@ import { UserItineraryService } from '../services/user-itinerary.service';
 import HotelSearchPopup from '../components/HotelSearchPopup';
 import TransportPopup from '../components/TransportPopup';
 import FoodPopup from '../components/FoodPopup';
+import TopNavigation from '../components/TopNavigation';
 
 interface DestinationData {
   destination: string;
@@ -602,7 +603,7 @@ const CreateItinerary: React.FC = () => {
     return (
       <div className="space-y-4">
         {/* Column Headers */}
-        <div className="grid grid-cols-[1fr,140px,200px,120px,120px,120px] gap-4 px-4 py-2 text-sm text-gray-500">
+        <div className="grid grid-cols-[1fr,140px,200px,120px,120px,160px] gap-4 px-4 py-2 text-sm text-gray-500">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-[#00C48C]/10 flex items-center justify-center">
               <MapPin className="w-4 h-4 text-[#00C48C]" />
@@ -634,8 +635,8 @@ const CreateItinerary: React.FC = () => {
             <span className="font-[600] font-['Poppins',sans-serif]">FOOD</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-[#14B8A6]/10 flex items-center justify-center">
-              <Transport className="w-4 h-4 text-[#14B8A6]" />
+            <div className="w-6 h-6 rounded-full bg-[#ea5681]/10 flex items-center justify-center">
+              <Transport className="w-4 h-4 text-[#ea5681]" />
             </div>
             <span className="font-[600] font-['Poppins',sans-serif]">TRANSPORT</span>
           </div>
@@ -644,188 +645,211 @@ const CreateItinerary: React.FC = () => {
         {/* Destinations List */}
         <div className="space-y-2">
           {itineraryDays.map((day, index) => (
-            <div key={index} className="grid grid-cols-[1fr,140px,200px,120px,120px,120px] gap-4 items-center bg-white rounded-lg px-4 py-3 hover:shadow-sm transition-shadow">
-              <div>
-                <div className="flex items-center gap-3">
-                  <div className="relative group">
-                    <div className="w-6 h-6 rounded-full bg-[#00C48C]/10 flex items-center justify-center text-sm font-medium text-[#00C48C]">
-                      {index + 1}
+            <React.Fragment key={index}>
+              <div className="grid grid-cols-[1fr,140px,200px,120px,120px,160px] gap-4 items-center bg-white rounded-lg px-4 py-3 hover:shadow-sm transition-shadow">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <div className="relative group">
+                      <div className="w-6 h-6 rounded-full bg-[#00C48C]/10 flex items-center justify-center text-sm font-medium text-[#00C48C]">
+                        {index + 1}
+                      </div>
+                      <button
+                        onClick={() => {
+                          const newDays = [...itineraryDays];
+                          newDays.splice(index, 1);
+                          setItineraryDays(newDays);
+                        }}
+                        className="absolute -right-2 -top-2 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => {
-                        const newDays = [...itineraryDays];
-                        newDays.splice(index, 1);
-                        setItineraryDays(newDays);
-                      }}
-                      className="absolute -right-2 -top-2 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                  <div>
-                    <PlaceAutocomplete
-                      value={day.destination.split(',')[0]}
-                      onChange={(value) => handleDayUpdate(index, 'destination', value)}
-                      country={tripSummary.country}
-                      onPlaceSelect={(place) => {
-                        console.log('Selected place:', place);
-                        handleDayUpdate(index, 'destination', place.name || '');
-                      }}
-                      startDate=""
-                      nights={0}
-                    />
-                    <div className="text-sm text-[#64748B] mt-1">
-                      {formatDateRange(index)}
+                    <div>
+                      <PlaceAutocomplete
+                        value={day.destination.split(',')[0]}
+                        onChange={(value) => handleDayUpdate(index, 'destination', value)}
+                        country={tripSummary.country}
+                        onPlaceSelect={(place) => {
+                          console.log('Selected place:', place);
+                          handleDayUpdate(index, 'destination', place.name || '');
+                        }}
+                        startDate=""
+                        nights={0}
+                        className="font-['Inter_var'] font-[600]"
+                      />
+                      <div className="text-sm text-[#64748B] mt-1">
+                        {formatDateRange(index)}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-              <div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleDayUpdate(index, 'nights', Math.max(1, day.nights - 1))}
-                    className="w-8 h-8 flex items-center justify-center text-[#64748B] hover:bg-gray-100"
-                  >
-                    -
-                  </button>
-                  <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center">
-                    <span className="font-bold text-[#1E293B]">{day.nights}</span>
+                <div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleDayUpdate(index, 'nights', Math.max(1, day.nights - 1))}
+                      className="w-8 h-8 flex items-center justify-center text-[#64748B] hover:bg-gray-100 rounded-full"
+                    >
+                      -
+                    </button>
+                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                      <span className="font-[600] font-['Inter_var'] text-[#1E293B]">{day.nights}</span>
+                    </div>
+                    <button
+                      onClick={() => handleDayUpdate(index, 'nights', day.nights + 1)}
+                      className="w-8 h-8 flex items-center justify-center text-[#64748B] hover:bg-gray-100 rounded-full"
+                    >
+                      +
+                    </button>
                   </div>
-                  <button
-                    onClick={() => handleDayUpdate(index, 'nights', day.nights + 1)}
-                    className="w-8 h-8 flex items-center justify-center text-[#64748B] hover:bg-gray-100"
-                  >
-                    +
-                  </button>
                 </div>
-              </div>
-              <div>
-                {day.hotel || dayHotels.find(h => h.dayIndex === index)?.hotel ? (
-                  <div className="text-sm group relative flex items-start justify-start flex-col">
-                    <button
-                      onClick={() => {
-                        setCurrentDestinationForHotel(day.destination);
-                        setCurrentDestinationIndexForHotel(index);
-                        setIsHotelSearchOpen(true);
-                      }}
-                      className="font-medium text-[#1E293B] hover:text-[#00C48C] transition-colors"
-                    >
-                      <span className="max-w-[160px]">
-                        {day.hotel || dayHotels.find(h => h.dayIndex === index)?.hotel}
-                      </span>
-                    </button>
-                    <div className="text-xs text-[#64748B]">To be booked</div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-start">
-                    <button
-                      onClick={() => {
-                        setCurrentDestinationForHotel(day.destination);
-                        setCurrentDestinationIndexForHotel(index);
-                        setIsHotelSearchOpen(true);
-                      }}
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-[#F59E0B] hover:bg-[#F59E0B]/10 border border-[#F59E0B]"
-                    >
-                      <Plus className="w-5 h-5" />
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div>
-                {day.discover ? (
-                  <div className="flex items-center justify-center">
-                    <button
-                      onClick={() => {
-                        setActiveDestinationIndex(index);
-                        setShowDiscoverPopup(true);
-                      }}
-                      className="text-sm font-medium text-[#1E293B] hover:text-[#00C48C] transition-colors"
-                    >
-                      {day.discover.split(',').length} to do's
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center">
-                    <button
-                      onClick={() => {
-                        setActiveDestinationIndex(index);
-                        setShowDiscoverPopup(true);
-                      }}
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-[#EC4899] hover:bg-[#EC4899]/10 border border-[#EC4899]"
-                    >
-                      <Plus className="w-5 h-5" />
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div>
-                {day.food ? (
-                  <div className="flex items-center justify-center">
-                    <button
-                      onClick={() => {
-                        handleDayFoodSelect(day.destination, index);
-                      }}
-                      className="text-sm font-medium text-[#1E293B] hover:text-[#00C48C] transition-colors"
-                    >
-                      {day.food.split(',').filter(item => item.trim()).length} food spots
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center">
-                    <button
-                      onClick={() => {
-                        handleDayFoodSelect(day.destination, index);
-                      }}
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-[#8B5CF6] hover:bg-[#8B5CF6]/10 border border-[#8B5CF6]"
-                    >
-                      <Plus className="w-5 h-5" />
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div>
-                {/* Show plus icon for first row but keep it disabled */}
-                <div className="flex items-center justify-center gap-2">
-                  {day.transport ? (
-                    <button
-                      onClick={() => {
-                        setCurrentDestinationForTransport({
-                          from: day.destination,
-                          to: index < itineraryDays.length - 1 ? itineraryDays[index + 1].destination : '',
-                          index
-                        });
-                        setShowTransportPopup(true);
-                      }}
-                      className="flex flex-col items-center gap-1 hover:text-[#00C48C] transition-colors"
-                    >
-                      <div>
-                        {day.transport.includes('Drive') && <Car className="w-6 h-6 text-[#14B8A6]" />}
-                        {day.transport.includes('Flight') && <Plane className="w-6 h-6 text-[#14B8A6]" />}
-                        {day.transport.includes('Train') && <Train className="w-6 h-6 text-[#14B8A6]" />}
-                        {day.transport.includes('Bus') && <BusIcon className="w-6 h-6 text-[#14B8A6]" />}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {day.transport.split(' · ')[1]}
-                      </div>
-                    </button>
+                <div>
+                  {day.hotel || dayHotels.find(h => h.dayIndex === index)?.hotel ? (
+                    <div className="text-sm group relative flex items-start justify-start flex-col">
+                      <button
+                        onClick={() => {
+                          setCurrentDestinationForHotel(day.destination);
+                          setCurrentDestinationIndexForHotel(index);
+                          setIsHotelSearchOpen(true);
+                        }}
+                        className="font-['Inter_var'] font-[600] text-[#1E293B] hover:text-[#00C48C] transition-colors"
+                      >
+                        <span className="max-w-[160px]">
+                          {day.hotel || dayHotels.find(h => h.dayIndex === index)?.hotel}
+                        </span>
+                      </button>
+                      <div className="text-xs text-[#64748B]">To be booked</div>
+                    </div>
                   ) : (
-                    <button
-                      onClick={() => {
-                        setCurrentDestinationForTransport({
-                          from: day.destination,
-                          to: index < itineraryDays.length - 1 ? itineraryDays[index + 1].destination : '',
-                          index
-                        });
-                        setShowTransportPopup(true);
-                      }}
-                      className="w-8 h-8 rounded-full flex items-center justify-center border text-[#14B8A6] hover:bg-[#14B8A6]/10 border-[#14B8A6]"
-                    >
-                      <Plus className="w-5 h-5" />
-                    </button>
+                    <div className="flex items-center justify-start">
+                      <button
+                        onClick={() => {
+                          setCurrentDestinationForHotel(day.destination);
+                          setCurrentDestinationIndexForHotel(index);
+                          setIsHotelSearchOpen(true);
+                        }}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-[#F59E0B] hover:bg-[#F59E0B]/10 border border-[#F59E0B]"
+                      >
+                        <Plus className="w-5 h-5" />
+                      </button>
+                    </div>
                   )}
                 </div>
+                <div>
+                  {day.discover ? (
+                    <div className="flex items-center justify-center">
+                      <button
+                        onClick={() => {
+                          setActiveDestinationIndex(index);
+                          setShowDiscoverPopup(true);
+                        }}
+                        className="font-['Inter_var'] font-[600] text-[#1E293B] hover:text-[#00C48C] transition-colors"
+                      >
+                        {day.discover.split(',').length} to do's
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      <button
+                        onClick={() => {
+                          setActiveDestinationIndex(index);
+                          setShowDiscoverPopup(true);
+                        }}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-[#EC4899] hover:bg-[#EC4899]/10 border border-[#EC4899]"
+                      >
+                        <Plus className="w-5 h-5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  {day.food ? (
+                    <div className="flex items-center justify-center">
+                      <button
+                        onClick={() => {
+                          handleDayFoodSelect(day.destination, index);
+                        }}
+                        className="font-['Inter_var'] font-[600] text-[#1E293B] hover:text-[#00C48C] transition-colors"
+                      >
+                        {day.food.split(',').filter(item => item.trim()).length} food spots
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      <button
+                        onClick={() => {
+                          handleDayFoodSelect(day.destination, index);
+                        }}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-[#8B5CF6] hover:bg-[#8B5CF6]/10 border border-[#8B5CF6]"
+                      >
+                        <Plus className="w-5 h-5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center justify-center gap-2">
+                    {!day.transport ? (
+                      <div className="flex items-center justify-center">
+                        <button
+                          onClick={() => {
+                            setCurrentDestinationForTransport({
+                              from: day.destination,
+                              to: index < itineraryDays.length - 1 ? itineraryDays[index + 1].destination : '',
+                              index
+                            });
+                            setShowTransportPopup(true);
+                          }}
+                          className="w-8 h-8 rounded-full flex items-center justify-center border text-[#14B8A6] hover:bg-[#14B8A6]/10 border-[#14B8A6]"
+                        >
+                          <Plus className="w-5 h-5" />
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
               </div>
-            </div>
+              {index < itineraryDays.length - 1 && (
+                <div className="relative">
+                  <div className="border-b-2 border-gray-300"></div>
+                  {/* Transport icon overlapping the divider */}
+                  <div className="grid grid-cols-[1fr,140px,200px,120px,120px,160px] gap-4">
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                    <div className="relative">
+                      {day.transport && (
+                        <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4">
+                          <button
+                            onClick={() => {
+                              console.log('Transport icon clicked');  // Add debug log
+                              setCurrentDestinationForTransport({
+                                from: day.destination,
+                                to: index < itineraryDays.length - 1 ? itineraryDays[index + 1].destination : '',
+                                index
+                              });
+                              setShowTransportPopup(true);
+                            }}
+                            className="flex flex-col items-center text-center hover:opacity-80 transition-opacity"
+                          >
+                            <div>
+                              {day.transport.includes('Drive') && <Car className="w-6 h-6 text-[#ea5681]" />}
+                              {day.transport.includes('Flight') && <Plane className="w-6 h-6 text-[#ea5681]" />}
+                              {day.transport.includes('Train') && <Train className="w-6 h-6 text-[#ea5681]" />}
+                              {day.transport.includes('Bus') && <BusIcon className="w-6 h-6 text-[#ea5681]" />}
+                            </div>
+                            <div className="text-xs text-gray-500 font-['Inter_var'] font-[600]">
+                              {day.transport.split(' · ')[1]}
+                            </div>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </React.Fragment>
           ))}
         </div>
 
@@ -838,9 +862,9 @@ const CreateItinerary: React.FC = () => {
                 { destination: '', nights: 1, discover: '', transport: '', notes: '', food: '' }
               ]);
             }}
-            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-[#00C48C] transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-[#00C48C] transition-colors font-['Inter_var'] font-[600]"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-6 h-6" />
             Add new destination...
           </button>
           <button className="ml-2 px-4 py-2 text-sm text-gray-600 hover:text-[#00C48C] bg-gray-50 rounded-lg transition-colors">
@@ -884,503 +908,315 @@ const CreateItinerary: React.FC = () => {
 
   if (!showSummaryPopup) {
     return (
-      <div className="min-h-screen bg-[#f8fafc]">
-        {/* Top Navigation */}
-        <nav className="bg-white border-b border-gray-100 fixed top-0 left-0 right-0 z-50">
-          <div className="max-w-[1400px] mx-auto px-4 py-3">
-            <div className="flex items-center justify-between">
-              <Link to="/" className="flex-shrink-0">
-                <img src="/images/stippl-logo.svg" alt="Stippl" className="h-8" />
-              </Link>
+      <div className="min-h-screen">
+        <TopNavigation />
+        {/* Add all popups at root level */}
+        {showTransportPopup && currentDestinationForTransport && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <TransportPopup
+              isOpen={showTransportPopup}
+              onClose={() => {
+                setShowTransportPopup(false);
+                setCurrentDestinationForTransport(null);
+              }}
+              fromDestination={currentDestinationForTransport.from}
+              toDestination={currentDestinationForTransport.to}
+              onTransportSelect={(transportDetails) => {
+                handleTransportSelect(currentDestinationForTransport.index, transportDetails);
+              }}
+            />
+          </div>
+        )}
 
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-4">
-                  <Link to="/dashboard#liked" className="flex items-center gap-2 text-gray-700">
-                    <div className="w-6 h-6 rounded-full bg-[#00C48C] flex items-center justify-center">
-                      <Heart className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="font-[600] font-['Poppins',sans-serif]">Liked Trips</span>
-                  </Link>
-                  <Link to="/discover" className="flex items-center gap-2 text-gray-500">
-                    <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
-                      <Globe className="w-4 h-4 text-gray-500" />
-                    </div>
-                    <span className="font-[600] font-['Poppins',sans-serif]">Discover</span>
-                  </Link>
-                </div>
+        {isHotelSearchOpen && currentDestinationForHotel && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <HotelSearchPopup
+              isOpen={isHotelSearchOpen}
+              onClose={() => {
+                setIsHotelSearchOpen(false);
+                setCurrentDestinationForHotel('');
+              }}
+              destination={currentDestinationForHotel}
+              selectedHotel={dayHotels.find(h => h.dayIndex === currentDestinationIndexForHotel)?.hotel}
+              onHotelSelect={handleHotelSelect}
+            />
+          </div>
+        )}
 
-                <div className="flex items-center gap-4">
-                  <Link to="/invite" className="text-[#00C48C] hover:text-[#00B380] transition-colors font-[600] font-['Poppins',sans-serif]">
-                    Invite a friend
-                  </Link>
-                  <button className="relative">
-                    <Bell className="w-5 h-5 text-gray-600" />
-                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#00C48C] rounded-full"></span>
-                  </button>
-                </div>
+        {showFoodPopup && activeDestinationIndexForFood !== null && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <FoodPopup
+              isOpen={showFoodPopup}
+              onClose={() => {
+                setShowFoodPopup(false);
+                setActiveDestinationIndexForFood(null);
+              }}
+              destination={itineraryDays[activeDestinationIndexForFood].destination}
+              selectedFoodItems={itineraryDays[activeDestinationIndexForFood].food.split(',').filter(Boolean)}
+              onFoodSelect={(foodItems) => handleFoodSelect(activeDestinationIndexForFood, foodItems)}
+            />
+          </div>
+        )}
+
+        {showDiscoverPopup && activeDestinationIndex !== null && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <DiscoverPopup
+              isOpen={showDiscoverPopup}
+              onClose={() => {
+                setShowDiscoverPopup(false);
+                setActiveDestinationIndex(null);
+              }}
+              destination={itineraryDays[activeDestinationIndex].destination}
+              selectedAttractions={itineraryDays[activeDestinationIndex].discover.split(',').filter(Boolean)}
+              onAttractionsSelect={(attractions) => handleDiscoverSelect(activeDestinationIndex, attractions)}
+            />
+          </div>
+        )}
+        <div className="pt-[60px]">
+          <div className="min-h-screen bg-[#f8fafc]">
+            <div className="max-w-[1400px] mx-auto px-4 py-6 pt-20">
+              {/* Back Button */}
+              <div className="mb-6">
+                <Link
+                  to="/dashboard"
+                  className="inline-flex items-center gap-2 text-gray-600 hover:text-[#1e293b] transition-colors"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span>Back to Dashboard</span>
+                </Link>
               </div>
-            </div>
-          </div>
-        </nav>
 
-        <div className="max-w-[1400px] mx-auto px-4 py-6 pt-20">
-          {/* Back Button */}
-          <div className="mb-6">
-            <Link
-              to="/dashboard"
-              className="inline-flex items-center gap-2 text-gray-600 hover:text-[#1e293b] transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span>Back to Dashboard</span>
-            </Link>
-          </div>
-
-          {/* Main Content */}
-          <div className="flex gap-8">
-            {/* Left Sidebar */}
-            <div className="w-[240px] flex-shrink-0">
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-[600] font-['Poppins',sans-serif] text-[#1e293b]">Trip Summary</h2>
-                  <button
-                    onClick={() => setShowTripSummaryEdit(true)}
-                    className="p-2 text-gray-500 hover:text-[#00C48C] rounded-lg transition-colors"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Trip Name</label>
-                    <input
-                      type="text"
-                      name="tripName"
-                      value={tripSummary.tripName}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
-                      placeholder="Enter trip name"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={countrySearch}
-                        onChange={(e) => setCountrySearch(e.target.value)}
-                        onFocus={() => setShowCountries(true)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
-                        placeholder="Select country"
-                      />
-                      {showCountries && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10">
-                          {filteredCountries.map(country => (
-                            <button
-                              key={country}
-                              className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 transition-colors"
-                              onClick={() => {
-                                setTripSummary(prev => ({ ...prev, country }));
-                                setCountrySearch(country);
-                                setShowCountries(false);
-                              }}
-                            >
-                              {country}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
-                      <input
-                        type="number"
-                        name="duration"
-                        value={tripSummary.duration}
-                        onChange={handleInputChange}
-                        min="1"
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Travelers</label>
-                      <input
-                        type="number"
-                        name="passengers"
-                        value={tripSummary.passengers}
-                        onChange={handleInputChange}
-                        min="1"
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                    <input
-                      type="date"
-                      name="startDate"
-                      value={tripSummary.startDate}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
-                    />
-                  </div>
-                  <div className="mt-4">
-                    <label className="flex items-center justify-between text-sm font-medium text-gray-700">
-                      <span>Privacy</span>
+              {/* Main Content Area */}
+              <div className="flex gap-8">
+                {/* Left Sidebar */}
+                <div className="w-[240px] flex-shrink-0">
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-lg font-[600] font-['Poppins',sans-serif] text-[#1e293b]">Trip Summary</h2>
                       <button
-                        type="button"
-                        onClick={() => setTripSummary(prev => ({ ...prev, isPrivate: !prev.isPrivate }))}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${tripSummary.isPrivate ? 'bg-[#00C48C]' : 'bg-gray-200'
-                          }`}
+                        onClick={() => setShowTripSummaryEdit(true)}
+                        className="p-2 text-gray-500 hover:text-[#00C48C] rounded-lg transition-colors"
                       >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${tripSummary.isPrivate ? 'translate-x-6' : 'translate-x-1'
-                            }`}
+                        <Edit className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Trip Name</label>
+                        <input
+                          type="text"
+                          name="tripName"
+                          value={tripSummary.tripName}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                          placeholder="Enter trip name"
                         />
-                      </button>
-                    </label>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {tripSummary.isPrivate ? 'Only you can view this itinerary' : 'Anyone with the link can view this itinerary'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Main Content Area */}
-            <div className="flex-1">
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-                {/* Header with Nights Planned and Tabs */}
-                <div className="border-b border-gray-200 pb-4">
-                  {/* Tabs and Nights Planned in same row */}
-                  <div className="flex items-center justify-between">
-                    {/* Tabs */}
-                    <div className="flex items-center">
-                      <button
-                        className={`px-6 py-3 text-sm font-[600] font-['Poppins',sans-serif] border-b-2 -mb-[1px] ${activeTab === 'destinations'
-                          ? 'text-[#00C48C] border-[#00C48C]'
-                          : 'text-gray-500 border-transparent hover:text-[#1e293b]'
-                          } transition-colors`}
-                        onClick={() => setActiveTab('destinations')}
-                      >
-                        Destinations
-                      </button>
-                      <button
-                        className={`px-6 py-3 text-sm font-[600] font-['Poppins',sans-serif] border-b-2 -mb-[1px] ${activeTab === 'day-by-day'
-                          ? 'text-[#00C48C] border-[#00C48C]'
-                          : 'text-gray-500 border-transparent hover:text-[#1e293b]'
-                          } transition-colors`}
-                        onClick={() => setActiveTab('day-by-day')}
-                      >
-                        Day by Day
-                      </button>
-                    </div>
-
-                    {/* Nights Planned Indicator */}
-                    <div className="flex items-center gap-3 pr-6">
-                      <div className="relative h-16 w-16">
-                        <svg className="transform -rotate-90" width="64" height="64">
-                          <circle
-                            cx="32"
-                            cy="32"
-                            r="28"
-                            stroke="#E5E7EB"
-                            strokeWidth="4"
-                            fill="none"
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={countrySearch}
+                            onChange={(e) => setCountrySearch(e.target.value)}
+                            onFocus={() => setShowCountries(true)}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                            placeholder="Select country"
                           />
-                          <circle
-                            cx="32"
-                            cy="32"
-                            r="28"
-                            stroke="#00C48C"
-                            strokeWidth="4"
-                            fill="none"
-                            strokeDasharray={`${(totalNights / tripSummary.duration) * 175.9} 175.9`}
-                          />
-                        </svg>
-                        <div className="absolute inset-0 flex items-center justify-center text-xl font-medium text-[#00C48C]">
-                          {totalNights}/{tripSummary.duration}
+                          {showCountries && (
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10">
+                              {filteredCountries.map(country => (
+                                <button
+                                  key={country}
+                                  className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 transition-colors"
+                                  onClick={() => {
+                                    setTripSummary(prev => ({ ...prev, country }));
+                                    setCountrySearch(country);
+                                    setShowCountries(false);
+                                  }}
+                                >
+                                  {country}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <div className="flex flex-col">
-                        <span className="font-medium text-[#1e293b] text-lg">Nights</span>
-                        <span className="text-sm text-gray-500">planned</span>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+                          <input
+                            type="number"
+                            name="duration"
+                            value={tripSummary.duration}
+                            onChange={handleInputChange}
+                            min="1"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Travelers</label>
+                          <input
+                            type="number"
+                            name="passengers"
+                            value={tripSummary.passengers}
+                            onChange={handleInputChange}
+                            min="1"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                        <input
+                          type="date"
+                          name="startDate"
+                          value={tripSummary.startDate}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                        />
+                      </div>
+                      <div className="mt-4">
+                        <label className="flex items-center justify-between text-sm font-medium text-gray-700">
+                          <span>Privacy</span>
+                          <button
+                            type="button"
+                            onClick={() => setTripSummary(prev => ({ ...prev, isPrivate: !prev.isPrivate }))}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${tripSummary.isPrivate ? 'bg-[#00C48C]' : 'bg-gray-200'
+                              }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${tripSummary.isPrivate ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                            />
+                          </button>
+                        </label>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {tripSummary.isPrivate ? 'Only you can view this itinerary' : 'Anyone with the link can view this itinerary'}
+                        </p>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {activeTab === 'destinations' ? (
-                  <div className="mt-6">
-                    {renderDestinationsGrid()}
-                  </div>
-                ) : (
-                  <div className="mt-6">
-                    <DayByDayGrid
-                      tripStartDate={tripSummary.startDate}
-                      destinations={itineraryDays}
-                      onDestinationsUpdate={handleDestinationsUpdate}
-                      dayAttractions={dayAttractions}
-                      onDayAttractionsUpdate={handleDayAttractionsUpdate}
-                      dayHotels={dayHotels}
-                      onDayHotelsUpdate={handleDayHotelsUpdate}
-                      dayNotes={dayNotes}
-                      onDayNotesUpdate={handleDayNotesUpdate}
-                      onHotelClick={(destination, dayIndex) => {
-                        setCurrentDestinationForHotel(destination);
-                        setCurrentDestinationIndexForHotel(dayIndex);
-                        setIsHotelSearchOpen(true);
-                      }}
-                      onFoodSelect={handleDayFoodSelect}
-                    />
-                  </div>
-                )}
-              </div>
+                {/* Main Content Area */}
+                <div className="flex-1">
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                    {/* Header with Nights Planned and Tabs */}
+                    <div className="border-b border-gray-200 pb-4">
+                      {/* Tabs and Nights Planned in same row */}
+                      <div className="flex items-center justify-between">
+                        {/* Tabs */}
+                        <div className="flex items-center">
+                          <button
+                            className={`px-6 py-3 text-sm font-[600] font-['Poppins',sans-serif] border-b-2 -mb-[1px] ${activeTab === 'destinations'
+                              ? 'text-[#00C48C] border-[#00C48C]'
+                              : 'text-gray-500 border-transparent hover:text-[#1e293b]'
+                              } transition-colors`}
+                            onClick={() => setActiveTab('destinations')}
+                          >
+                            Destinations
+                          </button>
+                          <button
+                            className={`px-6 py-3 text-sm font-[600] font-['Poppins',sans-serif] border-b-2 -mb-[1px] ${activeTab === 'day-by-day'
+                              ? 'text-[#00C48C] border-[#00C48C]'
+                              : 'text-gray-500 border-transparent hover:text-[#1e293b]'
+                              } transition-colors`}
+                            onClick={() => setActiveTab('day-by-day')}
+                          >
+                            Day by Day
+                          </button>
+                        </div>
 
-              {/* Action Buttons */}
-              <div className="flex justify-end gap-4 mt-6">
-                <button
-                  onClick={() => navigate('/dashboard')}
-                  className="px-6 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={loading}
-                  className="px-6 py-2 bg-[#00C48C] text-white rounded-lg hover:bg-[#00B380] transition-colors shadow-sm flex items-center gap-2"
-                >
-                  {loading ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <>
-                      <span>{saveButtonText}</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
+                        {/* Nights Planned Indicator */}
+                        <div className="flex items-center gap-3 pr-6">
+                          <div className="relative h-20 w-20">
+                            <svg className="transform -rotate-90" width="80" height="80">
+                              <circle
+                                cx="40"
+                                cy="40"
+                                r="36"
+                                stroke="#E5E7EB"
+                                strokeWidth="4"
+                                fill="#f8fafc"
+                              />
+                              <circle
+                                cx="40"
+                                cy="40"
+                                r="36"
+                                stroke="#00C48C"
+                                strokeWidth="4"
+                                fill="none"
+                                strokeDasharray={`${(totalNights / tripSummary.duration) * 226.2} 226.2`}
+                              />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center text-2xl font-[600] font-['Inter_var'] text-[#00C48C]">
+                              {totalNights}/{tripSummary.duration}
+                            </div>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-[600] font-['Inter_var'] text-[#1e293b] text-lg">Nights</span>
+                            <span className="text-sm text-gray-500">planned</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {activeTab === 'destinations' ? (
+                      <div className="mt-6">
+                        {renderDestinationsGrid()}
+                      </div>
+                    ) : (
+                      <div className="mt-6">
+                        <DayByDayGrid
+                          tripStartDate={tripSummary.startDate}
+                          destinations={itineraryDays}
+                          onDestinationsUpdate={handleDestinationsUpdate}
+                          dayAttractions={dayAttractions}
+                          onDayAttractionsUpdate={handleDayAttractionsUpdate}
+                          dayHotels={dayHotels}
+                          onDayHotelsUpdate={handleDayHotelsUpdate}
+                          dayNotes={dayNotes}
+                          onDayNotesUpdate={handleDayNotesUpdate}
+                          onHotelClick={(destination, dayIndex) => {
+                            setCurrentDestinationForHotel(destination);
+                            setCurrentDestinationIndexForHotel(dayIndex);
+                            setIsHotelSearchOpen(true);
+                          }}
+                          onFoodSelect={handleDayFoodSelect}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end gap-4 mt-6">
+                    <button
+                      onClick={() => navigate('/dashboard')}
+                      className="px-6 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSave}
+                      disabled={loading}
+                      className="px-6 py-2 bg-[#00C48C] text-white rounded-lg hover:bg-[#00B380] transition-colors shadow-sm flex items-center gap-2"
+                    >
+                      {loading ? (
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <>
+                          <span>{saveButtonText}</span>
+                          <ChevronRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Popups */}
-        {showDiscoverPopup && activeDestinationIndex !== null && (
-          <DiscoverPopup
-            isOpen={showDiscoverPopup}
-            onClose={() => {
-              setShowDiscoverPopup(false);
-              setActiveDestinationIndex(null);
-            }}
-            destination={itineraryDays[activeDestinationIndex].destination}
-            selectedAttractions={itineraryDays[activeDestinationIndex].discover.split(', ').filter(Boolean)}
-            onAttractionsSelect={(attractions) => {
-              handleDiscoverSelect(activeDestinationIndex, attractions);
-            }}
-          />
-        )}
-
-        {showTransportPopup && currentDestinationForTransport && (
-          <TransportPopup
-            isOpen={showTransportPopup}
-            onClose={() => {
-              setShowTransportPopup(false);
-              setCurrentDestinationForTransport(null);
-            }}
-            fromDestination={currentDestinationForTransport.from}
-            toDestination={currentDestinationForTransport.to}
-            onTransportSelect={(transport) => {
-              handleTransportSelect(currentDestinationForTransport.index, transport);
-            }}
-          />
-        )}
-
-        <HotelSearchPopup
-          isOpen={isHotelSearchOpen}
-          onClose={() => setIsHotelSearchOpen(false)}
-          destination={currentDestinationForHotel}
-          selectedHotel={
-            activeTab === 'destinations' ?
-              (currentDestinationIndexForHotel >= 0 && currentDestinationIndexForHotel < itineraryDays.length ?
-                dayHotels.find(h => {
-                  let startDayIndex = 0;
-                  for (let i = 0; i < currentDestinationIndexForHotel && i < itineraryDays.length; i++) {
-                    startDayIndex += itineraryDays[i].nights || 0;
-                  }
-                  return h.dayIndex === startDayIndex;
-                })?.hotel : undefined
-              ) :
-              dayHotels.find(h => h.dayIndex === currentDestinationIndexForHotel)?.hotel
-          }
-          onHotelSelect={handleHotelSelect}
-        />
-
-        {showTripSummaryEdit && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
-              <h2 className="text-2xl font-bold mb-4">Edit Trip Summary</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Trip Name</label>
-                  <input
-                    type="text"
-                    name="tripName"
-                    value={tripSummary.tripName}
-                    onChange={handleInputChange}
-                    className="w-full border border-gray-300 rounded-md shadow-sm p-2"
-                    placeholder="Enter trip name"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={tripSummary.country || countrySearch}
-                      onChange={(e) => {
-                        setCountrySearch(e.target.value);
-                        setShowCountries(true);
-                        if (tripSummary.country) {
-                          setTripSummary(prev => ({ ...prev, country: '' }));
-                        }
-                      }}
-                      onFocus={() => setShowCountries(true)}
-                      className="w-full border border-gray-300 rounded-md shadow-sm p-2"
-                      placeholder="Select a country"
-                      required
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-2 top-1/2 -translate-y-1/2"
-                      onClick={() => setShowCountries(!showCountries)}
-                    >
-                      <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
-                  <input
-                    type="number"
-                    name="duration"
-                    value={tripSummary.duration}
-                    onChange={handleInputChange}
-                    min="1"
-                    className="w-full border border-gray-300 rounded-md shadow-sm p-2"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                  <input
-                    type="date"
-                    name="startDate"
-                    value={tripSummary.startDate}
-                    onChange={handleInputChange}
-                    className="w-full border border-gray-300 rounded-md shadow-sm p-2"
-                    min={new Date().toISOString().split('T')[0]}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Passengers</label>
-                  <input
-                    type="number"
-                    name="passengers"
-                    value={tripSummary.passengers}
-                    onChange={handleInputChange}
-                    min="1"
-                    className="w-full border border-gray-300 rounded-md shadow-sm p-2"
-                    required
-                  />
-                </div>
-                <div className="mt-4">
-                  <label className="flex items-center justify-between text-sm font-medium text-gray-700">
-                    <span>Privacy</span>
-                    <button
-                      type="button"
-                      onClick={() => setTripSummary(prev => ({ ...prev, isPrivate: !prev.isPrivate }))}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${tripSummary.isPrivate ? 'bg-[#00C48C]' : 'bg-gray-200'
-                        }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${tripSummary.isPrivate ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                      />
-                    </button>
-                  </label>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {tripSummary.isPrivate ? 'Only you can view this itinerary' : 'Anyone with the link can view this itinerary'}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Trip Tags
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {AVAILABLE_TAGS.map(tag => (
-                      <button
-                        key={tag.id}
-                        type="button"
-                        onClick={() => {
-                          const newTags = tripSummary.tags.includes(tag.id)
-                            ? tripSummary.tags.filter(t => t !== tag.id)
-                            : [...tripSummary.tags, tag.id];
-                          setTripSummary(prev => ({ ...prev, tags: newTags }));
-                        }}
-                        className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors
-                          ${tripSummary.tags.includes(tag.id)
-                            ? 'bg-[#00C48C] text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                      >
-                        {tag.label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Select all tags that apply to your trip
-                  </p>
-                </div>
-                <div className="flex justify-end space-x-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => setShowTripSummaryEdit(false)}
-                    className="px-4 py-2 text-gray-700 hover:text-gray-900"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleTripSummaryUpdate(tripSummary)}
-                    className="px-4 py-2 text-white bg-rose-500 rounded-md hover:bg-rose-600"
-                  >
-                    Save
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <FoodPopup
-          isOpen={showFoodPopup}
-          onClose={() => {
-            setShowFoodPopup(false);
-            setActiveDestinationIndexForFood(null);
-          }}
-          destination={activeDestinationIndexForFood !== null ? itineraryDays[activeDestinationIndexForFood]?.destination || '' : ''}
-          selectedFoodItems={activeDestinationIndexForFood !== null ? (itineraryDays[activeDestinationIndexForFood]?.food || '').split(',').filter(Boolean).map(item => item.trim()) : []}
-          onFoodSelect={(foodItems) => {
-            if (activeDestinationIndexForFood !== null) {
-              handleFoodSelect(activeDestinationIndexForFood, foodItems);
-            }
-          }}
-        />
       </div>
     );
   }
