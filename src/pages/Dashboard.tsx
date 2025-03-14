@@ -732,7 +732,7 @@ const Dashboard = () => {
               </div>
             ) : view === 'countries' && !selectedCountry ? (
               // Countries Grid View
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {Object.entries(countryStats).map(([country, { count }]) => (
                   <div
                     key={country}
@@ -755,56 +755,54 @@ const Dashboard = () => {
                 ))}
               </div>
             ) : view === 'liked' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
                 {likedTrips.map((itinerary) => (
                   <div
                     key={itinerary.id}
-                    className="group relative overflow-hidden rounded-xl"
+                    className="group relative bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all"
                   >
                     <div
                       onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
                       className="cursor-pointer"
                     >
-                      <ItineraryTile
-                        id={itinerary.id}
-                        title={itinerary.trip_name}
-                        description={`${itinerary.duration} days in ${itinerary.destinations
-                          .map(d => cleanDestination(d.destination))
-                          .join(', ')}`}
-                        imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
-                        duration={itinerary.duration}
-                        cities={itinerary.destinations.map(d => cleanDestination(d.destination))}
-                        createdAt={itinerary.created_at}
-                        loading="lazy"
-                        showLike={false}
-                      />
-                      <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
-                        <span>Start in {getDaysUntilStart(itinerary.start_date)} days</span>
+                      <div className="relative h-48">
+                        <img
+                          src={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                          alt={itinerary.trip_name}
+                          className="w-full h-full object-cover"
+                        />
+                        {/* Action Buttons */}
+                        <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyTrip(itinerary.id);
+                            }}
+                            className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
+                            title={copiedId === itinerary.id ? "Copied!" : "Copy itinerary"}
+                          >
+                            <Copy className="w-4 h-4 text-gray-700" strokeWidth={2} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUnlike(itinerary.id);
+                            }}
+                            className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
+                            title="Unlike itinerary"
+                          >
+                            <Heart className="w-4 h-4 text-rose-500" fill="currentColor" strokeWidth={2} />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                    {/* Action Buttons for Liked Trips - Centered */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
-                      <div className="flex items-center gap-3 bg-black/20 backdrop-blur-sm p-3 rounded-lg">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCopyTrip(itinerary.id);
-                          }}
-                          className="p-2 bg-white rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
-                          title={copiedId === itinerary.id ? "Copied!" : "Copy itinerary"}
-                        >
-                          <Copy className="w-4 h-4 text-gray-700" strokeWidth={2} />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleUnlike(itinerary.id);
-                          }}
-                          className="p-2 bg-white rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
-                          title="Unlike itinerary"
-                        >
-                          <Heart className="w-4 h-4 text-rose-500" fill="currentColor" strokeWidth={2} />
-                        </button>
+                      <div className="p-4">
+                        <h3 className="text-gray-900 font-semibold mb-1">{itinerary.trip_name}</h3>
+                        <p className="text-gray-600 text-sm mb-2">
+                          {itinerary.duration} days in {itinerary.destinations.map(d => cleanDestination(d.destination)).join(', ')}
+                        </p>
+                        <div className="flex items-center gap-3 text-sm text-gray-500">
+                          <span>Start in {getDaysUntilStart(itinerary.start_date)} days</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -813,7 +811,7 @@ const Dashboard = () => {
             ) : (
               // Trip Grid
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
                   {/* Create New Trip Card - Only show in main trips view */}
                   {(view === 'trips' || (view === 'countries' && selectedCountry)) && (
                     <div
@@ -868,29 +866,27 @@ const Dashboard = () => {
                         </div>
                       </div>
                       {/* Action Buttons */}
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
-                        <div className="flex items-center gap-3 bg-black/20 backdrop-blur-sm p-3 rounded-lg">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/create-itinerary?id=${itinerary.id}`);
-                            }}
-                            className="p-2 bg-white rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
-                            title="Edit itinerary"
-                          >
-                            <Edit className="w-4 h-4 text-gray-700" strokeWidth={2} />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(itinerary.id, e);
-                            }}
-                            className="p-2 bg-white rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
-                            title="Delete itinerary"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-500" strokeWidth={2} />
-                          </button>
-                        </div>
+                      <div className="absolute top-4 right-4 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/create-itinerary?id=${itinerary.id}`);
+                          }}
+                          className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
+                          title="Edit itinerary"
+                        >
+                          <Edit className="w-4 h-4 text-gray-700" strokeWidth={2} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(itinerary.id, e);
+                          }}
+                          className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
+                          title="Delete itinerary"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" strokeWidth={2} />
+                        </button>
                       </div>
                     </div>
                   ))}

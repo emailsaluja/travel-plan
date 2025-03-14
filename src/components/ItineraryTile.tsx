@@ -70,7 +70,7 @@ const ItineraryTile: React.FC<ItineraryTileProps> = ({
   };
 
   const handleClick = () => {
-    navigate(`/itinerary/${id}`);
+    navigate(`/view-itinerary/${id}`);
   };
 
   return (

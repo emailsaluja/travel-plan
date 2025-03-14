@@ -49,7 +49,6 @@ export const router = createBrowserRouter([
         path: 'dashboard',
         element: <ProtectedRoute><Dashboard /></ProtectedRoute>
       },
-      { path: 'itinerary/:id', element: <ItineraryDetails /> },
       {
         path: 'saved-itineraries',
         element: <ProtectedRoute><SavedItineraries /></ProtectedRoute>

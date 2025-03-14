@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { UserSettingsService, UserSettings } from '../services/user-settings.service';
 import { UserItineraryService } from '../services/user-itinerary.service';
+import { ChevronLeft } from 'lucide-react';
 
 interface Itinerary {
     id: string;
@@ -12,9 +13,23 @@ interface Itinerary {
 
 const ViewItinerary = () => {
     const { id } = useParams();
+    const navigate = useNavigate();
     const [itinerary, setItinerary] = useState<Itinerary | null>(null);
     const [loading, setLoading] = useState(true);
     const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
+
+    // Handle browser back button
+    useEffect(() => {
+        const handlePopState = () => {
+            navigate('/dashboard');
+        };
+
+        window.addEventListener('popstate', handlePopState);
+
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+        };
+    }, [navigate]);
 
     // Load itinerary data
     useEffect(() => {
@@ -61,6 +76,15 @@ const ViewItinerary = () => {
     return (
         <div className="min-h-screen bg-[#f8fafc]">
             <div className="max-w-[1400px] mx-auto px-4 py-6">
+                {/* Back Button */}
+                <button
+                    onClick={() => navigate('/dashboard')}
+                    className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 group"
+                >
+                    <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+                    <span>Back to Dashboard</span>
+                </button>
+
                 {/* User Profile Section */}
                 <div className="flex items-center gap-3 mb-6">
                     <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-[#00C48C] to-[#00B380]">
