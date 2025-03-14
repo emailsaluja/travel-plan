@@ -45,7 +45,7 @@ const Navigation1: React.FC = () => {
                   Dashboard
                 </Link>
                 <Link
-                  to="/liked-trips"
+                  to="/dashboard#liked"
                   className="text-gray-500 hover:text-[#1e293b] px-3 py-2 text-[15px] font-medium"
                 >
                   Liked Trips
@@ -138,7 +138,7 @@ const Navigation1: React.FC = () => {
                   Dashboard
                 </Link>
                 <Link
-                  to="/liked-trips"
+                  to="/dashboard#liked"
                   className="block px-3 py-2 rounded-md text-base font-medium text-gray-500 hover:text-[#1e293b]"
                 >
                   Liked Trips

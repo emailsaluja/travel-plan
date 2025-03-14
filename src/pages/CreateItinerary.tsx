@@ -895,7 +895,7 @@ const CreateItinerary: React.FC = () => {
 
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-4">
-                  <Link to="/liked-trips" className="flex items-center gap-2 text-gray-700">
+                  <Link to="/dashboard#liked" className="flex items-center gap-2 text-gray-700">
                     <div className="w-6 h-6 rounded-full bg-[#00C48C] flex items-center justify-center">
                       <Heart className="w-4 h-4 text-white" />
                     </div>

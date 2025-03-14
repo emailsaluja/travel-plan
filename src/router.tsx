@@ -19,6 +19,7 @@ import PublicItineraryView from './pages/PublicItineraryView';
 import { CountryImagesAdmin } from './components/CountryImagesAdmin';
 import Discover from './pages/Discover';
 import LikedTrips from './pages/LikedTrips';
+import AdminDashboard from './pages/AdminDashboard';
 
 const RootLayout = () => {
   return (
@@ -64,6 +65,10 @@ export const router = createBrowserRouter([
       {
         path: 'admin/country-images',
         element: <ProtectedRoute><CountryImagesAdmin /></ProtectedRoute>
+      },
+      {
+        path: 'admin',
+        element: <ProtectedRoute><AdminDashboard /></ProtectedRoute>
       },
       {
         path: ':username',

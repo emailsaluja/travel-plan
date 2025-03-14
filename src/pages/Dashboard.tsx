@@ -214,11 +214,37 @@ const Dashboard = () => {
     setSelectedCountry(country);
   };
 
+  // Add hash change handler
+  useEffect(() => {
+    // Set initial view based on hash
+    if (window.location.hash === '#liked') {
+      setView('liked');
+    }
+
+    // Listen for hash changes
+    const handleHashChange = () => {
+      if (window.location.hash === '#liked') {
+        setView('liked');
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   const handleViewChange = (newView: 'trips' | 'countries' | 'upcoming' | 'past' | 'liked') => {
     setView(newView);
     setSelectedCountry(null);
-    // Update URL without hash
-    navigate('/dashboard');
+
+    // Update URL hash when changing to liked view
+    if (newView === 'liked') {
+      window.location.hash = 'liked';
+    } else {
+      // Remove hash for other views
+      if (window.location.hash === '#liked') {
+        window.location.hash = '';
+      }
+    }
   };
 
   const loadItineraries = async () => {
@@ -654,13 +680,6 @@ const Dashboard = () => {
                 <Settings className="w-4 h-4 text-[#00C48C]" />
                 <span>Settings</span>
               </button>
-              <Link
-                to="/admin/country-images"
-                className="w-full flex items-center gap-2 text-[#1e293b] font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
-              >
-                <Globe className="w-4 h-4 text-[#00C48C]" />
-                <span>Manage Country Images</span>
-              </Link>
               <button
                 onClick={handleSignOut}
                 className="w-full flex items-center gap-2 text-gray-500 font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
