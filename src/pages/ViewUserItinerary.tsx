@@ -381,15 +381,15 @@ const ViewUserItinerary: React.FC = () => {
                     startDate={itinerary.start_date}
                     destinations={itinerary.destinations}
                     dayAttractions={itinerary.day_attractions?.map(da => ({
-                      dayIndex: da.day_index - 1,
+                      dayIndex: da.day_index,
                       attractions: da.attractions
                     })) || []}
                     dayHotels={itinerary.day_hotels?.map(dh => ({
-                      dayIndex: dh.day_index - 1,
+                      dayIndex: dh.day_index,
                       hotel: dh.hotel
                     })) || []}
                     dayNotes={itinerary.day_notes?.map(dn => ({
-                      dayIndex: dn.day_index - 1,
+                      dayIndex: dn.day_index,
                       notes: dn.notes
                     })) || []}
                   />

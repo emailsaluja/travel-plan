@@ -451,7 +451,6 @@ const Discover: React.FC = () => {
                                 target.src = '/images/empty-state.svg';
                             }}
                             loading="eager"
-                            fetchPriority="high"
                         />
                         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/60"></div>
                         <div className="absolute inset-0 flex flex-col justify-center max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

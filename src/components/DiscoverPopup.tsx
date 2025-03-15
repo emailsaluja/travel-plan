@@ -184,24 +184,37 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
                 rating: place.rating,
                 userRatingsTotal: place.user_ratings_total,
                 photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 }),
-                isSelected: selectedAttractions.includes(place.name || ''),
+                isSelected: false, // Initialize as not selected
                 description: place.vicinity || place.formatted_address,
                 isManuallyAdded: false
               }));
 
-              // Add previously selected attractions that were manually added
-              const manuallyAddedAttractions = selectedAttractions
-                .filter(name => !attractionsData.some(a => a.name === name))
-                .map(name => ({
-                  id: `manual-${name}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                  name,
+              // For each selected attraction, try to find a match in attractionsData
+              const selectedAttractionObjects = selectedAttractions.map(selectedName => {
+                const match = attractionsData.find(a =>
+                  a.name.toLowerCase() === selectedName.toLowerCase() ||
+                  selectedName.toLowerCase().includes(a.name.toLowerCase()) ||
+                  a.name.toLowerCase().includes(selectedName.toLowerCase())
+                );
+
+                if (match) {
+                  match.isSelected = true;
+                  return null; // Return null for matches found in attractionsData
+                }
+
+                // If no match found, create a new manually added attraction
+                return {
+                  id: `manual-${selectedName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  name: selectedName,
                   isSelected: true,
                   isManuallyAdded: true,
                   rating: 0,
                   userRatingsTotal: 0
-                }));
+                };
+              }).filter(Boolean) as Attraction[]; // Remove null values and keep only manual attractions
 
-              setAttractions([...manuallyAddedAttractions, ...attractionsData]);
+              // Update attractions with selected state and add manual ones
+              setAttractions([...selectedAttractionObjects, ...attractionsData]);
               setLoading(false);
             });
           }
@@ -253,9 +266,12 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
   const handleAddCustomAttraction = (prediction: google.maps.places.AutocompletePrediction) => {
     if (!placesService.current) return;
 
-    // Check if attraction already exists
+    // Check if attraction already exists in our list
     const existingAttraction = attractions.find(a =>
-      a.name.toLowerCase() === prediction.structured_formatting.main_text.toLowerCase()
+      a.id === prediction.place_id || // Match by ID first
+      a.name.toLowerCase() === prediction.structured_formatting.main_text.toLowerCase() || // Then by exact name
+      prediction.structured_formatting.main_text.toLowerCase().includes(a.name.toLowerCase()) || // Then by partial name
+      a.name.toLowerCase().includes(prediction.structured_formatting.main_text.toLowerCase()) // Then by reverse partial name
     );
 
     if (existingAttraction) {
@@ -267,49 +283,43 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
       return;
     }
 
-    // Create temporary attraction with the original place_id
-    const tempAttraction: Attraction = {
-      id: prediction.place_id,  // Use the original place_id instead of generating a manual one
-      name: prediction.structured_formatting.main_text,
-      description: prediction.structured_formatting.secondary_text,
-      isSelected: true,
-      isManuallyAdded: true,
-      rating: 0,
-      userRatingsTotal: 0
-    };
-
-    // Add to list immediately
-    setAttractions(prevAttractions => [tempAttraction, ...prevAttractions]);
-
-    // Update selected attractions
-    const selectedNames = [tempAttraction.name, ...selectedAttractions];
-    onAttractionsSelect(selectedNames);
-
-    // Then fetch full details
+    // If not found in our list, fetch the full details first
     const request = {
       placeId: prediction.place_id,
-      fields: ['name', 'rating', 'user_ratings_total', 'photos', 'formatted_address', 'vicinity']
+      fields: ['name', 'rating', 'user_ratings_total', 'photos', 'formatted_address', 'vicinity', 'place_id', 'types']
     };
 
     placesService.current.getDetails(request, (place, status) => {
       if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-        setAttractions(prevAttractions => {
-          const updatedAttractions = prevAttractions.map(a => {
-            if (a.id === prediction.place_id) {  // This will now match because we're using the original place_id
-              return {
-                ...a,
-                rating: place.rating || 0,
-                userRatingsTotal: place.user_ratings_total || 0,
-                photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 }),
-                description: place.vicinity || place.formatted_address || a.description,
-                isSelected: true,
-                isManuallyAdded: true
-              };
-            }
-            return a;
-          });
-          return updatedAttractions;
-        });
+        // Check again after getting full details
+        const existingWithDetails = attractions.find(a =>
+          a.id === place.place_id ||
+          a.name.toLowerCase() === (place.name || '').toLowerCase()
+        );
+
+        if (existingWithDetails) {
+          if (!existingWithDetails.isSelected) {
+            handleAttractionToggle(existingWithDetails);
+          }
+        } else {
+          // Only add as new if we still can't find it
+          const newAttraction: Attraction = {
+            id: place.place_id || prediction.place_id,
+            name: place.name || prediction.structured_formatting.main_text,
+            description: place.vicinity || place.formatted_address || prediction.structured_formatting.secondary_text,
+            rating: place.rating || 0,
+            userRatingsTotal: place.user_ratings_total || 0,
+            photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 }),
+            isSelected: true,
+            // Mark as manually added only if it's not a recognized tourist attraction or point of interest
+            isManuallyAdded: !(place.types?.some(type =>
+              ['tourist_attraction', 'point_of_interest', 'establishment'].includes(type)
+            ))
+          };
+
+          setAttractions(prevAttractions => [newAttraction, ...prevAttractions]);
+          onAttractionsSelect([newAttraction.name, ...selectedAttractions]);
+        }
       }
     });
 

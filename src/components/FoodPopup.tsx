@@ -203,6 +203,7 @@ const FoodPopup: React.FC<FoodPopupProps> = ({
                 isSelected: newSelectedItems.includes(place.name)
             }))
         );
+        // Update parent component with new selections
         onFoodSelect(newSelectedItems);
     };
 
@@ -236,6 +237,9 @@ const FoodPopup: React.FC<FoodPopupProps> = ({
                         <h2 className="text-xl font-semibold flex items-center gap-2">
                             <Utensils className="w-6 h-6 text-[#8B5CF6]" />
                             Popular Food Places in {destination}
+                            <span className="text-sm font-normal text-gray-500">
+                                ({selectedItems.length} selected)
+                            </span>
                         </h2>
                         <button
                             onClick={onClose}

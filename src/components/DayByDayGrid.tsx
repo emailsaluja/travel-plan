@@ -4,6 +4,7 @@ import DayDiscoverPopup from './DayDiscoverPopup';
 import HotelSearchPopup from './HotelSearchPopup';
 import NotesPopup from './NotesPopup';
 import FoodPopup from './FoodPopup';
+import { FaUtensils, FaPlus } from 'react-icons/fa';
 
 interface DayByDayGridProps {
   tripStartDate: string;
@@ -34,6 +35,12 @@ interface DayByDayGridProps {
   onDayNotesUpdate: (notes: Array<{ dayIndex: number; notes: string }>) => void;
   onHotelClick?: (destination: string, dayIndex: number) => void;
   onFoodSelect?: (destination: string, dayIndex: number) => void;
+  dayFoods: Array<{
+    dayIndex: number;
+    foodItems: string[];
+  }>;
+  onFoodClick: (destination: string, dayIndex: number) => void;
+  onNotesClick: (destination: string, dayIndex: number) => void;
 }
 
 interface ExpandedDay {
@@ -68,7 +75,10 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   dayNotes,
   onDayNotesUpdate,
   onHotelClick,
-  onFoodSelect
+  onFoodSelect,
+  dayFoods,
+  onFoodClick,
+  onNotesClick
 }) => {
   const [showDiscoverPopup, setShowDiscoverPopup] = useState(false);
   const [showHotelPopup, setShowHotelPopup] = useState(false);
@@ -254,6 +264,30 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
     return firstHotel;
   };
 
+  const renderFoodCell = (day: { dayIndex: number; destination: string }) => {
+    const dayFood = dayFoods.find(f => f.dayIndex === day.dayIndex);
+    const foodCount = dayFood?.foodItems.length || 0;
+
+    return (
+      <td
+        className="border p-4 cursor-pointer hover:bg-gray-50"
+        onClick={() => onFoodClick(day.destination, day.dayIndex)}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <FaUtensils className="text-gray-500" />
+            {foodCount > 0 ? (
+              <span>{foodCount} food spot{foodCount !== 1 ? 's' : ''}</span>
+            ) : (
+              <span className="text-gray-400">Add food spots</span>
+            )}
+          </div>
+          <FaPlus className="text-gray-400" />
+        </div>
+      </td>
+    );
+  };
+
   return (
     <div className="space-y-4">
       {/* Column Headers */}
@@ -309,19 +343,19 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
               <div className="text-sm text-[#64748B]">{day.isFirstDay ? 'Start of your adventure!' : 'Spend the day in ' + day.destination}</div>
             </div>
             <div>
-              {day.hotel || dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel || getFirstHotelForDestination(day) ? (
+              {dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel ? (
                 <button
-                  onClick={() => onHotelClick?.(day.destination, day.dayIndex)}
+                  onClick={() => handleHotelClick(day)}
                   className="text-sm font-medium text-[#1E293B] hover:text-[#00C48C] transition-colors"
                 >
                   <span className="max-w-[160px]">
-                    {day.hotel || dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel || getFirstHotelForDestination(day)}
+                    {dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel}
                   </span>
                   <div className="text-xs text-[#64748B]">To be booked</div>
                 </button>
               ) : (
                 <button
-                  onClick={() => onHotelClick?.(day.destination, day.dayIndex)}
+                  onClick={() => handleHotelClick(day)}
                   className="w-8 h-8 rounded-full flex items-center justify-center text-[#F59E0B] hover:bg-[#F59E0B]/10 border border-[#F59E0B]"
                 >
                   <Plus className="w-5 h-5" />
@@ -345,23 +379,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
                 </button>
               )}
             </div>
-            <div>
-              {day.food ? (
-                <button
-                  onClick={() => handleFoodClick(day)}
-                  className="text-sm font-medium text-[#1E293B] hover:text-[#00C48C] transition-colors"
-                >
-                  {day.food.split(',').filter(item => item.trim()).length} food spots
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleFoodClick(day)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-[#8B5CF6] hover:bg-[#8B5CF6]/10 border border-[#8B5CF6]"
-                >
-                  <Plus className="w-5 h-5" />
-                </button>
-              )}
-            </div>
+            {renderFoodCell(day)}
             <div>
               {dayNotes.find(n => n.dayIndex === day.dayIndex)?.notes ? (
                 <button
