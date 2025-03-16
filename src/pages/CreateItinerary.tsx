@@ -725,8 +725,8 @@ const CreateItinerary: React.FC = () => {
             <span className="font-[600] font-['Poppins',sans-serif]">FOOD</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-[#ea5681]/10 flex items-center justify-center">
-              <Transport className="w-4 h-4 text-[#ea5681]" />
+            <div className="w-8 h-8 rounded-full bg-pink-500/10 flex items-center justify-center">
+              <Transport className="w-5 h-5 text-pink-500" />
             </div>
             <span className="font-[600] font-['Poppins',sans-serif]">TRANSPORT</span>
           </div>
@@ -774,19 +774,19 @@ const CreateItinerary: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5">
                     <button
                       onClick={() => handleDayUpdate(index, 'nights', Math.max(1, day.nights - 1))}
-                      className="w-8 h-8 flex items-center justify-center text-[#64748B] hover:bg-gray-100 rounded-full"
+                      className="w-10 h-10 flex items-center justify-center text-[#64748B] hover:bg-gray-100 rounded-full font-['Inter_var'] font-[600] text-2xl"
                     >
                       -
                     </button>
-                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-                      <span className="font-[600] font-['Inter_var'] text-[#1E293B]">{day.nights}</span>
+                    <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+                      <span className="font-[600] font-['Inter_var'] text-[#1E293B] text-xl">{day.nights}</span>
                     </div>
                     <button
                       onClick={() => handleDayUpdate(index, 'nights', day.nights + 1)}
-                      className="w-8 h-8 flex items-center justify-center text-[#64748B] hover:bg-gray-100 rounded-full"
+                      className="w-10 h-10 flex items-center justify-center text-[#64748B] hover:bg-gray-100 rounded-full font-['Inter_var'] font-[600] text-2xl"
                     >
                       +
                     </button>
@@ -895,28 +895,12 @@ const CreateItinerary: React.FC = () => {
                 </div>
                 <div>
                   <div className="flex items-center justify-center gap-2">
-                    {!day.transport && index < itineraryDays.length - 1 ? (
-                      <div className="flex items-center justify-center">
-                        <button
-                          onClick={() => {
-                            setCurrentDestinationForTransport({
-                              from: day.destination,
-                              to: index < itineraryDays.length - 1 ? itineraryDays[index + 1].destination : '',
-                              index
-                            });
-                            setShowTransportPopup(true);
-                          }}
-                          className="w-8 h-8 rounded-full flex items-center justify-center border text-[#14B8A6] hover:bg-[#14B8A6]/10 border-[#14B8A6]"
-                        >
-                          <Plus className="w-5 h-5" />
-                        </button>
-                      </div>
-                    ) : null}
+                    {/* Remove the + button from here since we'll show it in the divider */}
                   </div>
                 </div>
               </div>
               {index < itineraryDays.length - 1 && (
-                <div className="relative">
+                <div className="relative -mt-3">
                   <div className="border-b-2 border-gray-300"></div>
                   {/* Transport icon overlapping the divider */}
                   <div className="grid grid-cols-[1fr,140px,200px,120px,120px,160px] gap-4">
@@ -926,11 +910,11 @@ const CreateItinerary: React.FC = () => {
                     <div></div>
                     <div></div>
                     <div className="relative">
-                      {day.transport && (
+                      {day.transport ? (
                         <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4">
                           <button
                             onClick={() => {
-                              console.log('Transport icon clicked');  // Add debug log
+                              console.log('Transport icon clicked');
                               setCurrentDestinationForTransport({
                                 from: day.destination,
                                 to: index < itineraryDays.length - 1 ? itineraryDays[index + 1].destination : '',
@@ -941,14 +925,46 @@ const CreateItinerary: React.FC = () => {
                             className="flex flex-col items-center text-center hover:opacity-80 transition-opacity"
                           >
                             <div>
-                              {day.transport.includes('Drive') && <Car className="w-6 h-6 text-[#ea5681]" />}
-                              {day.transport.includes('Flight') && <Plane className="w-6 h-6 text-[#ea5681]" />}
-                              {day.transport.includes('Train') && <Train className="w-6 h-6 text-[#ea5681]" />}
-                              {day.transport.includes('Bus') && <BusIcon className="w-6 h-6 text-[#ea5681]" />}
+                              {day.transport.includes('Drive') && (
+                                <div className="w-8 h-8 rounded-full bg-pink-500/10 flex items-center justify-center">
+                                  <Car className="w-5 h-5 text-pink-500" />
+                                </div>
+                              )}
+                              {day.transport.includes('Flight') && (
+                                <div className="w-8 h-8 rounded-full bg-pink-500/10 flex items-center justify-center">
+                                  <Plane className="w-5 h-5 text-pink-500" />
+                                </div>
+                              )}
+                              {day.transport.includes('Train') && (
+                                <div className="w-8 h-8 rounded-full bg-pink-500/10 flex items-center justify-center">
+                                  <Train className="w-5 h-5 text-pink-500" />
+                                </div>
+                              )}
+                              {day.transport.includes('Bus') && (
+                                <div className="w-8 h-8 rounded-full bg-pink-500/10 flex items-center justify-center">
+                                  <BusIcon className="w-5 h-5 text-pink-500" />
+                                </div>
+                              )}
                             </div>
-                            <div className="text-xs text-gray-500 font-['Inter_var'] font-[600]">
+                            <div className="text-xs text-pink-500 font-['Inter_var'] font-[600]">
                               {day.transport.split(' · ')[1]}
                             </div>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4">
+                          <button
+                            onClick={() => {
+                              setCurrentDestinationForTransport({
+                                from: day.destination,
+                                to: index < itineraryDays.length - 1 ? itineraryDays[index + 1].destination : '',
+                                index
+                              });
+                              setShowTransportPopup(true);
+                            }}
+                            className="w-8 h-8 rounded-full flex items-center justify-center border text-pink-500 hover:bg-pink-500/10 border-pink-500"
+                          >
+                            <Plus className="w-5 h-5" />
                           </button>
                         </div>
                       )}
@@ -1242,14 +1258,14 @@ const CreateItinerary: React.FC = () => {
                 <div className="flex-1">
                   <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
                     {/* Header with Nights Planned and Tabs */}
-                    <div className="border-b border-gray-200 pb-4">
+                    <div className="border-b border-gray-200">
                       {/* Tabs and Nights Planned in same row */}
                       <div className="flex items-center justify-between">
                         {/* Tabs */}
                         <div className="flex items-center">
                           <button
-                            className={`px-6 py-3 text-sm font-[600] font-['Poppins',sans-serif] border-b-2 -mb-[1px] ${activeTab === 'destinations'
-                              ? 'text-[#00C48C] border-[#00C48C]'
+                            className={`px-6 py-4 text-base font-['Inter_var'] font-[600] border-b-2 ${activeTab === 'destinations'
+                              ? 'text-pink-500 border-pink-500'
                               : 'text-gray-500 border-transparent hover:text-[#1e293b]'
                               } transition-colors`}
                             onClick={() => setActiveTab('destinations')}
@@ -1257,8 +1273,8 @@ const CreateItinerary: React.FC = () => {
                             Destinations
                           </button>
                           <button
-                            className={`px-6 py-3 text-sm font-[600] font-['Poppins',sans-serif] border-b-2 -mb-[1px] ${activeTab === 'day-by-day'
-                              ? 'text-[#00C48C] border-[#00C48C]'
+                            className={`px-6 py-4 text-base font-['Inter_var'] font-[600] border-b-2 ${activeTab === 'day-by-day'
+                              ? 'text-pink-500 border-pink-500'
                               : 'text-gray-500 border-transparent hover:text-[#1e293b]'
                               } transition-colors`}
                             onClick={() => setActiveTab('day-by-day')}
@@ -1322,9 +1338,6 @@ const CreateItinerary: React.FC = () => {
                             setCurrentDestinationIndexForHotel(dayIndex);
                             setIsHotelSearchOpen(true);
                           }}
-                          onFoodSelect={handleDayFoodSelect}
-                          dayFoods={dayFoods}
-                          onFoodClick={handleDayFoodSelect}
                           onNotesClick={(destination, dayIndex) => {
                             const currentNotes = dayNotes.find(n => n.dayIndex === dayIndex)?.notes || '';
                             const updatedNotes = [...dayNotes];
