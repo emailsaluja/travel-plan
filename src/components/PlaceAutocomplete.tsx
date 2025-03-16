@@ -204,7 +204,7 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
 
     const initializeServices = () => {
       if (!componentMounted.current) return;
-      
+
       try {
         if (window.google && !isInitialized) {
           autocompleteService.current = new window.google.maps.places.AutocompleteService();
@@ -227,12 +227,17 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
     };
   }, [isGoogleMapsLoaded]);
 
-  // Remove the country change effect that was triggering predictions
+  // Close predictions when clicking outside
   useEffect(() => {
-    if (isInitialized && country && value && isUserInteracted) {
-      fetchPredictions(value);
-    }
-  }, [country, isInitialized, value, isUserInteracted]);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!(event.target as Element).closest('.place-autocomplete')) {
+        setShowPredictions(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const fetchPredictions = (input: string) => {
     // Change minimum character check to 2
@@ -244,15 +249,15 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
     }
 
     if (!input || !isInitialized || !autocompleteService.current) {
-      console.log('Skipping predictions:', { 
-        input, 
-        isInitialized, 
+      console.log('Skipping predictions:', {
+        input,
+        isInitialized,
         hasAutocompleteService: !!autocompleteService.current,
-        country 
+        country
       });
       return;
     }
-    
+
     if (!country) {
       console.warn('No country selected');
       return;
@@ -282,7 +287,7 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
       request,
       (results, status) => {
         if (!componentMounted.current) return;
-        
+
         console.log('Prediction results:', { status, results });
         if (status === google.maps.places.PlacesServiceStatus.OK && results) {
           setPredictions(results);
@@ -294,18 +299,6 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
       }
     );
   };
-
-  // Close predictions when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!(event.target as Element).closest('.place-autocomplete')) {
-        setShowPredictions(false);
-      }
-    };
-
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
 
   const handlePlaceSelect = (prediction: google.maps.places.AutocompletePrediction) => {
     if (!placesService.current) return;
@@ -331,24 +324,28 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
         type="text"
         value={value}
         onChange={(e) => {
-          onChange(e.target.value);
-          setIsUserInteracted(true);
-          if (isInitialized) {
-            fetchPredictions(e.target.value);
+          const newValue = e.target.value;
+          onChange(newValue);
+          if (isInitialized && country) {
+            fetchPredictions(newValue);
           }
         }}
         onClick={(e) => {
           e.stopPropagation();
+          // If there's a value and we're initialized, show predictions again
+          if (value && isInitialized && country) {
+            fetchPredictions(value);
+          }
         }}
         placeholder={placeholder}
         className={`w-full border-none focus:ring-0 bg-transparent ${className}`}
       />
-      
+
       {/* Only show DateDisplay when both value and startDate exist */}
       {value && startDate && <DateDisplay startDate={startDate} nights={nights} />}
-      
+
       {showPredictions && predictions.length > 0 && (
-        <div 
+        <div
           className="absolute z-10 w-full bg-white shadow-lg rounded-md mt-1 max-h-60 overflow-auto"
           onClick={(e) => e.stopPropagation()}
         >

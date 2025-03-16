@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, MapPin, Star, Search, Plus, Building2, Edit2 } from 'lucide-react';
+import { X, MapPin, Star, Search, Plus, Building2, Edit2, Trash2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface Hotel {
   id: string;
@@ -13,6 +14,7 @@ interface Hotel {
   isSelected?: boolean;
   isManuallyAdded?: boolean;
   destination?: string;
+  user_id?: string;
 }
 
 interface HotelSearchPopupProps {
@@ -54,16 +56,59 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
   const [manualHotels, setManualHotels] = useState<Hotel[]>([]);
   const [editingHotel, setEditingHotel] = useState<Hotel | null>(null);
 
-  useEffect(() => {
-    // Load manual hotels from localStorage
-    const savedManualHotels = localStorage.getItem('manualHotels');
-    if (savedManualHotels) {
-      const allHotels = JSON.parse(savedManualHotels);
-      // Filter hotels for current destination
-      const destinationHotels = allHotels.filter((h: Hotel) => h.destination === destination);
-      setManualHotels(destinationHotels);
+  const handleDeleteHotel = async (hotelId: string) => {
+    try {
+      const { error } = await supabase
+        .from('hotels')
+        .delete()
+        .eq('id', hotelId);
+
+      if (error) throw error;
+
+      // Update local state
+      setManualHotels(prev => prev.filter(h => h.id !== hotelId));
+
+      // If the deleted hotel was selected, clear the selection
+      if (selectedHotel === manualHotels.find(h => h.id === hotelId)?.name) {
+        onHotelSelect('');
+      }
+    } catch (error) {
+      console.error('Error deleting hotel:', error);
     }
-  }, [destination]);
+  };
+
+  useEffect(() => {
+    const loadManualHotels = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: hotels, error } = await supabase
+          .from('hotels')
+          .select('*')
+          .eq('destination', destination)
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+
+        // Convert the database format to our UI format
+        const uiHotels: Hotel[] = (hotels || []).map(hotel => ({
+          ...hotel,
+          priceLevel: hotel.price_level,
+          isManuallyAdded: hotel.is_manually_added,
+          isSelected: hotel.is_selected
+        }));
+
+        setManualHotels(uiHotels);
+      } catch (error) {
+        console.error('Error loading manual hotels:', error);
+      }
+    };
+
+    if (isOpen && destination) {
+      loadManualHotels();
+    }
+  }, [destination, isOpen]);
 
   useEffect(() => {
     if (isOpen && destination && window.google) {
@@ -215,47 +260,79 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
     }, 300);
   };
 
-  const handleManualSubmit = (e: React.FormEvent) => {
+  const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const hotel: Hotel = {
-      id: editingHotel ? editingHotel.id : `manual-${Date.now()}`,
-      name: manualHotel.name,
-      description: manualHotel.description,
-      rating: parseFloat(manualHotel.rating) || undefined,
-      priceLevel: parseInt(manualHotel.priceLevel),
-      isManuallyAdded: true,
-      isSelected: true,
-      destination: destination
-    };
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
 
-    // Get all existing manual hotels from localStorage
-    const savedManualHotels = localStorage.getItem('manualHotels');
-    let allHotels: Hotel[] = savedManualHotels ? JSON.parse(savedManualHotels) : [];
+      const hotel = {
+        id: editingHotel ? editingHotel.id : `manual-${Date.now()}`,
+        name: manualHotel.name,
+        description: manualHotel.description,
+        rating: parseFloat(manualHotel.rating) || undefined,
+        price_level: parseInt(manualHotel.priceLevel),
+        is_manually_added: true,
+        is_selected: true,
+        destination: destination,
+        user_id: user.id
+      };
 
-    if (editingHotel) {
-      // Update the hotel in both local state and localStorage
-      setManualHotels(prev => prev.map(h => h.id === editingHotel.id ? hotel : h));
-      allHotels = allHotels.map(h => h.id === editingHotel.id ? hotel : h);
-    } else {
-      // Add the new hotel to both local state and localStorage
-      setManualHotels(prev => [...prev, hotel]);
-      allHotels = [...allHotels.filter(h => h.destination !== destination || h.id !== hotel.id), hotel];
+      if (editingHotel) {
+        // Update existing hotel
+        const { error } = await supabase
+          .from('hotels')
+          .update(hotel)
+          .eq('id', hotel.id);
+
+        if (error) throw error;
+
+        // Convert back to camelCase for the UI
+        const uiHotel: Hotel = {
+          ...hotel,
+          priceLevel: hotel.price_level,
+          isManuallyAdded: hotel.is_manually_added,
+          isSelected: hotel.is_selected
+        };
+
+        setManualHotels(prev => prev.map(h => h.id === hotel.id ? uiHotel : h));
+      } else {
+        // Insert new hotel
+        const { data, error } = await supabase
+          .from('hotels')
+          .insert(hotel)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Convert the returned data to our UI format
+        const uiHotel: Hotel = {
+          ...data,
+          priceLevel: data.price_level,
+          isManuallyAdded: data.is_manually_added,
+          isSelected: data.is_selected
+        };
+
+        setManualHotels(prev => [...prev, uiHotel]);
+      }
+
+      // Reset form
+      setManualHotel({
+        name: '',
+        description: '',
+        rating: '',
+        priceLevel: '1'
+      });
+      setEditingHotel(null);
+
+      // Update the selected hotel
+      onHotelSelect(hotel.name, true);
+    } catch (error) {
+      console.error('Error saving hotel:', error);
     }
-
-    // Save all hotels back to localStorage
-    localStorage.setItem('manualHotels', JSON.stringify(allHotels));
-
-    // Reset form
-    setManualHotel({
-      name: '',
-      description: '',
-      rating: '',
-      priceLevel: '1'
-    });
-    setEditingHotel(null);
-
-    // Instead of closing, just update the selected hotel
-    onHotelSelect(hotel.name, true);
   };
 
   const handleEditHotel = (hotel: Hotel) => {
@@ -351,6 +428,12 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
                             className="p-2 text-gray-400 hover:text-amber-600 rounded-full hover:bg-amber-50"
                           >
                             <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteHotel(hotel.id)}
+                            className="p-2 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleHotelSelect(hotel)}
@@ -537,6 +620,12 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
                           className="p-2 text-gray-400 hover:text-amber-600 rounded-full hover:bg-amber-50"
                         >
                           <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteHotel(hotel.id)}
+                          className="p-2 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleHotelSelect(hotel)}
