@@ -382,8 +382,8 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
               <button
                 onClick={() => setActiveTab('search')}
                 className={`py-4 px-2 font-['Inter_var'] font-[600] border-b-2 -mb-[1px] transition-colors ${activeTab === 'search'
-                    ? 'text-[#F59E0B] border-[#F59E0B]'
-                    : 'text-gray-500 border-transparent hover:text-[#F59E0B]'
+                  ? 'text-[#F59E0B] border-[#F59E0B]'
+                  : 'text-gray-500 border-transparent hover:text-[#F59E0B]'
                   }`}
               >
                 Search Hotels
@@ -391,8 +391,8 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
               <button
                 onClick={() => setActiveTab('manual')}
                 className={`py-4 px-2 font-['Inter_var'] font-[600] border-b-2 -mb-[1px] transition-colors ${activeTab === 'manual'
-                    ? 'text-[#F59E0B] border-[#F59E0B]'
-                    : 'text-gray-500 border-transparent hover:text-[#F59E0B]'
+                  ? 'text-[#F59E0B] border-[#F59E0B]'
+                  : 'text-gray-500 border-transparent hover:text-[#F59E0B]'
                   }`}
               >
                 Add Custom Hotel
@@ -430,8 +430,8 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
                       <div
                         key={hotel.id || hotel.place_id}
                         className={`group relative rounded-lg border p-4 transition-all hover:shadow-md ${(selectedHotel === hotel.name || hotel.isSelected)
-                            ? 'border-[#F59E0B] bg-[#F59E0B]/5'
-                            : 'border-gray-200 hover:border-[#F59E0B]'
+                          ? 'border-[#F59E0B] bg-[#F59E0B]/5'
+                          : 'border-gray-200 hover:border-[#F59E0B]'
                           }`}
                       >
                         <div className="flex items-start gap-4">
@@ -455,8 +455,8 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
                               <button
                                 onClick={() => handleHotelSelect(hotel)}
                                 className={`rounded-full p-2 ${(selectedHotel === hotel.name || hotel.isSelected)
-                                    ? 'bg-[#F59E0B] text-white'
-                                    : 'text-[#F59E0B] hover:bg-[#F59E0B]/10'
+                                  ? 'bg-[#F59E0B] text-white'
+                                  : 'text-[#F59E0B] hover:bg-[#F59E0B]/10'
                                   }`}
                               >
                                 {(selectedHotel === hotel.name || hotel.isSelected) ? (
@@ -556,8 +556,8 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
                       <div
                         key={hotel.id}
                         className={`group relative rounded-lg border p-4 transition-all hover:shadow-md ${(selectedHotel === hotel.name || hotel.isSelected)
-                            ? 'border-[#F59E0B] bg-[#F59E0B]/5'
-                            : 'border-gray-200 hover:border-[#F59E0B]'
+                          ? 'border-[#F59E0B] bg-[#F59E0B]/5'
+                          : 'border-gray-200 hover:border-[#F59E0B]'
                           }`}
                       >
                         <div className="flex items-start justify-between">
@@ -593,8 +593,8 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
                             <button
                               onClick={() => handleHotelSelect(hotel)}
                               className={`rounded-full p-2 ${(selectedHotel === hotel.name || hotel.isSelected)
-                                  ? 'bg-[#F59E0B] text-white'
-                                  : 'text-[#F59E0B] hover:bg-[#F59E0B]/10'
+                                ? 'bg-[#F59E0B] text-white'
+                                : 'text-[#F59E0B] hover:bg-[#F59E0B]/10'
                                 }`}
                             >
                               {(selectedHotel === hotel.name || hotel.isSelected) ? (

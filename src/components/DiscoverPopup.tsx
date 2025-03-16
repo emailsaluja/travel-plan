@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, MapPin, Star, Search, Plus, Edit2, Trash2 } from 'lucide-react';
+import { X, MapPin, Star, Search, Plus, Edit2, Trash2, Check, Compass } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Attraction {
@@ -529,229 +529,266 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onClose} />
+      <div className="relative w-full max-w-3xl bg-white rounded-xl shadow-2xl">
         {/* Header */}
-        <div className="p-4 border-b flex justify-between items-center">
-          <h2 className="text-lg font-semibold">Discover {destination}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="w-5 h-5" />
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-[#00B8A9]/10 flex items-center justify-center">
+              <Compass className="w-5 h-5 text-[#00B8A9]" />
+            </div>
+            <h2 className="text-lg font-[600] font-['Poppins',sans-serif] text-[#1E293B]">
+              Discover {destination}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+          >
+            <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b">
-          <button
-            className={`flex-1 p-3 text-sm font-medium ${activeTab === 'search'
-              ? 'text-amber-600 border-b-2 border-amber-600'
-              : 'text-gray-500 hover:text-gray-700'
-              }`}
-            onClick={() => setActiveTab('search')}
-          >
-            Search Attractions
-          </button>
-          <button
-            className={`flex-1 p-3 text-sm font-medium ${activeTab === 'manual'
-              ? 'text-amber-600 border-b-2 border-amber-600'
-              : 'text-gray-500 hover:text-gray-700'
-              }`}
-            onClick={() => setActiveTab('manual')}
-          >
-            Add Manually
-          </button>
+        <div className="border-b border-gray-200">
+          <div className="flex gap-8 px-6">
+            <button
+              onClick={() => setActiveTab('search')}
+              className={`py-4 px-2 font-['Inter_var'] font-[600] border-b-2 -mb-[1px] transition-colors ${activeTab === 'search'
+                ? 'text-[#00B8A9] border-[#00B8A9]'
+                : 'text-gray-500 border-transparent hover:text-[#00B8A9]'
+                }`}
+            >
+              Search Attractions
+            </button>
+            <button
+              onClick={() => setActiveTab('manual')}
+              className={`py-4 px-2 font-['Inter_var'] font-[600] border-b-2 -mb-[1px] transition-colors ${activeTab === 'manual'
+                ? 'text-[#00B8A9] border-[#00B8A9]'
+                : 'text-gray-500 border-transparent hover:text-[#00B8A9]'
+                }`}
+            >
+              Add Custom Attraction
+            </button>
+          </div>
         </div>
 
-        {activeTab === 'search' ? (
-          <>
-            {/* Manual Attractions Section */}
-            {manualAttractions.length > 0 && (
-              <div className="border-b">
-                <div className="p-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Your Manual Attractions</h3>
-                  <div className="space-y-3">
-                    {manualAttractions.map((attraction) => (
-                      <div
-                        key={attraction.id}
-                        className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${selectedAttractions.includes(attraction.name) ? 'bg-amber-50' : 'bg-gray-50'
-                          } hover:bg-amber-100`}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-sm truncate">{attraction.name}</h3>
-                          {attraction.description && (
-                            <p className="text-gray-600 text-xs truncate mt-0.5">{attraction.description}</p>
-                          )}
+        {/* Content */}
+        <div className="max-h-[60vh] overflow-y-auto p-6">
+          {activeTab === 'search' ? (
+            <div className="space-y-6">
+              {/* Search Input */}
+              <div className="relative">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                  <Search className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  onFocus={() => setShowSearchResults(true)}
+                  className="block w-full rounded-lg border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm placeholder-gray-500 focus:border-[#00B8A9] focus:outline-none focus:ring-1 focus:ring-[#00B8A9]"
+                  placeholder="Search for attractions..."
+                />
+              </div>
+
+              {/* Search Results */}
+              {showSearchResults && searchResults.length > 0 && (
+                <div className="rounded-lg border border-gray-200 bg-white shadow-lg">
+                  {searchResults.map((result) => (
+                    <button
+                      key={result.place_id}
+                      onClick={() => handleAddCustomAttraction(result)}
+                      className="flex w-full items-center gap-3 border-b border-gray-100 px-4 py-3 text-left hover:bg-gray-50 last:border-b-0"
+                    >
+                      <MapPin className="h-5 w-5 text-[#00B8A9]" />
+                      <div>
+                        <div className="font-medium">{result.structured_formatting.main_text}</div>
+                        <div className="text-sm text-gray-500">
+                          {result.structured_formatting.secondary_text}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Attractions List */}
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#00B8A9] border-t-transparent"></div>
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {sortedAttractions.map((attraction) => (
+                    <div
+                      key={attraction.id}
+                      className={`group relative rounded-lg border p-4 transition-all hover:shadow-md ${attraction.isSelected
+                        ? 'border-[#00B8A9] bg-[#00B8A9]/5'
+                        : 'border-gray-200 hover:border-[#00B8A9]'
+                        }`}
+                    >
+                      <div className="flex items-start gap-4">
+                        {attraction.photoUrl && (
+                          <img
+                            src={attraction.photoUrl}
+                            alt={attraction.name}
+                            className="h-20 w-20 rounded-lg object-cover"
+                          />
+                        )}
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h3 className="font-['Inter_var'] font-[600] text-[#1E293B]">
+                                {attraction.name}
+                              </h3>
+                              <p className="mt-1 text-sm text-gray-500">
+                                {attraction.description}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => handleAttractionToggle(attraction)}
+                              className={`rounded-full p-2 ${attraction.isSelected
+                                ? 'bg-[#00B8A9] text-white'
+                                : 'text-[#00B8A9] hover:bg-[#00B8A9]/10'
+                                }`}
+                            >
+                              {attraction.isSelected ? (
+                                <Check className="h-5 w-5" />
+                              ) : (
+                                <Plus className="h-5 w-5" />
+                              )}
+                            </button>
+                          </div>
                           {attraction.rating && (
-                            <div className="flex items-center gap-1 mt-1">
-                              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                              <span className="text-xs font-medium">{attraction.rating}</span>
+                            <div className="mt-2 flex items-center gap-2">
+                              <div className="flex items-center">
+                                {[...Array(Math.floor(attraction.rating))].map((_, i) => (
+                                  <Star key={i} className="h-4 w-4 fill-[#00B8A9] text-[#00B8A9]" />
+                                ))}
+                                {attraction.rating % 1 !== 0 && (
+                                  <Star className="h-4 w-4 fill-[#00B8A9]/50 text-[#00B8A9]" />
+                                )}
+                              </div>
+                              <span className="text-sm text-gray-500">
+                                ({attraction.userRatingsTotal?.toLocaleString()} reviews)
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Manual Attraction Form */}
+              <form onSubmit={handleManualSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Attraction Name</label>
+                  <input
+                    type="text"
+                    value={manualAttraction.name}
+                    onChange={(e) => setManualAttraction({ ...manualAttraction, name: e.target.value })}
+                    className="mt-1 block w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#00B8A9] focus:outline-none focus:ring-1 focus:ring-[#00B8A9]"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Description</label>
+                  <textarea
+                    value={manualAttraction.description}
+                    onChange={(e) => setManualAttraction({ ...manualAttraction, description: e.target.value })}
+                    className="mt-1 block w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#00B8A9] focus:outline-none focus:ring-1 focus:ring-[#00B8A9]"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Rating</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="5"
+                    step="0.1"
+                    value={manualAttraction.rating}
+                    onChange={(e) => setManualAttraction({ ...manualAttraction, rating: e.target.value })}
+                    className="mt-1 block w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#00B8A9] focus:outline-none focus:ring-1 focus:ring-[#00B8A9]"
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-[#00B8A9] px-4 py-2 text-sm font-medium text-white hover:bg-[#00B8A9]/90 focus:outline-none focus:ring-2 focus:ring-[#00B8A9] focus:ring-offset-2"
+                  >
+                    {editingAttraction ? 'Update Attraction' : 'Add Attraction'}
+                  </button>
+                </div>
+              </form>
+
+              {/* Manual Attractions List */}
+              <div className="mt-8">
+                <h3 className="mb-4 font-['Inter_var'] font-[600] text-[#1E293B]">Your Custom Attractions</h3>
+                <div className="grid gap-4">
+                  {manualAttractions.map((attraction) => (
+                    <div
+                      key={attraction.id}
+                      className={`group relative rounded-lg border p-4 transition-all hover:shadow-md ${selectedAttractions.includes(attraction.name)
+                        ? 'border-[#00B8A9] bg-[#00B8A9]/5'
+                        : 'border-gray-200 hover:border-[#00B8A9]'
+                        }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-['Inter_var'] font-[600] text-[#1E293B]">{attraction.name}</h4>
+                          <p className="mt-1 text-sm text-gray-500">{attraction.description}</p>
+                          {attraction.rating && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <div className="flex items-center">
+                                {[...Array(Math.floor(Number(attraction.rating)))].map((_, i) => (
+                                  <Star key={i} className="h-4 w-4 fill-[#00B8A9] text-[#00B8A9]" />
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleEditAttraction(attraction)}
-                            className="p-2 text-gray-400 hover:text-amber-600 rounded-full hover:bg-amber-50"
+                            className="rounded-full p-2 text-gray-400 hover:bg-[#00B8A9]/10 hover:text-[#00B8A9]"
                           >
-                            <Edit2 className="w-4 h-4" />
+                            <Edit2 className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteAttraction(attraction.id)}
-                            className="p-2 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50"
+                            className="rounded-full p-2 text-gray-400 hover:bg-red-50 hover:text-red-500"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleAttractionToggle(attraction)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${selectedAttractions.includes(attraction.name)
-                              ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                              : 'bg-white text-gray-700 hover:bg-gray-100'
+                            className={`rounded-full p-2 ${selectedAttractions.includes(attraction.name)
+                              ? 'bg-[#00B8A9] text-white'
+                              : 'text-[#00B8A9] hover:bg-[#00B8A9]/10'
                               }`}
                           >
-                            {selectedAttractions.includes(attraction.name) ? 'Selected' : 'Select'}
+                            {selectedAttractions.includes(attraction.name) ? (
+                              <Check className="h-5 w-5" />
+                            ) : (
+                              <Plus className="h-5 w-5" />
+                            )}
                           </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Existing search section */}
-            <div className="p-6 overflow-y-auto max-h-[calc(80vh-200px)]">
-              {loading ? (
-                <div className="flex justify-center items-center h-64">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* Show selected count if any attractions are selected */}
-                  {attractions.some(a => a.isSelected) && (
-                    <div className="text-sm text-gray-600 pb-2 border-b">
-                      {attractions.filter(a => a.isSelected).length} attractions selected
-                    </div>
-                  )}
-
-                  {sortedAttractions.map((attraction) => (
-                    <div
-                      key={attraction.id}
-                      className={`flex items-start gap-4 p-4 rounded-lg transition-colors ${attraction.isSelected
-                        ? 'bg-amber-50 hover:bg-amber-100'
-                        : 'bg-gray-50 hover:bg-gray-100'
-                        }`}
-                    >
-                      {!attraction.isManuallyAdded && (
-                        <div className="w-24 h-24 rounded-lg overflow-hidden">
-                          {attraction.photoUrl ? (
-                            <img
-                              src={attraction.photoUrl}
-                              alt={attraction.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                              <MapPin className="w-8 h-8 text-gray-400" />
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-lg">{attraction.name}</h3>
-                          {attraction.isManuallyAdded && (
-                            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
-                              Custom
-                            </span>
-                          )}
-                        </div>
-                        {attraction.description && (
-                          <p className="text-gray-600 text-sm mt-1">{attraction.description}</p>
-                        )}
-                        {attraction.rating !== undefined && attraction.rating > 0 && (
-                          <div className="flex items-center gap-2 mt-2">
-                            <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                            <span className="text-sm font-medium">{attraction.rating}</span>
-                            <span className="text-sm text-gray-500">
-                              ({attraction.userRatingsTotal?.toLocaleString()} reviews)
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => handleAttractionToggle(attraction)}
-                        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${attraction.isSelected
-                          ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                      >
-                        {attraction.isSelected ? 'Remove' : 'Add'}
-                      </button>
                     </div>
                   ))}
                 </div>
-              )}
+              </div>
             </div>
-          </>
-        ) : (
-          /* Manual Add Form */
-          <div className="p-4">
-            <form onSubmit={handleManualSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="attractionName" className="block text-sm font-medium text-gray-700 mb-1">
-                  Attraction Name *
-                </label>
-                <input
-                  type="text"
-                  id="attractionName"
-                  required
-                  value={manualAttraction.name}
-                  onChange={(e) => setManualAttraction(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full p-2 border rounded-lg text-sm"
-                  placeholder="Enter attraction name"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="attractionDescription" className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <textarea
-                  id="attractionDescription"
-                  value={manualAttraction.description}
-                  onChange={(e) => setManualAttraction(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full p-2 border rounded-lg text-sm h-24 resize-none"
-                  placeholder="Enter attraction description"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="attractionRating" className="block text-sm font-medium text-gray-700 mb-1">
-                  Rating (0-5)
-                </label>
-                <input
-                  type="number"
-                  id="attractionRating"
-                  min="0"
-                  max="5"
-                  step="0.1"
-                  value={manualAttraction.rating}
-                  onChange={(e) => setManualAttraction(prev => ({ ...prev, rating: e.target.value }))}
-                  className="w-full p-2 border rounded-lg text-sm"
-                  placeholder="Enter rating"
-                />
-              </div>
-
-              <div className="pt-4">
-                <button
-                  type="submit"
-                  className="w-full bg-amber-500 text-white rounded-lg py-2 text-sm font-medium hover:bg-amber-600 transition-colors"
-                >
-                  {editingAttraction ? 'Update Attraction' : 'Add Attraction'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

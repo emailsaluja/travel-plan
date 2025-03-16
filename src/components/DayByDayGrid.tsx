@@ -113,18 +113,95 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
     });
   };
 
+  const generateExpandedDays = () => {
+    let expandedDays: ExpandedDay[] = [];
+    let dayIndex = 0;
+    let currentDate = new Date(tripStartDate);
+    let totalNights = 0;
+
+    destinations.forEach(dest => {
+      totalNights += dest.nights;
+    });
+
+    destinations.forEach(destination => {
+      const nights = destination.nights || 0;
+
+      for (let i = 0; i < nights; i++) {
+        if (dayIndex < totalNights) {
+          expandedDays.push({
+            ...destination,
+            dayIndex,
+            isFirstDay: i === 0,
+            date: new Date(currentDate),
+            food: destination.food || '',
+            hotel: destination.hotel
+          });
+          dayIndex++;
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      }
+    });
+
+    return expandedDays;
+  };
+
+  const expandedDays = generateExpandedDays();
+
+  useEffect(() => {
+    // Process each day
+    expandedDays.forEach(day => {
+      // Check if we already have attractions for this day in dayAttractions
+      const existingDayAttractions = dayAttractions.find(da => da.dayIndex === day.dayIndex);
+
+      // Only proceed if there are no attractions at all for this day
+      if (!existingDayAttractions) {
+        // Get all available attractions for this destination from the destinations array
+        const destinationData = destinations.find(d => d.destination === day.destination);
+        // Split by comma and clean each attraction
+        const destinationAttractions = destinationData?.discover
+          .split(',')
+          .map(attraction => attraction.trim())
+          .filter(attraction => attraction.length > 0) || [];
+
+        // If there are attractions available in the destination, select them all for this day
+        if (destinationAttractions.length > 0) {
+          console.log(`Auto-selecting attractions for day ${day.dayIndex}:`, destinationAttractions);
+          onDayAttractionsUpdate(day.dayIndex, destinationAttractions);
+        }
+      } else {
+        // Clean existing attractions
+        const cleanedAttractions = existingDayAttractions.selectedAttractions
+          .map(attraction => attraction.trim())
+          .filter(attraction => attraction.length > 0);
+
+        // Update if cleaning changed anything
+        if (JSON.stringify(cleanedAttractions) !== JSON.stringify(existingDayAttractions.selectedAttractions)) {
+          onDayAttractionsUpdate(day.dayIndex, cleanedAttractions);
+        }
+      }
+    });
+  }, [destinations, dayAttractions, onDayAttractionsUpdate]);
+
   const handleDiscoverClick = (day: ExpandedDay, index: number) => {
     const destinationData = destinations.find(d => d.destination === day.destination);
-    const destinationAttractions = destinationData?.discover.split(', ').filter(Boolean) || [];
+    // Clean destination attractions
+    const destinationAttractions = destinationData?.discover
+      .split(',')
+      .map(attraction => attraction.trim())
+      .filter(attraction => attraction.length > 0) || [];
 
-    // Get the current attractions for this specific day
+    // Get and clean the current attractions for this specific day
     const currentDayAttractions = dayAttractions.find(da => da.dayIndex === day.dayIndex);
-    console.log('Opening popup for day:', day.dayIndex, 'Current attractions:', currentDayAttractions);
+    const cleanedCurrentAttractions = currentDayAttractions?.selectedAttractions
+      .map(attraction => attraction.trim())
+      .filter(attraction => attraction.length > 0) || [];
+
+    console.log('Opening popup for day:', day.dayIndex, 'Current attractions:', cleanedCurrentAttractions);
 
     setSelectedDay({
       date: formatDate(day.date),
       destination: day.destination,
-      discover: currentDayAttractions?.selectedAttractions.join(', ') || '',
+      discover: cleanedCurrentAttractions.join(', '),
       dayIndex: day.dayIndex,
       allAttractions: destinationAttractions
     });
@@ -133,8 +210,13 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
 
   const handleUpdateDayAttractions = (attractions: string[]) => {
     if (selectedDay) {
-      console.log('Updating attractions for day:', selectedDay.dayIndex, attractions);
-      onDayAttractionsUpdate(selectedDay.dayIndex, attractions);
+      // Clean attractions before updating
+      const cleanedAttractions = attractions
+        .map(attraction => attraction.trim())
+        .filter(attraction => attraction.length > 0);
+
+      console.log('Updating attractions for day:', selectedDay.dayIndex, 'with:', cleanedAttractions);
+      onDayAttractionsUpdate(selectedDay.dayIndex, cleanedAttractions);
     }
   };
 
@@ -207,40 +289,6 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
       onFoodSelect(day.destination, day.dayIndex);
     }
   };
-
-  const generateExpandedDays = () => {
-    let expandedDays: ExpandedDay[] = [];
-    let dayIndex = 0;
-    let currentDate = new Date(tripStartDate);
-    let totalNights = 0;
-
-    destinations.forEach(dest => {
-      totalNights += dest.nights;
-    });
-
-    destinations.forEach(destination => {
-      const nights = destination.nights || 0;
-
-      for (let i = 0; i < nights; i++) {
-        if (dayIndex < totalNights) {
-          expandedDays.push({
-            ...destination,
-            dayIndex,
-            isFirstDay: i === 0,
-            date: new Date(currentDate),
-            food: destination.food || '',
-            hotel: destination.hotel
-          });
-          dayIndex++;
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-      }
-    });
-
-    return expandedDays;
-  };
-
-  const expandedDays = generateExpandedDays();
 
   const getFirstHotelForDestination = (day: ExpandedDay) => {
     // Calculate the start day index for this destination
@@ -407,9 +455,12 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
                 {dayAttractions.find(da => da.dayIndex === day.dayIndex)?.selectedAttractions.length ? (
                   <button
                     onClick={() => handleDiscoverClick(day, day.dayIndex)}
-                    className="text-sm font-['Inter_var'] font-[600] text-[#1E293B] hover:text-[#00C48C] transition-colors"
+                    className="text-sm group relative flex items-center flex-col"
                   >
-                    {dayAttractions.find(da => da.dayIndex === day.dayIndex)?.selectedAttractions.length} to do's
+                    <span className="font-['Inter_var'] font-[600] text-[#1E293B] hover:text-[#00C48C] transition-colors">
+                      {dayAttractions.find(da => da.dayIndex === day.dayIndex)?.selectedAttractions.length} to do's
+                    </span>
+                    <div className="text-xs font-['Inter_var'] text-[#64748B]">Selected</div>
                   </button>
                 ) : (
                   <button
