@@ -6,6 +6,12 @@ import NotesPopup from './NotesPopup';
 import FoodPopup from './FoodPopup';
 import { FaUtensils, FaPlus } from 'react-icons/fa';
 
+interface DayHotel {
+  dayIndex: number;
+  hotel: string;
+  isManual?: boolean;
+}
+
 interface DayByDayGridProps {
   tripStartDate: string;
   destinations: Array<{
@@ -23,11 +29,8 @@ interface DayByDayGridProps {
     selectedAttractions: string[];
   }>;
   onDayAttractionsUpdate: (dayIndex: number, attractions: string[]) => void;
-  dayHotels: Array<{
-    dayIndex: number;
-    hotel: string;
-  }>;
-  onDayHotelsUpdate: (hotels: Array<{ dayIndex: number; hotel: string }>) => void;
+  dayHotels: Array<DayHotel>;
+  onDayHotelsUpdate: (hotels: Array<DayHotel>) => void;
   dayNotes: Array<{
     dayIndex: number;
     notes: string;
@@ -52,11 +55,6 @@ interface ExpandedDay {
   date: Date;
   food: string;
   hotel?: string;
-}
-
-interface DayHotel {
-  dayIndex: number;
-  hotel: string;
 }
 
 interface DayNote {

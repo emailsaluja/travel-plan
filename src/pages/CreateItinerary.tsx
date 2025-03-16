@@ -101,11 +101,13 @@ interface UserItineraryDayAttraction {
 interface DayHotel {
   dayIndex: number;
   hotel: string;
+  isManual?: boolean;
 }
 
 interface SaveDayHotel {
   day_index: number;
   hotel: string;
+  is_manual?: boolean;
 }
 
 interface DayNote {
@@ -279,7 +281,8 @@ const CreateItinerary: React.FC = () => {
               console.log('Setting day hotels:', data.day_hotels);
               setDayHotels(data.day_hotels.map((dh: SaveDayHotel) => ({
                 dayIndex: dh.day_index,
-                hotel: dh.hotel
+                hotel: dh.hotel,
+                isManual: dh.is_manual
               })));
             }
 
@@ -352,40 +355,28 @@ const CreateItinerary: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // Format day foods data to match the expected database structure
-      const formattedDayFoods = dayFoods.map(df => ({
-        day_index: df.dayIndex,
-        food_items: df.foodItems // Ensure this matches your database column name
-      }));
-
-      // Calculate the food string for each destination based on dayFoods
+      // Format destinations with food items
       const destinationsWithFood = itineraryDays.map((day, index) => {
-        // Find all food items for this destination's days
+        // Calculate start day index for this destination
         let startDayIndex = 0;
         for (let i = 0; i < index; i++) {
           startDayIndex += itineraryDays[i].nights;
         }
-        const endDayIndex = startDayIndex + day.nights;
 
-        // Get all food items for this destination's days
-        const foodItems = new Set<string>();
-        for (let dayIndex = startDayIndex; dayIndex < endDayIndex; dayIndex++) {
-          const dayFood = dayFoods.find(f => f.dayIndex === dayIndex);
-          if (dayFood && dayFood.foodItems) {
-            dayFood.foodItems.forEach(item => foodItems.add(item));
-          }
-        }
+        // Get food items for the first day of this destination
+        const dayFood = dayFoods.find(f => f.dayIndex === startDayIndex);
 
         return {
-          destination: day.destination,
-          nights: day.nights,
-          discover: day.discover,
-          transport: day.transport,
-          notes: day.notes,
-          food: Array.from(foodItems).join(', '), // Join all unique food items
-          order_index: index
+          ...day,
+          food: dayFood?.foodItems.join(', ') || ''
         };
       });
+
+      // Format day foods for saving
+      const formattedDayFoods = dayFoods.map(df => ({
+        day_index: df.dayIndex,
+        food_items: df.foodItems
+      }));
 
       const saveData = {
         tripSummary: {
@@ -401,7 +392,8 @@ const CreateItinerary: React.FC = () => {
         dayAttractions,
         dayHotels: dayHotels.map(dh => ({
           day_index: dh.dayIndex,
-          hotel: dh.hotel
+          hotel: dh.hotel,
+          is_manual: dh.isManual
         })),
         dayNotes: dayNotes.map(dn => ({
           day_index: dn.dayIndex,
@@ -596,7 +588,7 @@ const CreateItinerary: React.FC = () => {
     setItineraryDays(updatedDestinations);
   };
 
-  const handleHotelSelect = (hotel: string) => {
+  const handleHotelSelect = (hotel: string, isManual?: boolean) => {
     if (currentDestinationIndexForHotel >= 0) {
       if (activeTab === 'destinations' && currentDestinationIndexForHotel < itineraryDays.length) {
         // Calculate the start and end day indices for the selected destination
@@ -618,7 +610,8 @@ const CreateItinerary: React.FC = () => {
         for (let dayIndex = startDayIndex; dayIndex < endDayIndex; dayIndex++) {
           filteredHotels.push({
             dayIndex,
-            hotel
+            hotel,
+            isManual
           });
         }
 
@@ -628,7 +621,8 @@ const CreateItinerary: React.FC = () => {
         const updatedHotels = dayHotels.filter(h => h.dayIndex !== currentDestinationIndexForHotel);
         updatedHotels.push({
           dayIndex: currentDestinationIndexForHotel,
-          hotel
+          hotel,
+          isManual
         });
         handleDayHotelsUpdate(updatedHotels);
       }
@@ -1061,7 +1055,7 @@ const CreateItinerary: React.FC = () => {
               }}
               destination={currentDestinationForHotel}
               selectedHotel={dayHotels.find(h => h.dayIndex === currentDestinationIndexForHotel)?.hotel}
-              onHotelSelect={handleHotelSelect}
+              onHotelSelect={(hotel) => handleHotelSelect(hotel)}
             />
           </div>
         )}
