@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, MapPin, Star, Search, Plus } from 'lucide-react';
+import { X, MapPin, Star, Search, Plus, Edit2, Trash2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface Attraction {
   id: string;
@@ -10,6 +11,8 @@ interface Attraction {
   photoUrl?: string;
   isSelected?: boolean;
   isManuallyAdded?: boolean;
+  destination?: string;
+  user_id?: string;
 }
 
 interface DiscoverPopupProps {
@@ -20,6 +23,8 @@ interface DiscoverPopupProps {
   selectedAttractions?: string[];
 }
 
+type TabType = 'search' | 'manual';
+
 const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
   isOpen,
   onClose,
@@ -27,7 +32,9 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
   selectedAttractions = [],
   onAttractionsSelect,
 }) => {
+  const [activeTab, setActiveTab] = useState<TabType>('search');
   const [attractions, setAttractions] = useState<Attraction[]>([]);
+  const [manualAttractions, setManualAttractions] = useState<Attraction[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<google.maps.places.AutocompletePrediction[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -35,6 +42,14 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
   const placesService = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteService = useRef<google.maps.places.AutocompleteService | null>(null);
   const searchDebounceTimeout = useRef<NodeJS.Timeout>();
+
+  // Manual attraction form state
+  const [manualAttraction, setManualAttraction] = useState({
+    name: '',
+    description: '',
+    rating: ''
+  });
+  const [editingAttraction, setEditingAttraction] = useState<Attraction | null>(null);
 
   useEffect(() => {
     if (isOpen && destination && window.google) {
@@ -364,135 +379,379 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
     return 0;
   });
 
+  // Load manual attractions
+  useEffect(() => {
+    const loadManualAttractions = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: attractions, error } = await supabase
+          .from('attractions')
+          .select('*')
+          .eq('destination', destination)
+          .eq('user_id', user.id)
+          .eq('is_manually_added', true);
+
+        if (error) throw error;
+
+        // Convert the database format to our UI format
+        const uiAttractions: Attraction[] = (attractions || []).map(attraction => ({
+          ...attraction,
+          photoUrl: attraction.photo_url,
+          userRatingsTotal: attraction.user_ratings_total,
+          isSelected: selectedAttractions.includes(attraction.name),
+          isManuallyAdded: attraction.is_manually_added
+        }));
+
+        setManualAttractions(uiAttractions);
+      } catch (error) {
+        console.error('Error loading manual attractions:', error);
+      }
+    };
+
+    if (isOpen && destination) {
+      loadManualAttractions();
+    }
+  }, [destination, isOpen, selectedAttractions]);
+
+  const handleDeleteAttraction = async (attractionId: string) => {
+    try {
+      const { error } = await supabase
+        .from('attractions')
+        .delete()
+        .eq('id', attractionId);
+
+      if (error) throw error;
+
+      // Update local state
+      setManualAttractions(prev => prev.filter(a => a.id !== attractionId));
+
+      // Remove from selected attractions if it was selected
+      const attraction = manualAttractions.find(a => a.id === attractionId);
+      if (attraction && selectedAttractions.includes(attraction.name)) {
+        const newSelected = selectedAttractions.filter(name => name !== attraction.name);
+        onAttractionsSelect(newSelected);
+      }
+    } catch (error) {
+      console.error('Error deleting attraction:', error);
+    }
+  };
+
+  const handleManualSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const attraction = {
+        id: editingAttraction ? editingAttraction.id : `manual-${Date.now()}`,
+        name: manualAttraction.name,
+        description: manualAttraction.description,
+        rating: parseFloat(manualAttraction.rating) || undefined,
+        photo_url: undefined,
+        user_ratings_total: undefined,
+        is_manually_added: true,
+        is_selected: true,
+        destination: destination,
+        user_id: user.id
+      };
+
+      if (editingAttraction) {
+        // Update existing attraction
+        const { error } = await supabase
+          .from('attractions')
+          .update(attraction)
+          .eq('id', attraction.id);
+
+        if (error) throw error;
+
+        // Convert back to UI format
+        const uiAttraction: Attraction = {
+          ...attraction,
+          photoUrl: attraction.photo_url,
+          userRatingsTotal: attraction.user_ratings_total,
+          isSelected: true,
+          isManuallyAdded: true
+        };
+
+        setManualAttractions(prev => prev.map(a => a.id === attraction.id ? uiAttraction : a));
+      } else {
+        // Insert new attraction
+        const { data, error } = await supabase
+          .from('attractions')
+          .insert(attraction)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Convert to UI format
+        const uiAttraction: Attraction = {
+          ...data,
+          photoUrl: data.photo_url,
+          userRatingsTotal: data.user_ratings_total,
+          isSelected: true,
+          isManuallyAdded: true
+        };
+
+        setManualAttractions(prev => [...prev, uiAttraction]);
+      }
+
+      // Reset form
+      setManualAttraction({
+        name: '',
+        description: '',
+        rating: ''
+      });
+      setEditingAttraction(null);
+
+      // Add to selected attractions
+      const newSelected = [...selectedAttractions, manualAttraction.name];
+      onAttractionsSelect(newSelected);
+    } catch (error) {
+      console.error('Error saving attraction:', error);
+    }
+  };
+
+  const handleEditAttraction = (attraction: Attraction) => {
+    setEditingAttraction(attraction);
+    setManualAttraction({
+      name: attraction.name,
+      description: attraction.description || '',
+      rating: attraction.rating?.toString() || ''
+    });
+    setActiveTab('manual');
+  };
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
-        <div className="p-6 border-b">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">
-              Add Attractions in {destination}
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="p-4 border-b flex justify-between items-center">
+          <h2 className="text-lg font-semibold">Discover {destination}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-          {/* Search Box */}
-          <div className="relative">
-            <div className="flex items-center border rounded-lg overflow-hidden">
-              <Search className="w-5 h-5 text-gray-400 ml-3" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={handleSearchChange}
-                placeholder="Search for attractions..."
-                className="w-full p-3 outline-none"
-              />
-            </div>
+        {/* Tabs */}
+        <div className="flex border-b">
+          <button
+            className={`flex-1 p-3 text-sm font-medium ${activeTab === 'search'
+              ? 'text-amber-600 border-b-2 border-amber-600'
+              : 'text-gray-500 hover:text-gray-700'
+              }`}
+            onClick={() => setActiveTab('search')}
+          >
+            Search Attractions
+          </button>
+          <button
+            className={`flex-1 p-3 text-sm font-medium ${activeTab === 'manual'
+              ? 'text-amber-600 border-b-2 border-amber-600'
+              : 'text-gray-500 hover:text-gray-700'
+              }`}
+            onClick={() => setActiveTab('manual')}
+          >
+            Add Manually
+          </button>
+        </div>
 
-            {/* Search Results Dropdown */}
-            {showSearchResults && searchResults.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-lg border max-h-60 overflow-y-auto">
-                {searchResults.map((result) => (
-                  <button
-                    key={result.place_id}
-                    onClick={() => handleAddCustomAttraction(result)}
-                    className="w-full p-3 text-left hover:bg-gray-50 flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4 text-gray-400" />
-                    <div>
-                      <div className="font-medium">
-                        {result.structured_formatting.main_text}
+        {activeTab === 'search' ? (
+          <>
+            {/* Manual Attractions Section */}
+            {manualAttractions.length > 0 && (
+              <div className="border-b">
+                <div className="p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Your Manual Attractions</h3>
+                  <div className="space-y-3">
+                    {manualAttractions.map((attraction) => (
+                      <div
+                        key={attraction.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${selectedAttractions.includes(attraction.name) ? 'bg-amber-50' : 'bg-gray-50'
+                          } hover:bg-amber-100`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-sm truncate">{attraction.name}</h3>
+                          {attraction.description && (
+                            <p className="text-gray-600 text-xs truncate mt-0.5">{attraction.description}</p>
+                          )}
+                          {attraction.rating && (
+                            <div className="flex items-center gap-1 mt-1">
+                              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                              <span className="text-xs font-medium">{attraction.rating}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleEditAttraction(attraction)}
+                            className="p-2 text-gray-400 hover:text-amber-600 rounded-full hover:bg-amber-50"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAttraction(attraction.id)}
+                            className="p-2 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleAttractionToggle(attraction)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${selectedAttractions.includes(attraction.name)
+                              ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                              : 'bg-white text-gray-700 hover:bg-gray-100'
+                              }`}
+                          >
+                            {selectedAttractions.includes(attraction.name) ? 'Selected' : 'Select'}
+                          </button>
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-500">
-                        {result.structured_formatting.secondary_text}
-                      </div>
-                    </div>
-                  </button>
-                ))}
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
-          </div>
-        </div>
 
-        <div className="p-6 overflow-y-auto max-h-[calc(80vh-200px)]">
-          {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Show selected count if any attractions are selected */}
-              {attractions.some(a => a.isSelected) && (
-                <div className="text-sm text-gray-600 pb-2 border-b">
-                  {attractions.filter(a => a.isSelected).length} attractions selected
+            {/* Existing search section */}
+            <div className="p-6 overflow-y-auto max-h-[calc(80vh-200px)]">
+              {loading ? (
+                <div className="flex justify-center items-center h-64">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
                 </div>
-              )}
-
-              {sortedAttractions.map((attraction) => (
-                <div
-                  key={attraction.id}
-                  className={`flex items-start gap-4 p-4 rounded-lg transition-colors ${attraction.isSelected
-                    ? 'bg-amber-50 hover:bg-amber-100'
-                    : 'bg-gray-50 hover:bg-gray-100'
-                    }`}
-                >
-                  {!attraction.isManuallyAdded && (
-                    <div className="w-24 h-24 rounded-lg overflow-hidden">
-                      {attraction.photoUrl ? (
-                        <img
-                          src={attraction.photoUrl}
-                          alt={attraction.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                          <MapPin className="w-8 h-8 text-gray-400" />
-                        </div>
-                      )}
+              ) : (
+                <div className="space-y-4">
+                  {/* Show selected count if any attractions are selected */}
+                  {attractions.some(a => a.isSelected) && (
+                    <div className="text-sm text-gray-600 pb-2 border-b">
+                      {attractions.filter(a => a.isSelected).length} attractions selected
                     </div>
                   )}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium text-lg">{attraction.name}</h3>
-                      {attraction.isManuallyAdded && (
-                        <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
-                          Custom
-                        </span>
+
+                  {sortedAttractions.map((attraction) => (
+                    <div
+                      key={attraction.id}
+                      className={`flex items-start gap-4 p-4 rounded-lg transition-colors ${attraction.isSelected
+                        ? 'bg-amber-50 hover:bg-amber-100'
+                        : 'bg-gray-50 hover:bg-gray-100'
+                        }`}
+                    >
+                      {!attraction.isManuallyAdded && (
+                        <div className="w-24 h-24 rounded-lg overflow-hidden">
+                          {attraction.photoUrl ? (
+                            <img
+                              src={attraction.photoUrl}
+                              alt={attraction.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                              <MapPin className="w-8 h-8 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
                       )}
-                    </div>
-                    {attraction.description && (
-                      <p className="text-gray-600 text-sm mt-1">{attraction.description}</p>
-                    )}
-                    {attraction.rating !== undefined && attraction.rating > 0 && (
-                      <div className="flex items-center gap-2 mt-2">
-                        <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                        <span className="text-sm font-medium">{attraction.rating}</span>
-                        <span className="text-sm text-gray-500">
-                          ({attraction.userRatingsTotal?.toLocaleString()} reviews)
-                        </span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium text-lg">{attraction.name}</h3>
+                          {attraction.isManuallyAdded && (
+                            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
+                              Custom
+                            </span>
+                          )}
+                        </div>
+                        {attraction.description && (
+                          <p className="text-gray-600 text-sm mt-1">{attraction.description}</p>
+                        )}
+                        {attraction.rating !== undefined && attraction.rating > 0 && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                            <span className="text-sm font-medium">{attraction.rating}</span>
+                            <span className="text-sm text-gray-500">
+                              ({attraction.userRatingsTotal?.toLocaleString()} reviews)
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => handleAttractionToggle(attraction)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${attraction.isSelected
-                      ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                  >
-                    {attraction.isSelected ? 'Remove' : 'Add'}
-                  </button>
+                      <button
+                        onClick={() => handleAttractionToggle(attraction)}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${attraction.isSelected
+                          ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                      >
+                        {attraction.isSelected ? 'Remove' : 'Add'}
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          /* Manual Add Form */
+          <div className="p-4">
+            <form onSubmit={handleManualSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="attractionName" className="block text-sm font-medium text-gray-700 mb-1">
+                  Attraction Name *
+                </label>
+                <input
+                  type="text"
+                  id="attractionName"
+                  required
+                  value={manualAttraction.name}
+                  onChange={(e) => setManualAttraction(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full p-2 border rounded-lg text-sm"
+                  placeholder="Enter attraction name"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="attractionDescription" className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  id="attractionDescription"
+                  value={manualAttraction.description}
+                  onChange={(e) => setManualAttraction(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full p-2 border rounded-lg text-sm h-24 resize-none"
+                  placeholder="Enter attraction description"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="attractionRating" className="block text-sm font-medium text-gray-700 mb-1">
+                  Rating (0-5)
+                </label>
+                <input
+                  type="number"
+                  id="attractionRating"
+                  min="0"
+                  max="5"
+                  step="0.1"
+                  value={manualAttraction.rating}
+                  onChange={(e) => setManualAttraction(prev => ({ ...prev, rating: e.target.value }))}
+                  className="w-full p-2 border rounded-lg text-sm"
+                  placeholder="Enter rating"
+                />
+              </div>
+
+              <div className="pt-4">
+                <button
+                  type="submit"
+                  className="w-full bg-amber-500 text-white rounded-lg py-2 text-sm font-medium hover:bg-amber-600 transition-colors"
+                >
+                  {editingAttraction ? 'Update Attraction' : 'Add Attraction'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );
