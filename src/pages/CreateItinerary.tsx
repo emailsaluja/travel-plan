@@ -405,6 +405,44 @@ const CreateItinerary: React.FC = () => {
       setLoading(true);
       setError(null);
 
+      // First, prepare the destinations data with food items
+      const destinationsWithFood = itineraryDays.map((day, index) => {
+        // Calculate start day index for this destination
+        let startDayIndex = 0;
+        for (let i = 0; i < index; i++) {
+          startDayIndex += itineraryDays[i].nights;
+        }
+
+        // Get all food items for this destination's days
+        const foodItems = new Set<string>();
+        for (let i = 0; i < day.nights; i++) {
+          const dayFood = dayFoods.find(f => f.dayIndex === startDayIndex + i);
+          if (dayFood?.foodItems) {
+            dayFood.foodItems.forEach(item => {
+              const cleanedItem = item.trim();
+              if (cleanedItem) {
+                foodItems.add(cleanedItem);
+              }
+            });
+          }
+        }
+
+        // Convert food items to string
+        const foodString = Array.from(foodItems).join(', ');
+
+        return {
+          destination: day.destination,
+          nights: day.nights,
+          discover: day.discover || '',
+          transport: day.transport || '',
+          notes: day.notes || '',
+          food: foodString,
+          hotel: day.hotel || ''
+        };
+      });
+
+      console.log('Saving destinations with food:', destinationsWithFood);
+
       const saveData = {
         tripSummary: {
           tripName: tripSummary.tripName,
@@ -415,15 +453,7 @@ const CreateItinerary: React.FC = () => {
           isPrivate: tripSummary.isPrivate,
           tags: tripSummary.tags
         },
-        destinations: itineraryDays.map(day => ({
-          destination: day.destination,
-          nights: day.nights,
-          discover: day.discover,
-          transport: day.transport,
-          notes: day.notes,
-          food: day.food || '',
-          hotel: day.hotel || ''  // Include hotel when saving
-        })),
+        destinations: destinationsWithFood,
         dayAttractions: dayAttractions.map(da => ({
           dayIndex: da.dayIndex,
           selectedAttractions: da.selectedAttractions
@@ -745,6 +775,13 @@ const CreateItinerary: React.FC = () => {
   };
 
   const handleFoodSelect = (dayIndex: number, foodItems: string[]) => {
+    // Clean the food items first
+    const cleanedFoodItems = [...new Set(
+      foodItems
+        .map(item => item.trim())
+        .filter(item => item.length > 0)
+    )];
+
     // Calculate the start day index for this destination
     let startDayIndex = 0;
     for (let i = 0; i < dayIndex; i++) {
@@ -762,19 +799,36 @@ const CreateItinerary: React.FC = () => {
       if (existingIndex === -1) {
         updatedDayFoods.push({
           dayIndex: currentDayIndex,
-          foodItems: i === 0 ? foodItems : [] // Only set food items for the first day
+          foodItems: cleanedFoodItems // Set food items for all days
         });
-      } else if (i === 0) {
-        // Update food items for the first day
+      } else {
+        // Update food items for all days
         updatedDayFoods[existingIndex] = {
           ...updatedDayFoods[existingIndex],
-          foodItems
+          foodItems: cleanedFoodItems
         };
       }
     }
 
-    console.log('Updating day foods:', updatedDayFoods);
+    // Update dayFoods state
     setDayFoods(updatedDayFoods);
+
+    // Update itineraryDays state with the food items
+    const updatedItineraryDays = [...itineraryDays];
+    updatedItineraryDays[dayIndex] = {
+      ...updatedItineraryDays[dayIndex],
+      food: cleanedFoodItems.join(', ')
+    };
+    setItineraryDays(updatedItineraryDays);
+
+    console.log('Updated food items:', {
+      dayFoods: updatedDayFoods,
+      itineraryDays: updatedItineraryDays[dayIndex].food
+    });
+
+    // Close the popup
+    setShowFoodPopup(false);
+    setActiveDestinationIndexForFood(null);
   };
 
   const renderDestinationsGrid = () => {
