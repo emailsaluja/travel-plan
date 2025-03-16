@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBrowserRouter, Outlet } from 'react-router-dom';
 import Navigation1 from './components/Navigation1';
+import TopNavigation from './components/TopNavigation';
 import Home from './pages/Home';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
@@ -22,11 +23,17 @@ import Discover from './pages/Discover';
 import LikedTrips from './pages/LikedTrips';
 import AdminDashboard from './pages/AdminDashboard';
 import OnceInLife from './pages/discover/OnceInLife';
+import { useLocation } from 'react-router-dom';
 
 const RootLayout = () => {
+  const location = useLocation();
+  const useTopNav = ['/discover', '/create-itinerary'].some(path =>
+    location.pathname.startsWith(path)
+  );
+
   return (
     <div className="flex flex-col min-h-screen">
-      <Navigation1 />
+      {useTopNav ? <TopNavigation /> : <Navigation1 />}
       <main className="flex-grow">
         <Outlet />
       </main>

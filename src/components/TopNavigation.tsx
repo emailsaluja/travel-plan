@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 
 const TopNavigation = () => {
     const [showAddMenu, setShowAddMenu] = useState(false);
+    const location = useLocation();
 
     // Add click handler for closing menu when clicking outside
     React.useEffect(() => {
@@ -26,10 +27,17 @@ const TopNavigation = () => {
                         <img src="/images/stippl-logo.svg" alt="Stippl" className="h-8" />
                     </Link>
 
-                    <div className="flex-1 flex justify-center">
-                        <Link to="/discover" className="text-gray-500 font-['Inter_var'] font-[600]">
-                            <span>Discover</span>
-                        </Link>
+                    <div className="flex-1 flex justify-center gap-8">
+                        {location.pathname !== '/dashboard' && (
+                            <Link to="/dashboard" className="text-gray-500 font-['Inter_var'] font-[600]">
+                                <span>Dashboard</span>
+                            </Link>
+                        )}
+                        {location.pathname !== '/discover' && (
+                            <Link to="/discover" className="text-gray-500 font-['Inter_var'] font-[600]">
+                                <span>Discover</span>
+                            </Link>
+                        )}
                     </div>
 
                     <div className="flex-shrink-0 relative">

@@ -1128,19 +1128,8 @@ const CreateItinerary: React.FC = () => {
           </div>
         )}
         <div className="pt-[60px]">
-          <div className="min-h-screen bg-[#f8fafc]">
-            <div className="max-w-[1400px] mx-auto px-4 py-6 pt-20">
-              {/* Back Button */}
-              <div className="mb-6">
-                <Link
-                  to="/dashboard"
-                  className="inline-flex items-center gap-2 text-gray-600 hover:text-[#1e293b] transition-colors"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                  <span>Back to Dashboard</span>
-                </Link>
-              </div>
-
+          <div className="min-h-screen">
+            <div className="max-w-[1400px] mx-auto px-4 py-6">
               {/* Main Content Area */}
               <div className="flex gap-8">
                 {/* Left Sidebar */}
@@ -1262,22 +1251,22 @@ const CreateItinerary: React.FC = () => {
                       {/* Tabs and Nights Planned in same row */}
                       <div className="flex items-center justify-between">
                         {/* Tabs */}
-                        <div className="flex items-center">
+                        <div className="flex items-center gap-8 border-b border-gray-200">
                           <button
-                            className={`px-6 py-4 text-base font-['Inter_var'] font-[600] border-b-2 ${activeTab === 'destinations'
-                              ? 'text-pink-500 border-pink-500'
-                              : 'text-gray-500 border-transparent hover:text-[#1e293b]'
-                              } transition-colors`}
                             onClick={() => setActiveTab('destinations')}
+                            className={`py-4 px-2 font-['Inter_var'] font-[600] border-b-2 -mb-[1px] transition-colors ${activeTab === 'destinations'
+                              ? 'text-[rgb(0,179,128)] border-[rgb(0,179,128)]'
+                              : 'text-gray-500 border-transparent hover:text-[rgb(0,179,128)]'
+                              }`}
                           >
                             Destinations
                           </button>
                           <button
-                            className={`px-6 py-4 text-base font-['Inter_var'] font-[600] border-b-2 ${activeTab === 'day-by-day'
-                              ? 'text-pink-500 border-pink-500'
-                              : 'text-gray-500 border-transparent hover:text-[#1e293b]'
-                              } transition-colors`}
                             onClick={() => setActiveTab('day-by-day')}
+                            className={`py-4 px-2 font-['Inter_var'] font-[600] border-b-2 -mb-[1px] transition-colors ${activeTab === 'day-by-day'
+                              ? 'text-[rgb(0,179,128)] border-[rgb(0,179,128)]'
+                              : 'text-gray-500 border-transparent hover:text-[rgb(0,179,128)]'
+                              }`}
                           >
                             Day by Day
                           </button>
