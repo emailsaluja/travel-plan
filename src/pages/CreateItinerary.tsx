@@ -225,15 +225,30 @@ const CreateItinerary: React.FC = () => {
             });
             setCountrySearch(data.country);
 
-            // Set destinations
-            setItineraryDays(data.destinations.map((dest: DestinationData) => ({
+            // Set destinations with their specific hotels
+            const destinationsWithHotels = data.destinations.map((dest: any) => ({
               destination: dest.destination,
               nights: dest.nights,
-              discover: dest.discover,
-              transport: dest.transport,
-              notes: dest.notes,
-              food: dest.food || ''
-            })));
+              discover: dest.discover || '',
+              transport: dest.transport || '',
+              notes: dest.notes || '',
+              food: dest.food || '',
+              hotel: dest.hotel || ''  // Load destination-specific hotel
+            }));
+
+            console.log('Setting destinations with hotels:', destinationsWithHotels);
+            setItineraryDays(destinationsWithHotels);
+
+            // Set day hotels separately
+            if (data.day_hotels) {
+              console.log('Setting day hotels:', data.day_hotels);
+              const hotels = data.day_hotels.map((dh: any) => ({
+                dayIndex: dh.day_index,
+                hotel: dh.hotel,
+                isManual: dh.is_manual
+              }));
+              setDayHotels(hotels);
+            }
 
             // Initialize dayFoods from destinations data
             let currentDayIndex = 0;
@@ -262,13 +277,12 @@ const CreateItinerary: React.FC = () => {
               currentDayIndex += dest.nights;
             });
 
-            console.log('Setting day foods:', newDayFoods);
             setDayFoods(newDayFoods);
 
             // Set day attractions
             if (data.day_attractions) {
               console.log('Setting day attractions:', data.day_attractions);
-              const attractions = data.day_attractions.map((da) => ({
+              const attractions = data.day_attractions.map((da: any) => ({
                 dayIndex: da.day_index,
                 selectedAttractions: Array.isArray(da.attractions) ? da.attractions : []
               }));
@@ -276,20 +290,10 @@ const CreateItinerary: React.FC = () => {
               setIsDayAttractionsInitialized(true);
             }
 
-            // Set day hotels
-            if (data.day_hotels) {
-              console.log('Setting day hotels:', data.day_hotels);
-              setDayHotels(data.day_hotels.map((dh: SaveDayHotel) => ({
-                dayIndex: dh.day_index,
-                hotel: dh.hotel,
-                isManual: dh.is_manual
-              })));
-            }
-
             // Set day notes
             if (data.day_notes) {
               console.log('Setting day notes:', data.day_notes);
-              setDayNotes(data.day_notes.map((dn: SaveDayNote) => ({
+              setDayNotes(data.day_notes.map((dn: any) => ({
                 dayIndex: dn.day_index,
                 notes: dn.notes
               })));
@@ -347,6 +351,52 @@ const CreateItinerary: React.FC = () => {
       ...updatedDays[index],
       [field]: value
     };
+
+    // If we're updating nights, we need to update the hotel assignments
+    if (field === 'nights') {
+      const oldNights = itineraryDays[index].nights;
+      const destinationHotel = updatedDays[index].hotel || '';
+      const newNights = Number(value);
+
+      // Calculate the start day index for this destination
+      let startDayIndex = 0;
+      for (let i = 0; i < index; i++) {
+        startDayIndex += itineraryDays[i].nights;
+      }
+
+      // Create a new array of day hotels
+      const updatedHotels = dayHotels.filter(h => h.dayIndex < startDayIndex);
+
+      // Add hotel entries for all days in this destination
+      for (let i = 0; i < newNights; i++) {
+        updatedHotels.push({
+          dayIndex: startDayIndex + i,
+          hotel: destinationHotel,
+          isManual: false
+        });
+      }
+
+      // Add hotels for subsequent destinations
+      let currentDayIndex = startDayIndex + newNights;
+      for (let i = index + 1; i < itineraryDays.length; i++) {
+        const dest = itineraryDays[i];
+        const destHotel = dest.hotel || '';
+
+        for (let j = 0; j < dest.nights; j++) {
+          updatedHotels.push({
+            dayIndex: currentDayIndex + j,
+            hotel: destHotel,
+            isManual: false
+          });
+        }
+        currentDayIndex += dest.nights;
+      }
+
+      // Sort hotels by day index
+      updatedHotels.sort((a, b) => a.dayIndex - b.dayIndex);
+      setDayHotels(updatedHotels);
+    }
+
     setItineraryDays(updatedDays);
   };
 
@@ -354,29 +404,6 @@ const CreateItinerary: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-
-      // Format destinations with food items
-      const destinationsWithFood = itineraryDays.map((day, index) => {
-        // Calculate start day index for this destination
-        let startDayIndex = 0;
-        for (let i = 0; i < index; i++) {
-          startDayIndex += itineraryDays[i].nights;
-        }
-
-        // Get food items for the first day of this destination
-        const dayFood = dayFoods.find(f => f.dayIndex === startDayIndex);
-
-        return {
-          ...day,
-          food: dayFood?.foodItems.join(', ') || ''
-        };
-      });
-
-      // Format day foods for saving
-      const formattedDayFoods = dayFoods.map(df => ({
-        day_index: df.dayIndex,
-        food_items: df.foodItems
-      }));
 
       const saveData = {
         tripSummary: {
@@ -388,8 +415,19 @@ const CreateItinerary: React.FC = () => {
           isPrivate: tripSummary.isPrivate,
           tags: tripSummary.tags
         },
-        destinations: destinationsWithFood,
-        dayAttractions,
+        destinations: itineraryDays.map(day => ({
+          destination: day.destination,
+          nights: day.nights,
+          discover: day.discover,
+          transport: day.transport,
+          notes: day.notes,
+          food: day.food || '',
+          hotel: day.hotel || ''  // Include hotel when saving
+        })),
+        dayAttractions: dayAttractions.map(da => ({
+          dayIndex: da.dayIndex,
+          selectedAttractions: da.selectedAttractions
+        })),
         dayHotels: dayHotels.map(dh => ({
           day_index: dh.dayIndex,
           hotel: dh.hotel,
@@ -398,8 +436,7 @@ const CreateItinerary: React.FC = () => {
         dayNotes: dayNotes.map(dn => ({
           day_index: dn.dayIndex,
           notes: dn.notes
-        })),
-        dayFoods: formattedDayFoods
+        }))
       };
 
       if (itineraryId) {
@@ -526,12 +563,64 @@ const CreateItinerary: React.FC = () => {
   // Update handleNightsChange to trigger recalculation
   const handleNightsChange = (index: number, change: 'increment' | 'decrement') => {
     const updatedDays = [...itineraryDays];
+    const oldNights = updatedDays[index].nights;
+
     if (change === 'increment') {
       updatedDays[index].nights += 1;
     } else {
       updatedDays[index].nights = Math.max(0, updatedDays[index].nights - 1);
     }
+
+    // Calculate the start day index for this destination
+    let startDayIndex = 0;
+    for (let i = 0; i < index; i++) {
+      startDayIndex += itineraryDays[i].nights;
+    }
+
+    // Get the hotel for this destination
+    const destinationHotel = updatedDays[index].hotel;
+
+    // Update day hotels
+    const updatedHotels = [...dayHotels];
+
+    if (change === 'increment') {
+      // Add new hotel entry for the added day
+      if (destinationHotel) {
+        const newDayIndex = startDayIndex + oldNights;
+        updatedHotels.push({
+          dayIndex: newDayIndex,
+          hotel: destinationHotel,
+          isManual: false
+        });
+      }
+    } else {
+      // Remove hotel entry for the removed day
+      const removedDayIndex = startDayIndex + updatedDays[index].nights;
+      const hotelIndex = updatedHotels.findIndex(h => h.dayIndex === removedDayIndex);
+      if (hotelIndex !== -1) {
+        updatedHotels.splice(hotelIndex, 1);
+      }
+    }
+
+    // Adjust day indices for all subsequent hotels
+    let currentDayCount = 0;
+    for (let i = 0; i < updatedDays.length; i++) {
+      const dest = updatedDays[i];
+      const destStartIndex = currentDayCount;
+      const destEndIndex = currentDayCount + dest.nights;
+
+      // Update indices for hotels in this destination
+      updatedHotels.forEach(hotel => {
+        if (hotel.dayIndex >= destStartIndex && hotel.dayIndex < destEndIndex) {
+          hotel.hotel = dest.hotel || '';
+        }
+      });
+
+      currentDayCount += dest.nights;
+    }
+
     setItineraryDays(updatedDays);
+    setDayHotels(updatedHotels);
     setShouldUpdateDayAttractions(true);
   };
 
@@ -590,32 +679,37 @@ const CreateItinerary: React.FC = () => {
 
   const handleHotelSelect = (hotel: string, isManual?: boolean) => {
     if (currentDestinationIndexForHotel >= 0) {
-      if (activeTab === 'destinations' && currentDestinationIndexForHotel < itineraryDays.length) {
+      if (activeTab === 'destinations') {
+        // Update the specific destination's hotel
+        const updatedDestinations = [...itineraryDays];
+        updatedDestinations[currentDestinationIndexForHotel] = {
+          ...updatedDestinations[currentDestinationIndexForHotel],
+          hotel  // Store hotel in the destination
+        };
+        setItineraryDays(updatedDestinations);
+
         // Calculate the start and end day indices for the selected destination
         let startDayIndex = 0;
-        for (let i = 0; i < currentDestinationIndexForHotel && i < itineraryDays.length; i++) {
+        for (let i = 0; i < currentDestinationIndexForHotel; i++) {
           startDayIndex += itineraryDays[i].nights || 0;
         }
         const endDayIndex = startDayIndex + (itineraryDays[currentDestinationIndexForHotel].nights || 0);
 
-        // Update hotels for all days in this destination
-        const updatedHotels = [...dayHotels];
-
-        // Remove any existing hotel entries for this destination's days
-        const filteredHotels = updatedHotels.filter(h =>
+        // Update day hotels for this destination's days
+        const updatedHotels = dayHotels.filter(h =>
           h.dayIndex < startDayIndex || h.dayIndex >= endDayIndex
         );
 
         // Add new hotel entries for each day in this destination
         for (let dayIndex = startDayIndex; dayIndex < endDayIndex; dayIndex++) {
-          filteredHotels.push({
+          updatedHotels.push({
             dayIndex,
             hotel,
             isManual
           });
         }
 
-        handleDayHotelsUpdate(filteredHotels);
+        setDayHotels(updatedHotels);
       } else {
         // Day by Day view - update only the selected day
         const updatedHotels = dayHotels.filter(h => h.dayIndex !== currentDestinationIndexForHotel);
@@ -624,7 +718,7 @@ const CreateItinerary: React.FC = () => {
           hotel,
           isManual
         });
-        handleDayHotelsUpdate(updatedHotels);
+        setDayHotels(updatedHotels);
       }
       setIsHotelSearchOpen(false);
     }
@@ -1054,7 +1148,7 @@ const CreateItinerary: React.FC = () => {
                 setCurrentDestinationForHotel('');
               }}
               destination={currentDestinationForHotel}
-              selectedHotel={dayHotels.find(h => h.dayIndex === currentDestinationIndexForHotel)?.hotel}
+              selectedHotel={itineraryDays[currentDestinationIndexForHotel]?.hotel || dayHotels.find(h => h.dayIndex === currentDestinationIndexForHotel)?.hotel}
               onHotelSelect={(hotel) => handleHotelSelect(hotel)}
             />
           </div>
