@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, MapPin, Star, Search, Plus, Building2, Edit2, Trash2 } from 'lucide-react';
+import { X, MapPin, Star, Search, Plus, Building2, Edit2, Trash2, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Hotel {
@@ -354,377 +354,265 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="p-4 border-b flex justify-between items-center">
-          <h2 className="text-lg font-semibold">Hotels in {destination}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex border-b">
-          <button
-            className={`flex-1 p-3 text-sm font-medium ${activeTab === 'search'
-              ? 'text-amber-600 border-b-2 border-amber-600'
-              : 'text-gray-500 hover:text-gray-700'
-              }`}
-            onClick={() => setActiveTab('search')}
-          >
-            Search Hotels
-          </button>
-          <button
-            className={`flex-1 p-3 text-sm font-medium ${activeTab === 'manual'
-              ? 'text-amber-600 border-b-2 border-amber-600'
-              : 'text-gray-500 hover:text-gray-700'
-              }`}
-            onClick={() => setActiveTab('manual')}
-          >
-            Add Manually
-          </button>
-        </div>
-
-        {activeTab === 'search' ? (
-          <>
-            {/* Manual Hotels Section */}
-            {manualHotels.length > 0 && (
-              <div className="border-b">
-                <div className="p-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Your Manual Hotels</h3>
-                  <div className="space-y-3">
-                    {manualHotels.map((hotel) => (
-                      <div
-                        key={hotel.id}
-                        className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${hotel.name === selectedHotel ? 'bg-amber-50' : 'bg-gray-50'
-                          } hover:bg-amber-100`}
-                      >
-                        <div className="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
-                          <Building2 className="w-6 h-6 text-gray-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-sm truncate">{hotel.name}</h3>
-                          {hotel.description && (
-                            <p className="text-gray-600 text-xs truncate mt-0.5">{hotel.description}</p>
-                          )}
-                          <div className="flex items-center gap-2 mt-1">
-                            {hotel.rating !== undefined && hotel.rating > 0 && (
-                              <div className="flex items-center gap-1">
-                                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                                <span className="text-xs font-medium">{hotel.rating}</span>
-                              </div>
-                            )}
-                            {hotel.priceLevel !== undefined && (
-                              <span className="text-xs font-medium text-gray-600">
-                                {'¥'.repeat(hotel.priceLevel)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleEditHotel(hotel)}
-                            className="p-2 text-gray-400 hover:text-amber-600 rounded-full hover:bg-amber-50"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteHotel(hotel.id)}
-                            className="p-2 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleHotelSelect(hotel)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${hotel.name === selectedHotel
-                              ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                              : 'bg-white text-gray-700 hover:bg-gray-100'
-                              }`}
-                          >
-                            {hotel.name === selectedHotel ? 'Selected' : 'Select'}
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+    <div className={`fixed inset-0 z-50 ${isOpen ? 'block' : 'hidden'}`}>
+      <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onClose} />
+      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 transform px-4">
+        <div className="mx-auto max-w-3xl rounded-xl bg-white shadow-2xl">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-[#F59E0B]/10 flex items-center justify-center">
+                <Building2 className="w-5 h-5 text-[#F59E0B]" />
               </div>
-            )}
+              <h2 className="text-lg font-[600] font-['Poppins',sans-serif] text-[#1E293B]">
+                Select Hotel in {destination}
+              </h2>
+            </div>
+            <button
+              onClick={onClose}
+              className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
 
-            {/* Search */}
-            <div className="p-4 border-b">
-              <div className="relative">
-                <div className="flex items-center border rounded-lg overflow-hidden bg-gray-50">
-                  <Search className="w-4 h-4 text-gray-400 ml-3" />
+          {/* Tabs */}
+          <div className="border-b border-gray-200">
+            <div className="flex gap-8 px-6">
+              <button
+                onClick={() => setActiveTab('search')}
+                className={`py-4 px-2 font-['Inter_var'] font-[600] border-b-2 -mb-[1px] transition-colors ${activeTab === 'search'
+                    ? 'text-[#F59E0B] border-[#F59E0B]'
+                    : 'text-gray-500 border-transparent hover:text-[#F59E0B]'
+                  }`}
+              >
+                Search Hotels
+              </button>
+              <button
+                onClick={() => setActiveTab('manual')}
+                className={`py-4 px-2 font-['Inter_var'] font-[600] border-b-2 -mb-[1px] transition-colors ${activeTab === 'manual'
+                    ? 'text-[#F59E0B] border-[#F59E0B]'
+                    : 'text-gray-500 border-transparent hover:text-[#F59E0B]'
+                  }`}
+              >
+                Add Custom Hotel
+              </button>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="max-h-[60vh] overflow-y-auto p-6">
+            {activeTab === 'search' ? (
+              <div className="space-y-6">
+                {/* Search Input */}
+                <div className="relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <Search className="h-5 w-5 text-gray-400" />
+                  </div>
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={handleSearchChange}
+                    onFocus={() => setShowSearchResults(true)}
+                    className="block w-full rounded-lg border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm placeholder-gray-500 focus:border-[#F59E0B] focus:outline-none focus:ring-1 focus:ring-[#F59E0B]"
                     placeholder="Search for hotels..."
-                    className="w-full p-2 bg-transparent outline-none text-sm"
                   />
                 </div>
 
-                {/* Search Results Dropdown */}
-                {showSearchResults && searchResults.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-lg border max-h-60 overflow-y-auto">
-                    {searchResults.map((result) => (
-                      <button
-                        key={result.place_id}
-                        onClick={() => {
-                          if (placesService.current) {
-                            placesService.current.getDetails(
-                              {
-                                placeId: result.place_id,
-                                fields: ['name', 'rating', 'user_ratings_total', 'photos', 'price_level', 'formatted_address', 'vicinity']
-                              },
-                              (place, status) => {
-                                if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-                                  const hotel: Hotel = {
-                                    id: place.place_id || '',
-                                    name: place.name || '',
-                                    rating: place.rating,
-                                    userRatingsTotal: place.user_ratings_total,
-                                    photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 }),
-                                    priceLevel: place.price_level,
-                                    description: place.vicinity || place.formatted_address,
-                                    isSelected: true,
-                                    isManuallyAdded: false,
-                                    destination: destination
-                                  };
-                                  handleHotelSelect(hotel);
-                                }
-                              }
-                            );
-                          }
-                        }}
-                        className="w-full p-2 text-left hover:bg-gray-50 flex items-center gap-2 text-sm"
+                {/* Hotel List */}
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#F59E0B] border-t-transparent"></div>
+                  </div>
+                ) : (
+                  <div className="grid gap-4">
+                    {(searchResults.length > 0 && showSearchResults ? searchResults : hotels).map((hotel: any) => (
+                      <div
+                        key={hotel.id || hotel.place_id}
+                        className={`group relative rounded-lg border p-4 transition-all hover:shadow-md ${(selectedHotel === hotel.name || hotel.isSelected)
+                            ? 'border-[#F59E0B] bg-[#F59E0B]/5'
+                            : 'border-gray-200 hover:border-[#F59E0B]'
+                          }`}
                       >
-                        <Plus className="w-3 h-3 text-gray-400" />
-                        <div>
-                          <div className="font-medium">{result.structured_formatting.main_text}</div>
-                          <div className="text-xs text-gray-500">{result.structured_formatting.secondary_text}</div>
+                        <div className="flex items-start gap-4">
+                          {hotel.photoUrl && (
+                            <img
+                              src={hotel.photoUrl}
+                              alt={hotel.name}
+                              className="h-20 w-20 rounded-lg object-cover"
+                            />
+                          )}
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <h3 className="font-['Inter_var'] font-[600] text-[#1E293B]">
+                                  {hotel.name || hotel.structured_formatting?.main_text}
+                                </h3>
+                                <p className="mt-1 text-sm text-gray-500">
+                                  {hotel.description || hotel.structured_formatting?.secondary_text}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => handleHotelSelect(hotel)}
+                                className={`rounded-full p-2 ${(selectedHotel === hotel.name || hotel.isSelected)
+                                    ? 'bg-[#F59E0B] text-white'
+                                    : 'text-[#F59E0B] hover:bg-[#F59E0B]/10'
+                                  }`}
+                              >
+                                {(selectedHotel === hotel.name || hotel.isSelected) ? (
+                                  <Check className="h-5 w-5" />
+                                ) : (
+                                  <Plus className="h-5 w-5" />
+                                )}
+                              </button>
+                            </div>
+                            {hotel.rating && (
+                              <div className="mt-2 flex items-center gap-2">
+                                <div className="flex items-center">
+                                  {[...Array(Math.floor(hotel.rating))].map((_, i) => (
+                                    <Star key={i} className="h-4 w-4 fill-[#F59E0B] text-[#F59E0B]" />
+                                  ))}
+                                  {hotel.rating % 1 !== 0 && (
+                                    <Star className="h-4 w-4 fill-[#F59E0B]/50 text-[#F59E0B]" />
+                                  )}
+                                </div>
+                                <span className="text-sm text-gray-500">
+                                  ({hotel.userRatingsTotal?.toLocaleString()} reviews)
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* Hotel List */}
-            <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 220px)' }}>
-              {loading ? (
-                <div className="flex justify-center items-center h-32">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-amber-500"></div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-3 p-4">
-                  {hotels.map((hotel) => (
-                    <div
-                      key={hotel.id}
-                      className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${hotel.isSelected ? 'bg-amber-50' : 'bg-gray-50'
-                        } hover:bg-amber-100`}
+            ) : (
+              <div className="space-y-6">
+                {/* Manual Hotel Form */}
+                <form onSubmit={handleManualSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Hotel Name</label>
+                    <input
+                      type="text"
+                      value={manualHotel.name}
+                      onChange={(e) => setManualHotel({ ...manualHotel, name: e.target.value })}
+                      className="mt-1 block w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#F59E0B] focus:outline-none focus:ring-1 focus:ring-[#F59E0B]"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Description</label>
+                    <textarea
+                      value={manualHotel.description}
+                      onChange={(e) => setManualHotel({ ...manualHotel, description: e.target.value })}
+                      className="mt-1 block w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#F59E0B] focus:outline-none focus:ring-1 focus:ring-[#F59E0B]"
+                      rows={3}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Rating</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="5"
+                        step="0.1"
+                        value={manualHotel.rating}
+                        onChange={(e) => setManualHotel({ ...manualHotel, rating: e.target.value })}
+                        className="mt-1 block w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#F59E0B] focus:outline-none focus:ring-1 focus:ring-[#F59E0B]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Price Level</label>
+                      <select
+                        value={manualHotel.priceLevel}
+                        onChange={(e) => setManualHotel({ ...manualHotel, priceLevel: e.target.value })}
+                        className="mt-1 block w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#F59E0B] focus:outline-none focus:ring-1 focus:ring-[#F59E0B]"
+                      >
+                        <option value="1">$</option>
+                        <option value="2">$$</option>
+                        <option value="3">$$$</option>
+                        <option value="4">$$$$</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      className="rounded-lg bg-[#F59E0B] px-4 py-2 text-sm font-medium text-white hover:bg-[#F59E0B]/90 focus:outline-none focus:ring-2 focus:ring-[#F59E0B] focus:ring-offset-2"
                     >
-                      {/* Hotel Image */}
-                      <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                        {hotel.photoUrl ? (
-                          <img src={hotel.photoUrl} alt={hotel.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                            <MapPin className="w-5 h-5 text-gray-400" />
-                          </div>
-                        )}
-                      </div>
+                      {editingHotel ? 'Update Hotel' : 'Add Hotel'}
+                    </button>
+                  </div>
+                </form>
 
-                      {/* Hotel Info */}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-sm truncate">{hotel.name}</h3>
-                        {hotel.description && (
-                          <p className="text-gray-600 text-xs truncate mt-0.5">{hotel.description}</p>
-                        )}
-                        <div className="flex items-center gap-2 mt-1">
-                          {hotel.rating !== undefined && hotel.rating > 0 && (
-                            <div className="flex items-center gap-1">
-                              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                              <span className="text-xs font-medium">{hotel.rating}</span>
-                              <span className="text-xs text-gray-500">
-                                ({hotel.userRatingsTotal?.toLocaleString()})
-                              </span>
-                            </div>
-                          )}
-                          {hotel.priceLevel !== undefined && (
-                            <span className="text-xs font-medium text-gray-600">
-                              {'¥'.repeat(hotel.priceLevel)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Action Button */}
-                      <button
-                        onClick={() => handleHotelSelect(hotel)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${hotel.isSelected
-                          ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                          : 'bg-white text-gray-700 hover:bg-gray-100'
+                {/* Manual Hotels List */}
+                <div className="mt-8">
+                  <h3 className="mb-4 font-['Inter_var'] font-[600] text-[#1E293B]">Your Custom Hotels</h3>
+                  <div className="grid gap-4">
+                    {manualHotels.map((hotel) => (
+                      <div
+                        key={hotel.id}
+                        className={`group relative rounded-lg border p-4 transition-all hover:shadow-md ${(selectedHotel === hotel.name || hotel.isSelected)
+                            ? 'border-[#F59E0B] bg-[#F59E0B]/5'
+                            : 'border-gray-200 hover:border-[#F59E0B]'
                           }`}
                       >
-                        {hotel.isSelected ? 'Selected' : 'Select'}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
-          /* Manual Add Form */
-          <div className="p-4">
-            {/* Display Manual Hotels at the top */}
-            {manualHotels.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Your Manual Hotels</h3>
-                <div className="space-y-3">
-                  {manualHotels.map((hotel) => (
-                    <div
-                      key={hotel.id}
-                      className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${hotel.name === selectedHotel ? 'bg-amber-50' : 'bg-gray-50'
-                        } hover:bg-amber-100`}
-                    >
-                      <div className="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
-                        <Building2 className="w-6 h-6 text-gray-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-sm truncate">{hotel.name}</h3>
-                        {hotel.description && (
-                          <p className="text-gray-600 text-xs truncate mt-0.5">{hotel.description}</p>
-                        )}
-                        <div className="flex items-center gap-2 mt-1">
-                          {hotel.rating !== undefined && hotel.rating > 0 && (
-                            <div className="flex items-center gap-1">
-                              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                              <span className="text-xs font-medium">{hotel.rating}</span>
-                            </div>
-                          )}
-                          {hotel.priceLevel !== undefined && (
-                            <span className="text-xs font-medium text-gray-600">
-                              {'¥'.repeat(hotel.priceLevel)}
-                            </span>
-                          )}
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h4 className="font-['Inter_var'] font-[600] text-[#1E293B]">{hotel.name}</h4>
+                            <p className="mt-1 text-sm text-gray-500">{hotel.description}</p>
+                            {hotel.rating && (
+                              <div className="mt-2 flex items-center gap-2">
+                                <div className="flex items-center">
+                                  {[...Array(Math.floor(Number(hotel.rating)))].map((_, i) => (
+                                    <Star key={i} className="h-4 w-4 fill-[#F59E0B] text-[#F59E0B]" />
+                                  ))}
+                                </div>
+                                <span className="text-sm text-gray-500">
+                                  {'$'.repeat(Number(hotel.priceLevel))}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleEditHotel(hotel)}
+                              className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteHotel(hotel.id)}
+                              className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleHotelSelect(hotel)}
+                              className={`rounded-full p-2 ${(selectedHotel === hotel.name || hotel.isSelected)
+                                  ? 'bg-[#F59E0B] text-white'
+                                  : 'text-[#F59E0B] hover:bg-[#F59E0B]/10'
+                                }`}
+                            >
+                              {(selectedHotel === hotel.name || hotel.isSelected) ? (
+                                <Check className="h-5 w-5" />
+                              ) : (
+                                <Plus className="h-5 w-5" />
+                              )}
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleEditHotel(hotel)}
-                          className="p-2 text-gray-400 hover:text-amber-600 rounded-full hover:bg-amber-50"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteHotel(hotel.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleHotelSelect(hotel)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${hotel.name === selectedHotel
-                            ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                            : 'bg-white text-gray-700 hover:bg-gray-100'
-                            }`}
-                        >
-                          {hotel.name === selectedHotel ? 'Selected' : 'Select'}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
-
-            {/* Add/Edit Hotel Form */}
-            <div className="border-t pt-6">
-              <h3 className="text-sm font-semibold text-gray-700 mb-4">
-                {editingHotel ? 'Edit Hotel' : 'Add New Hotel'}
-              </h3>
-              <form onSubmit={handleManualSubmit} className="space-y-4">
-                <div>
-                  <label htmlFor="hotelName" className="block text-sm font-medium text-gray-700 mb-1">
-                    Hotel Name *
-                  </label>
-                  <input
-                    type="text"
-                    id="hotelName"
-                    required
-                    value={manualHotel.name}
-                    onChange={(e) => setManualHotel(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full p-2 border rounded-lg text-sm"
-                    placeholder="Enter hotel name"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="hotelDescription" className="block text-sm font-medium text-gray-700 mb-1">
-                    Description/Address
-                  </label>
-                  <textarea
-                    id="hotelDescription"
-                    value={manualHotel.description}
-                    onChange={(e) => setManualHotel(prev => ({ ...prev, description: e.target.value }))}
-                    className="w-full p-2 border rounded-lg text-sm h-24 resize-none"
-                    placeholder="Enter hotel description or address"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="hotelRating" className="block text-sm font-medium text-gray-700 mb-1">
-                      Rating (0-5)
-                    </label>
-                    <input
-                      type="number"
-                      id="hotelRating"
-                      min="0"
-                      max="5"
-                      step="0.1"
-                      value={manualHotel.rating}
-                      onChange={(e) => setManualHotel(prev => ({ ...prev, rating: e.target.value }))}
-                      className="w-full p-2 border rounded-lg text-sm"
-                      placeholder="Enter rating"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="priceLevel" className="block text-sm font-medium text-gray-700 mb-1">
-                      Price Level
-                    </label>
-                    <select
-                      id="priceLevel"
-                      value={manualHotel.priceLevel}
-                      onChange={(e) => setManualHotel(prev => ({ ...prev, priceLevel: e.target.value }))}
-                      className="w-full p-2 border rounded-lg text-sm"
-                    >
-                      <option value="1">¥ (Budget)</option>
-                      <option value="2">¥¥ (Moderate)</option>
-                      <option value="3">¥¥¥ (Expensive)</option>
-                      <option value="4">¥¥¥¥ (Luxury)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="pt-4">
-                  <button
-                    type="submit"
-                    className="w-full bg-amber-500 text-white rounded-lg py-2 text-sm font-medium hover:bg-amber-600 transition-colors"
-                  >
-                    {editingHotel ? 'Update Hotel' : 'Add Hotel'}
-                  </button>
-                </div>
-              </form>
-            </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
