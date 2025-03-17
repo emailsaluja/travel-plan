@@ -5,6 +5,7 @@ import HotelSearchPopup from './HotelSearchPopup';
 import NotesPopup from './NotesPopup';
 import FoodPopup from './FoodPopup';
 import { FaUtensils, FaPlus } from 'react-icons/fa';
+import { cleanDestination } from '../utils/stringUtils';
 
 interface DayHotel {
   dayIndex: number;
@@ -363,7 +364,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
               </div>
               <span className="font-['Inter_var'] text-[#64748B] mx-2">·</span>
               <span className="font-['Inter_var'] text-[#64748B]">
-                From {currentDay.destination} to {nextDay.destination}
+                From {cleanDestination(currentDay.destination)} to {cleanDestination(nextDay.destination)}
               </span>
             </div>
           </div>
@@ -396,8 +397,8 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
           <span className="text-sm font-['Inter_var'] font-[600] text-[#64748B]">SLEEPING</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-[#EC4899]/10 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-[#EC4899]" />
+          <div className="w-6 h-6 rounded-full bg-[#00B8A9]/10 flex items-center justify-center">
+            <Sparkles className="w-4 h-4 text-[#00B8A9]" />
           </div>
           <span className="text-sm font-['Inter_var'] font-[600] text-[#64748B]">DISCOVER</span>
         </div>
@@ -427,8 +428,8 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
                 <div className="text-sm font-['Inter_var'] font-[600] text-[#1E293B]">{formatDate(day.date)}</div>
               </div>
               <div>
-                <div className="text-sm font-['Inter_var'] font-[600] text-[#1E293B]">{day.destination}</div>
-                <div className="text-sm font-['Inter_var'] text-[#64748B]">{day.isFirstDay ? 'Start of your adventure!' : 'Spend the day in ' + day.destination}</div>
+                <div className="text-sm font-['Inter_var'] font-[600] text-[#1E293B]">{cleanDestination(day.destination)}</div>
+                <div className="text-sm font-['Inter_var'] text-[#64748B]">{day.isFirstDay ? 'Start of your adventure!' : 'Spend the day in ' + cleanDestination(day.destination)}</div>
               </div>
               <div className="flex items-center justify-center">
                 {dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel ? (
@@ -465,7 +466,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
                 ) : (
                   <button
                     onClick={() => handleDiscoverClick(day, day.dayIndex)}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#EC4899] hover:bg-[#EC4899]/10 border border-[#EC4899]"
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#00B8A9] hover:bg-[#00B8A9]/10 border border-[#00B8A9]"
                   >
                     <Plus className="w-5 h-5" />
                   </button>

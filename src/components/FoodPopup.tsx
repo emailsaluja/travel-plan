@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Search, Plus, Star, MapPin, Utensils, Minus, Compass, PenLine } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { cleanDestination } from '../utils/stringUtils';
 
 interface FoodPlace {
     id: string;
@@ -251,7 +253,7 @@ const FoodPopup: React.FC<FoodPopupProps> = ({
                             </div>
                             <div>
                                 <h2 className="text-lg font-semibold text-gray-900">
-                                    Food in {destination}
+                                    Food in {cleanDestination(destination)}
                                 </h2>
                                 <p className="text-sm text-gray-500">
                                     {selectedItems.length} places selected

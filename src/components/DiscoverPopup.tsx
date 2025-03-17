@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, MapPin, Star, Search, Plus, Edit2, Trash2, Check, Compass } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { cleanDestination } from '../utils/stringUtils';
 
 interface Attraction {
   id: string;
@@ -134,7 +135,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
                 placesService.current?.textSearch({
                   location: location,
                   radius: 50000,
-                  query: `best viewpoints in ${destination}`
+                  query: `best viewpoints in ${cleanDestination(destination)}`
                 }, (results, status) => resolve({ results, status }));
               }),
               // Historical Sites
@@ -142,7 +143,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
                 placesService.current?.textSearch({
                   location: location,
                   radius: 50000,
-                  query: `historical sites in ${destination}`
+                  query: `historical sites in ${cleanDestination(destination)}`
                 }, (results, status) => resolve({ results, status }));
               }),
               // Must Visit Places
@@ -150,7 +151,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
                 placesService.current?.textSearch({
                   location: location,
                   radius: 50000,
-                  query: `must visit places in ${destination}`
+                  query: `must visit places in ${cleanDestination(destination)}`
                 }, (results, status) => resolve({ results, status }));
               })
             ]).then((responses) => {
@@ -539,7 +540,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
               <Compass className="w-5 h-5 text-[#00B8A9]" />
             </div>
             <h2 className="text-lg font-[600] font-['Poppins',sans-serif] text-[#1E293B]">
-              Discover {destination}
+              Discover {cleanDestination(destination)}
             </h2>
           </div>
           <button

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, MapPin, Star, Compass } from 'lucide-react';
+import { cleanDestination } from '../utils/stringUtils';
 
 interface DayDiscoverPopupProps {
   isOpen: boolean;
@@ -67,7 +68,7 @@ const DayDiscoverPopup: React.FC<DayDiscoverPopupProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-[600] font-['Poppins',sans-serif] text-[#1E293B]">
-                {destination}
+                {cleanDestination(destination)}
               </h2>
               <p className="text-sm text-gray-500">{date}</p>
             </div>

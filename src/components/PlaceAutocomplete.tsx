@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useGoogleMapsScript } from '../hooks/useGoogleMapsScript';
+import { cleanDestination } from '../utils/stringUtils';
 
 // Add country code mapping
 const COUNTRY_CODES: { [key: string]: string } = {
@@ -310,7 +311,8 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
 
     placesService.current.getDetails(request, (place, status) => {
       if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-        onChange(prediction.description);
+        const cleanedName = cleanDestination(prediction.description);
+        onChange(cleanedName);
         onPlaceSelect(place);
         setShowPredictions(false);
       }

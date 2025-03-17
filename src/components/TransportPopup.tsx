@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { X, Car, Bus, Train, Plane, Ship, ArrowRight, ExternalLink, Plus, Clock, Navigation, Building, DollarSign, AlertCircle } from 'lucide-react';
+import { cleanDestination } from '../utils/stringUtils';
 
 interface RouteStep {
   instruction: string;
@@ -461,9 +462,9 @@ const TransportPopup: React.FC<TransportPopupProps> = ({
         <div className="p-6 flex items-center justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-3">
-              <span className="font-medium text-lg">{fromDestination}</span>
+              <span className="font-medium text-lg">{cleanDestination(fromDestination)}</span>
               <ArrowRight className="w-5 h-5 text-pink-500" />
-              <span className="font-medium text-lg">{toDestination}</span>
+              <span className="font-medium text-lg">{cleanDestination(toDestination)}</span>
             </div>
             {date && (
               <div className="text-base text-gray-500 mt-2">

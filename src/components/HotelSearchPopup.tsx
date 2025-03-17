@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, MapPin, Star, Search, Plus, Building2, Edit2, Trash2, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { cleanDestination } from '../utils/stringUtils';
 
 interface Hotel {
   id: string;
@@ -365,7 +366,7 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
                 <Building2 className="w-5 h-5 text-[#F59E0B]" />
               </div>
               <h2 className="text-lg font-[600] font-['Poppins',sans-serif] text-[#1E293B]">
-                Select Hotel in {destination}
+                Select Hotel in {cleanDestination(destination)}
               </h2>
             </div>
             <button

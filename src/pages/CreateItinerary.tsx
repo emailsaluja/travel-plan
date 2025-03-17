@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { cleanDestination } from '../utils/stringUtils';
 import {
   Globe2,
   MapPin,
@@ -227,7 +228,7 @@ const CreateItinerary: React.FC = () => {
 
             // Set destinations with their specific hotels
             const destinationsWithHotels = data.destinations.map((dest: any) => ({
-              destination: dest.destination,
+              destination: cleanDestination(dest.destination),
               nights: dest.nights,
               discover: dest.discover || '',
               transport: dest.transport || '',
@@ -855,8 +856,8 @@ const CreateItinerary: React.FC = () => {
             <span className="font-[600] font-['Poppins',sans-serif]">SLEEPING</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-[#EC4899]/10 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-[#EC4899]" />
+            <div className="w-6 h-6 rounded-full bg-[#00B8A9]/10 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-[#00B8A9]" />
             </div>
             <span className="font-[600] font-['Poppins',sans-serif]">DISCOVER</span>
           </div>
@@ -939,7 +940,7 @@ const CreateItinerary: React.FC = () => {
                     <div className="text-sm group relative flex items-start justify-start flex-col">
                       <button
                         onClick={() => {
-                          setCurrentDestinationForHotel(day.destination);
+                          setCurrentDestinationForHotel(cleanDestination(day.destination));
                           setCurrentDestinationIndexForHotel(index);
                           setIsHotelSearchOpen(true);
                         }}
@@ -955,7 +956,7 @@ const CreateItinerary: React.FC = () => {
                     <div className="flex items-center justify-start">
                       <button
                         onClick={() => {
-                          setCurrentDestinationForHotel(day.destination);
+                          setCurrentDestinationForHotel(cleanDestination(day.destination));
                           setCurrentDestinationIndexForHotel(index);
                           setIsHotelSearchOpen(true);
                         }}
@@ -986,7 +987,7 @@ const CreateItinerary: React.FC = () => {
                           setActiveDestinationIndex(index);
                           setShowDiscoverPopup(true);
                         }}
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-[#EC4899] hover:bg-[#EC4899]/10 border border-[#EC4899]"
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-[#00B8A9] hover:bg-[#00B8A9]/10 border border-[#00B8A9]"
                       >
                         <Plus className="w-5 h-5" />
                       </button>
@@ -1014,7 +1015,7 @@ const CreateItinerary: React.FC = () => {
                       <div className="flex items-center justify-center">
                         <button
                           onClick={() => {
-                            handleDayFoodSelect(day.destination, index);
+                            handleDayFoodSelect(cleanDestination(day.destination), index);
                           }}
                           className="font-['Inter_var'] font-[600] text-[#1E293B] hover:text-[#00C48C] transition-colors"
                         >
@@ -1025,7 +1026,7 @@ const CreateItinerary: React.FC = () => {
                       <div className="flex items-center justify-center">
                         <button
                           onClick={() => {
-                            handleDayFoodSelect(day.destination, index);
+                            handleDayFoodSelect(cleanDestination(day.destination), index);
                           }}
                           className="w-8 h-8 rounded-full flex items-center justify-center text-[#8B5CF6] hover:bg-[#8B5CF6]/10 border border-[#8B5CF6]"
                         >
@@ -1058,8 +1059,8 @@ const CreateItinerary: React.FC = () => {
                             onClick={() => {
                               console.log('Transport icon clicked');
                               setCurrentDestinationForTransport({
-                                from: day.destination,
-                                to: index < itineraryDays.length - 1 ? itineraryDays[index + 1].destination : '',
+                                from: cleanDestination(day.destination),
+                                to: index < itineraryDays.length - 1 ? cleanDestination(itineraryDays[index + 1].destination) : '',
                                 index
                               });
                               setShowTransportPopup(true);
@@ -1098,8 +1099,8 @@ const CreateItinerary: React.FC = () => {
                           <button
                             onClick={() => {
                               setCurrentDestinationForTransport({
-                                from: day.destination,
-                                to: index < itineraryDays.length - 1 ? itineraryDays[index + 1].destination : '',
+                                from: cleanDestination(day.destination),
+                                to: index < itineraryDays.length - 1 ? cleanDestination(itineraryDays[index + 1].destination) : '',
                                 index
                               });
                               setShowTransportPopup(true);
@@ -1118,6 +1119,9 @@ const CreateItinerary: React.FC = () => {
           ))}
         </div>
 
+        {/* Row Separator */}
+        <div className="border-b border-gray-200 my-4"></div>
+
         {/* Add Destination Button */}
         <div className="flex items-center justify-center">
           <button
@@ -1131,12 +1135,6 @@ const CreateItinerary: React.FC = () => {
           >
             <Plus className="w-6 h-6" />
             Add new destination...
-          </button>
-          <button className="ml-2 px-4 py-2 text-sm text-gray-600 hover:text-[#00C48C] bg-gray-50 rounded-lg transition-colors">
-            Discover
-          </button>
-          <button className="ml-2 px-4 py-2 text-sm text-gray-600 hover:text-[#00C48C] bg-gray-50 rounded-lg transition-colors">
-            Collection
           </button>
         </div>
       </div>
@@ -1216,7 +1214,7 @@ const CreateItinerary: React.FC = () => {
                 setShowFoodPopup(false);
                 setActiveDestinationIndexForFood(null);
               }}
-              destination={itineraryDays[activeDestinationIndexForFood]?.destination || ''}
+              destination={cleanDestination(itineraryDays[activeDestinationIndexForFood]?.destination || '')}
               selectedFoodItems={(() => {
                 if (activeDestinationIndexForFood === null) return [];
 
@@ -1253,7 +1251,7 @@ const CreateItinerary: React.FC = () => {
                 setShowDiscoverPopup(false);
                 setActiveDestinationIndex(null);
               }}
-              destination={itineraryDays[activeDestinationIndex].destination}
+              destination={cleanDestination(itineraryDays[activeDestinationIndex].destination)}
               selectedAttractions={itineraryDays[activeDestinationIndex].discover.split(',').filter(Boolean)}
               onAttractionsSelect={(attractions) => handleDiscoverSelect(activeDestinationIndex, attractions)}
             />
@@ -1465,7 +1463,7 @@ const CreateItinerary: React.FC = () => {
                           dayNotes={dayNotes}
                           onDayNotesUpdate={handleDayNotesUpdate}
                           onHotelClick={(destination, dayIndex) => {
-                            setCurrentDestinationForHotel(destination);
+                            setCurrentDestinationForHotel(cleanDestination(destination));
                             setCurrentDestinationIndexForHotel(dayIndex);
                             setIsHotelSearchOpen(true);
                           }}
