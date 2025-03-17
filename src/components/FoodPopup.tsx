@@ -271,8 +271,8 @@ const FoodPopup: React.FC<FoodPopupProps> = ({
                         <button
                             onClick={() => setActiveTab('discover')}
                             className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors flex-1 justify-center ${activeTab === 'discover'
-                                    ? 'bg-white text-[#8B5CF6] shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-900'
+                                ? 'bg-white text-[#8B5CF6] shadow-sm'
+                                : 'text-gray-600 hover:text-gray-900'
                                 }`}
                         >
                             <Compass className="w-4 h-4" />
@@ -281,8 +281,8 @@ const FoodPopup: React.FC<FoodPopupProps> = ({
                         <button
                             onClick={() => setActiveTab('manual')}
                             className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors flex-1 justify-center ${activeTab === 'manual'
-                                    ? 'bg-white text-[#8B5CF6] shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-900'
+                                ? 'bg-white text-[#8B5CF6] shadow-sm'
+                                : 'text-gray-600 hover:text-gray-900'
                                 }`}
                         >
                             <PenLine className="w-4 h-4" />
