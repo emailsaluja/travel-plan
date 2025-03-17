@@ -295,6 +295,14 @@ const Dashboard = () => {
     return diffDays;
   };
 
+  const formatStartTime = (startDate: string) => {
+    const days = getDaysUntilStart(startDate);
+    if (days < 0) {
+      return `${Math.abs(days)} days ago`;
+    }
+    return `Start in ${days} days`;
+  };
+
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
 
@@ -791,8 +799,12 @@ const Dashboard = () => {
                         <p className="text-gray-600 text-sm mb-2">
                           {itinerary.duration} days in {itinerary.destinations.map(d => cleanDestination(d.destination)).join(', ')}
                         </p>
-                        <div className="flex items-center gap-3 text-sm text-gray-500">
-                          <span>Start in {getDaysUntilStart(itinerary.start_date)} days</span>
+                        <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
+                          <span>{formatStartTime(itinerary.start_date)}</span>
+                          <div className="flex items-center gap-1">
+                            <Heart className="w-4 h-4 text-rose-500" fill="currentColor" />
+                            <span>{itinerary.likesCount || 0}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -849,7 +861,7 @@ const Dashboard = () => {
                           showLike={false}
                         />
                         <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
-                          <span>Start in {getDaysUntilStart(itinerary.start_date)} days</span>
+                          <span>{formatStartTime(itinerary.start_date)}</span>
                           <div className="flex items-center gap-1">
                             <Heart className="w-4 h-4 text-rose-500" fill="currentColor" />
                             <span>{itinerary.likesCount || 0}</span>
