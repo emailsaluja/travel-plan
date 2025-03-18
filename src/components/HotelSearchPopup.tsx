@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, MapPin, Star, Search, Plus, Building2, Edit2, Trash2, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { cleanDestination } from '../utils/stringUtils';
@@ -34,13 +34,14 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
   destination,
   onHotelSelect,
   selectedHotel
-}) => {
+}): JSX.Element | null => {
   const [activeTab, setActiveTab] = useState<TabType>('search');
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<google.maps.places.AutocompletePrediction[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const placesService = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteService = useRef<google.maps.places.AutocompleteService | null>(null);
   const searchDebounceTimeout = useRef<NodeJS.Timeout>();
@@ -111,115 +112,97 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
     }
   }, [destination, isOpen]);
 
-  useEffect(() => {
-    if (isOpen && destination && window.google) {
-      setLoading(true);
+  const searchHotels = useCallback(async () => {
+    if (!placesService.current) {
+      setError("Places service not initialized");
+      return;
+    }
 
-      // Initialize Places Service
-      const mapDiv = document.createElement('div');
-      const map = new google.maps.Map(mapDiv);
-      placesService.current = new google.maps.places.PlacesService(map);
+    setLoading(true);
+    setError(null);
+    const uniqueHotels = new Map<string, google.maps.places.PlaceResult>();
 
-      // Find the location of the destination
-      const destinationRequest = {
-        query: destination,
-        fields: ['geometry']
-      };
+    const searchRequest: google.maps.places.TextSearchRequest = {
+      query: destination === "Venice" ? "hotels in Venice Italy" : `hotels in ${destination}`,
+      type: "lodging"
+    };
 
-      placesService.current.findPlaceFromQuery(destinationRequest, (results, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && results && results[0]) {
-          const location = results[0].geometry?.location;
-
-          if (location) {
-            // Search for hotels near this location
-            Promise.all([
-              // Luxury and Upscale Hotels
-              new Promise((resolve) => {
-                placesService.current?.nearbySearch({
-                  location: location,
-                  radius: 5000,
-                  type: 'lodging',
-                  rankBy: google.maps.places.RankBy.PROMINENCE,
-                  keyword: 'luxury hotel'
-                }, (results, status) => resolve({ results, status }));
-              }),
-              // Regular Hotels
-              new Promise((resolve) => {
-                placesService.current?.nearbySearch({
-                  location: location,
-                  radius: 5000,
-                  type: 'lodging',
-                  rankBy: google.maps.places.RankBy.PROMINENCE
-                }, (results, status) => resolve({ results, status }));
-              }),
-              // Popular Hotels
-              new Promise((resolve) => {
-                placesService.current?.textSearch({
-                  location: location,
-                  radius: 5000,
-                  query: `best hotels in ${destination}`
-                }, (results, status) => resolve({ results, status }));
-              })
-            ]).then((responses) => {
-              const allPlaces = new Map();
-
-              responses.forEach((response: any) => {
-                if (response.status === google.maps.places.PlacesServiceStatus.OK && response.results) {
-                  response.results.forEach((place: google.maps.places.PlaceResult) => {
-                    // Only include places with ratings above 4.0 or no rating
-                    if (!place.rating || place.rating >= 4.0) {
-                      if (!allPlaces.has(place.place_id)) {
-                        allPlaces.set(place.place_id, place);
-                      } else {
-                        // Update if better rating or more reviews
-                        const existingPlace = allPlaces.get(place.place_id);
-                        if ((place.rating || 0) > (existingPlace.rating || 0) ||
-                          (place.user_ratings_total || 0) > (existingPlace.user_ratings_total || 0)) {
-                          allPlaces.set(place.place_id, place);
-                        }
-                      }
-                    }
-                  });
-                }
-              });
-
-              const places = Array.from(allPlaces.values());
-
-              // Sort by rating and reviews
-              places.sort((a, b) => {
-                const ratingA = a.rating || 0;
-                const ratingB = b.rating || 0;
-                const reviewsA = a.user_ratings_total || 0;
-                const reviewsB = b.user_ratings_total || 0;
-
-                const scoreA = ratingA * Math.log(reviewsA + 1);
-                const scoreB = ratingB * Math.log(reviewsB + 1);
-
-                return scoreB - scoreA;
-              });
-
-              // Convert to our Hotel format
-              const hotelsData: Hotel[] = places.map(place => ({
-                id: place.place_id || '',
-                name: place.name || '',
-                rating: place.rating,
-                userRatingsTotal: place.user_ratings_total,
-                photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 }),
-                priceLevel: place.price_level,
-                description: place.vicinity || place.formatted_address,
-                isSelected: selectedHotel === place.name,
-                isManuallyAdded: false,
-                destination: destination
-              }));
-
-              setHotels(hotelsData);
-              setLoading(false);
-            });
+    try {
+      // First search - general hotels
+      const generalResults = await new Promise<google.maps.places.PlaceResult[]>((resolve, reject) => {
+        placesService.current?.textSearch(searchRequest, (results, status) => {
+          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+            resolve(results);
+          } else {
+            reject(new Error(`Places API error: ${status}`));
           }
+        });
+      });
+
+      generalResults.forEach(hotel => {
+        if (hotel.place_id &&
+          ((hotel.rating && hotel.rating >= 4.0) ||
+            (hotel.user_ratings_total && hotel.user_ratings_total > 50))) {
+          uniqueHotels.set(hotel.place_id, hotel);
         }
       });
+
+      // Second search - luxury hotels
+      if (destination === "Venice") {
+        const luxuryRequest = {
+          ...searchRequest,
+          query: "luxury hotels near San Marco Venice Italy"
+        };
+
+        const luxuryResults = await new Promise<google.maps.places.PlaceResult[]>((resolve, reject) => {
+          placesService.current?.textSearch(luxuryRequest, (results, status) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+              resolve(results);
+            } else {
+              reject(new Error(`Places API error: ${status}`));
+            }
+          });
+        });
+
+        luxuryResults.forEach(hotel => {
+          if (hotel.place_id && !uniqueHotels.has(hotel.place_id) &&
+            ((hotel.rating && hotel.rating >= 4.0) ||
+              (hotel.user_ratings_total && hotel.user_ratings_total > 50))) {
+            uniqueHotels.set(hotel.place_id, hotel);
+          }
+        });
+      }
+
+      const sortedHotels = Array.from(uniqueHotels.values()).sort((a, b) => {
+        const scoreA = (a.rating || 0) * Math.log(a.user_ratings_total || 1);
+        const scoreB = (b.rating || 0) * Math.log(b.user_ratings_total || 1);
+        return scoreB - scoreA;
+      });
+
+      console.log(`Found ${sortedHotels.length} unique hotels for ${destination}`);
+
+      // Convert to our Hotel format
+      const hotelsData: Hotel[] = sortedHotels.map(place => ({
+        id: place.place_id || '',
+        name: place.name || '',
+        rating: place.rating,
+        userRatingsTotal: place.user_ratings_total,
+        photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 }),
+        priceLevel: place.price_level,
+        description: place.formatted_address || place.vicinity || '',
+        isSelected: selectedHotel === place.name,
+        isManuallyAdded: false,
+        destination: destination
+      }));
+
+      setHotels(hotelsData);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error searching for hotels:', err);
+      setError("Failed to load hotels. Please try again.");
+      setLoading(false);
     }
-  }, [isOpen, destination, selectedHotel]);
+  }, [destination, placesService, selectedHotel]);
 
   // Initialize autocomplete service
   useEffect(() => {
@@ -251,7 +234,7 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
             radius: 5000,
             center: { lat: 0, lng: 0 }
           }
-        }, (predictions, status) => {
+        }, (predictions: google.maps.places.AutocompletePrediction[] | null, status: google.maps.places.PlacesServiceStatus) => {
           if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
             setSearchResults(predictions);
             setShowSearchResults(true);
@@ -282,7 +265,6 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
       };
 
       if (editingHotel) {
-        // Update existing hotel
         const { error } = await supabase
           .from('hotels')
           .update(hotel)
@@ -290,7 +272,6 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
 
         if (error) throw error;
 
-        // Convert back to camelCase for the UI
         const uiHotel: Hotel = {
           ...hotel,
           priceLevel: hotel.price_level,
@@ -300,7 +281,6 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
 
         setManualHotels(prev => prev.map(h => h.id === hotel.id ? uiHotel : h));
       } else {
-        // Insert new hotel
         const { data, error } = await supabase
           .from('hotels')
           .insert(hotel)
@@ -309,7 +289,6 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
 
         if (error) throw error;
 
-        // Convert the returned data to our UI format
         const uiHotel: Hotel = {
           ...data,
           priceLevel: data.price_level,
@@ -320,7 +299,6 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
         setManualHotels(prev => [...prev, uiHotel]);
       }
 
-      // Reset form
       setManualHotel({
         name: '',
         description: '',
@@ -328,8 +306,6 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
         priceLevel: '1'
       });
       setEditingHotel(null);
-
-      // Update the selected hotel
       onHotelSelect(hotel.name, true);
     } catch (error) {
       console.error('Error saving hotel:', error);
@@ -351,6 +327,16 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
     onHotelSelect(hotel.name, hotel.isManuallyAdded);
     onClose();
   };
+
+  // Initialize Places Service
+  useEffect(() => {
+    if (isOpen && window.google) {
+      const mapDiv = document.createElement('div');
+      const map = new google.maps.Map(mapDiv);
+      placesService.current = new google.maps.places.PlacesService(map);
+      searchHotels();
+    }
+  }, [isOpen, searchHotels]);
 
   if (!isOpen) return null;
 

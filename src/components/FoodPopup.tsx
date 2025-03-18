@@ -77,37 +77,49 @@ const FoodPopup: React.FC<FoodPopupProps> = ({
 
             // Find the location of the destination
             const destinationRequest = {
-                query: destination,
-                fields: ['geometry']
+                query: destination.toLowerCase() === 'venice' ? 'Venice, Italy' : destination,
+                fields: ['geometry', 'formatted_address']
             };
 
             placesService.current.findPlaceFromQuery(destinationRequest, (results, status) => {
+                console.log('Destination search results:', { destination, status, results });
                 if (status === google.maps.places.PlacesServiceStatus.OK && results && results[0]) {
                     const location = results[0].geometry?.location;
+                    console.log('Found location for', destination, ':', location?.lat(), location?.lng());
 
                     if (location) {
                         // Search for must-try restaurants near this location
                         const searchTypes: SearchType[] = [
-                            { type: 'restaurant', query: `must try restaurants in ${destination}` },
-                            { type: 'restaurant', query: `famous restaurants ${destination}` },
-                            { type: 'restaurant', query: `top rated restaurants ${destination}` },
-                            { type: 'restaurant', query: `traditional food ${destination}` },
-                            { type: 'restaurant', query: `tourist favorite restaurants ${destination}` }
+                            { type: 'restaurant', query: `best restaurants in Venice Italy` },
+                            { type: 'restaurant', query: `famous restaurants Venice Italy` },
+                            { type: 'restaurant', query: `traditional venetian restaurants` },
+                            { type: 'restaurant', query: `venice italy restaurants` },
+                            { type: 'restaurant', query: `restaurants near san marco venice` }
                         ];
 
                         Promise.all(
                             searchTypes.map(({ type, query }) =>
                                 new Promise<PlaceSearchResponse>((resolve) => {
+                                    console.log('Starting search for:', query);
                                     placesService.current?.nearbySearch({
                                         location: location,
-                                        radius: 10000, // 10km radius
+                                        radius: 20000, // Increased radius for Venice
                                         type: type,
                                         keyword: query
-                                    }, (results, status) => resolve({ results: results || [], status }));
+                                    }, (results, status) => {
+                                        console.log('Search results for', query, ':', {
+                                            status,
+                                            resultsCount: results?.length || 0,
+                                            firstResult: results?.[0]?.name,
+                                            location: location.toString()
+                                        });
+                                        resolve({ results: results || [], status });
+                                    });
                                 })
                             )
                         ).then((responses) => {
                             const allPlaces = new Map<string, google.maps.places.PlaceResult>();
+                            let totalResults = 0;
 
                             responses.forEach((response) => {
                                 if (response.status === google.maps.places.PlacesServiceStatus.OK) {
@@ -119,10 +131,14 @@ const FoodPopup: React.FC<FoodPopupProps> = ({
                                         .forEach((place) => {
                                             if (place.place_id && !allPlaces.has(place.place_id)) {
                                                 allPlaces.set(place.place_id, place);
+                                                totalResults++;
                                             }
                                         });
                                 }
                             });
+
+                            console.log('Total unique places found:', totalResults);
+                            console.log('Places after filtering:', allPlaces.size);
 
                             Promise.all(
                                 Array.from(allPlaces.values()).map((place) =>
