@@ -16,6 +16,17 @@ interface Attraction {
   user_id?: string;
 }
 
+interface Tour {
+  id: string;
+  name: string;
+  description: string;
+  duration: string;
+  price: string;
+  highlights: string[];
+  rating: number;
+  reviews: number;
+}
+
 interface DiscoverPopupProps {
   isOpen: boolean;
   onClose: () => void;
@@ -24,7 +35,7 @@ interface DiscoverPopupProps {
   selectedAttractions?: string[];
 }
 
-type TabType = 'search' | 'manual';
+type TabType = 'search' | 'manual' | 'tours';
 
 const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
   isOpen,
@@ -51,6 +62,8 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
     rating: ''
   });
   const [editingAttraction, setEditingAttraction] = useState<Attraction | null>(null);
+
+  const [tours, setTours] = useState<Tour[]>([]);
 
   useEffect(() => {
     if (isOpen && destination && window.google) {
@@ -305,7 +318,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
       fields: ['name', 'rating', 'user_ratings_total', 'photos', 'formatted_address', 'vicinity', 'place_id', 'types']
     };
 
-    placesService.current.getDetails(request, (place, status) => {
+    placesService.current.getDetails(request, async (place, status) => {
       if (status === google.maps.places.PlacesServiceStatus.OK && place) {
         // Check again after getting full details
         const existingWithDetails = attractions.find(a =>
@@ -318,23 +331,65 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
             handleAttractionToggle(existingWithDetails);
           }
         } else {
-          // Only add as new if we still can't find it
-          const newAttraction: Attraction = {
-            id: place.place_id || prediction.place_id,
-            name: place.name || prediction.structured_formatting.main_text,
-            description: place.vicinity || place.formatted_address || prediction.structured_formatting.secondary_text,
-            rating: place.rating || 0,
-            userRatingsTotal: place.user_ratings_total || 0,
-            photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 }),
-            isSelected: true,
-            // Mark as manually added only if it's not a recognized tourist attraction or point of interest
-            isManuallyAdded: !(place.types?.some(type =>
-              ['tourist_attraction', 'point_of_interest', 'establishment'].includes(type)
-            ))
-          };
+          try {
+            // Get the current user
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+              throw new Error('User not authenticated');
+            }
 
-          setAttractions(prevAttractions => [newAttraction, ...prevAttractions]);
-          onAttractionsSelect([newAttraction.name, ...selectedAttractions]);
+            // Create the new attraction object
+            const newAttraction: Attraction = {
+              id: place.place_id || prediction.place_id,
+              name: place.name || prediction.structured_formatting.main_text,
+              description: place.vicinity || place.formatted_address || prediction.structured_formatting.secondary_text,
+              rating: place.rating || 0,
+              userRatingsTotal: place.user_ratings_total || 0,
+              photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 }),
+              isSelected: true,
+              isManuallyAdded: true,
+              destination: destination,
+              user_id: user.id
+            };
+
+            // Save to database
+            const { data, error } = await supabase
+              .from('attractions')
+              .insert({
+                id: newAttraction.id,
+                name: newAttraction.name,
+                description: newAttraction.description,
+                rating: newAttraction.rating,
+                photo_url: newAttraction.photoUrl,
+                user_ratings_total: newAttraction.userRatingsTotal,
+                is_manually_added: true,
+                is_selected: true,
+                destination: destination,
+                user_id: user.id
+              })
+              .select()
+              .single();
+
+            if (error) throw error;
+
+            // Convert to UI format
+            const uiAttraction: Attraction = {
+              ...data,
+              photoUrl: data.photo_url,
+              userRatingsTotal: data.user_ratings_total,
+              isSelected: true,
+              isManuallyAdded: true
+            };
+
+            // Update both states
+            setAttractions(prevAttractions => [uiAttraction, ...prevAttractions]);
+            setManualAttractions(prev => [uiAttraction, ...prev]);
+
+            // Update selected attractions
+            onAttractionsSelect([uiAttraction.name, ...selectedAttractions]);
+          } catch (error) {
+            console.error('Error saving attraction:', error);
+          }
         }
       }
     });
@@ -527,6 +582,66 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
     setActiveTab('manual');
   };
 
+  // Initialize sample tours based on destination
+  useEffect(() => {
+    if (isOpen && activeTab === 'tours') {
+      // Sample tours data - you can replace this with real API data later
+      const sampleTours: Tour[] = [
+        {
+          id: '1',
+          name: `${cleanDestination(destination)} Walking Tour`,
+          description: `Explore the best of ${cleanDestination(destination)} with our expert local guide. Visit the most iconic landmarks and discover hidden gems.`,
+          duration: '3 hours',
+          price: '$49',
+          highlights: [
+            'Visit main attractions',
+            'Local guide expertise',
+            'Small group size',
+            'Historical insights'
+          ],
+          rating: 4.8,
+          reviews: 156
+        },
+        {
+          id: '2',
+          name: `${cleanDestination(destination)} Food Tour`,
+          description: `Taste the authentic flavors of ${cleanDestination(destination)}. Sample local delicacies and learn about the culinary traditions.`,
+          duration: '4 hours',
+          price: '$79',
+          highlights: [
+            'Local food tastings',
+            'Traditional restaurants',
+            'Culinary history',
+            'Wine pairings'
+          ],
+          rating: 4.9,
+          reviews: 203
+        },
+        {
+          id: '3',
+          name: `${cleanDestination(destination)} Photography Tour`,
+          description: `Capture the beauty of ${cleanDestination(destination)} through your lens. Perfect for photography enthusiasts of all levels.`,
+          duration: '3 hours',
+          price: '$59',
+          highlights: [
+            'Best photo spots',
+            'Photography tips',
+            'Golden hour timing',
+            'Instagram-worthy locations'
+          ],
+          rating: 4.7,
+          reviews: 128
+        }
+      ];
+      setTours(sampleTours);
+    }
+  }, [isOpen, destination, activeTab]);
+
+  const handleBookTour = (tourId: string) => {
+    // This is a placeholder function - you can implement actual booking logic later
+    alert('Booking feature coming soon! This will connect to a booking system in the future.');
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -572,6 +687,15 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
             >
               Add Custom Attraction
             </button>
+            <button
+              onClick={() => setActiveTab('tours')}
+              className={`py-4 px-2 font-['Inter_var'] font-[600] border-b-2 -mb-[1px] transition-colors ${activeTab === 'tours'
+                ? 'text-[#00B8A9] border-[#00B8A9]'
+                : 'text-gray-500 border-transparent hover:text-[#00B8A9]'
+                }`}
+            >
+              Tours
+            </button>
           </div>
         </div>
 
@@ -579,42 +703,6 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
         <div className="max-h-[60vh] overflow-y-auto p-6">
           {activeTab === 'search' ? (
             <div className="space-y-6">
-              {/* Search Input */}
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  <Search className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={handleSearchChange}
-                  onFocus={() => setShowSearchResults(true)}
-                  className="block w-full rounded-lg border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm placeholder-gray-500 focus:border-[#00B8A9] focus:outline-none focus:ring-1 focus:ring-[#00B8A9]"
-                  placeholder="Search for attractions..."
-                />
-              </div>
-
-              {/* Search Results */}
-              {showSearchResults && searchResults.length > 0 && (
-                <div className="rounded-lg border border-gray-200 bg-white shadow-lg">
-                  {searchResults.map((result) => (
-                    <button
-                      key={result.place_id}
-                      onClick={() => handleAddCustomAttraction(result)}
-                      className="flex w-full items-center gap-3 border-b border-gray-100 px-4 py-3 text-left hover:bg-gray-50 last:border-b-0"
-                    >
-                      <MapPin className="h-5 w-5 text-[#00B8A9]" />
-                      <div>
-                        <div className="font-medium">{result.structured_formatting.main_text}</div>
-                        <div className="text-sm text-gray-500">
-                          {result.structured_formatting.secondary_text}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
               {/* Attractions List */}
               {loading ? (
                 <div className="flex items-center justify-center py-8">
@@ -684,8 +772,44 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
                 </div>
               )}
             </div>
-          ) : (
+          ) : activeTab === 'manual' ? (
             <div className="space-y-6">
+              {/* Search Input */}
+              <div className="relative">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                  <Search className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  onFocus={() => setShowSearchResults(true)}
+                  className="block w-full rounded-lg border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm placeholder-gray-500 focus:border-[#00B8A9] focus:outline-none focus:ring-1 focus:ring-[#00B8A9]"
+                  placeholder="Search for attractions..."
+                />
+              </div>
+
+              {/* Search Results */}
+              {showSearchResults && searchResults.length > 0 && (
+                <div className="rounded-lg border border-gray-200 bg-white shadow-lg">
+                  {searchResults.map((result) => (
+                    <button
+                      key={result.place_id}
+                      onClick={() => handleAddCustomAttraction(result)}
+                      className="flex w-full items-center gap-3 border-b border-gray-100 px-4 py-3 text-left hover:bg-gray-50 last:border-b-0"
+                    >
+                      <MapPin className="h-5 w-5 text-[#00B8A9]" />
+                      <div>
+                        <div className="font-medium">{result.structured_formatting.main_text}</div>
+                        <div className="text-sm text-gray-500">
+                          {result.structured_formatting.secondary_text}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Manual Attraction Form */}
               <form onSubmit={handleManualSubmit} className="space-y-4">
                 <div>
@@ -786,6 +910,69 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid gap-6">
+                {tours.map((tour) => (
+                  <div
+                    key={tour.id}
+                    className="rounded-lg border border-gray-200 bg-white p-6 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-4 flex-1">
+                        <div>
+                          <h3 className="text-lg font-['Inter_var'] font-[600] text-[#1E293B]">
+                            {tour.name}
+                          </h3>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center">
+                              {[...Array(Math.floor(tour.rating))].map((_, i) => (
+                                <Star key={i} className="h-4 w-4 fill-[#00B8A9] text-[#00B8A9]" />
+                              ))}
+                              {tour.rating % 1 !== 0 && (
+                                <Star className="h-4 w-4 fill-[#00B8A9]/50 text-[#00B8A9]" />
+                              )}
+                            </div>
+                            <span className="text-sm text-gray-500">
+                              ({tour.reviews} reviews)
+                            </span>
+                          </div>
+                        </div>
+
+                        <p className="text-gray-600">{tour.description}</p>
+
+                        <div className="flex flex-wrap gap-2">
+                          {tour.highlights.map((highlight, index) => (
+                            <span
+                              key={index}
+                              className="inline-flex items-center rounded-full bg-[#00B8A9]/10 px-3 py-1 text-xs text-[#00B8A9]"
+                            >
+                              {highlight}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="ml-6 flex flex-col items-end gap-4">
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-[#00B8A9]">{tour.price}</div>
+                          <div className="text-sm text-gray-500">per person</div>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="text-sm text-gray-500">{tour.duration}</div>
+                          <button
+                            onClick={() => handleBookTour(tour.id)}
+                            className="rounded-lg bg-[#00B8A9] px-6 py-2 text-sm font-medium text-white hover:bg-[#00B8A9]/90 focus:outline-none focus:ring-2 focus:ring-[#00B8A9] focus:ring-offset-2"
+                          >
+                            Book Now
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}

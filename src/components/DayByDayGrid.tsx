@@ -106,12 +106,16 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   } | null>(null);
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
+    const formattedDate = new Intl.DateTimeFormat('en-US', {
       weekday: 'short',
       day: 'numeric',
       month: 'short',
       year: 'numeric'
-    });
+    }).format(date);
+
+    // Convert "Mon, Mar 14, 2025" to "Mon 14 Mar 2025"
+    const [weekday, month, day, year] = formattedDate.replace(',', '').split(' ');
+    return `${weekday} ${day} ${month} ${year}`;
   };
 
   const generateExpandedDays = () => {
@@ -311,6 +315,37 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
     return firstHotel;
   };
 
+  const getDestinationSubtitle = (day: ExpandedDay, index: number) => {
+    if (index < expandedDays.length - 1 && day.destination !== expandedDays[index + 1].destination) {
+      return `Travel to ${cleanDestination(expandedDays[index + 1].destination)}`;
+    }
+    return `Spend the day in ${cleanDestination(day.destination)}`;
+  };
+
+  const renderDestinationCell = (day: ExpandedDay, index: number) => {
+    const nextDay = index < expandedDays.length - 1 ? expandedDays[index + 1] : null;
+    const isTravel = nextDay && day.destination !== nextDay.destination;
+
+    return (
+      <div className="flex flex-col">
+        <div className="flex items-center gap-2">
+          <span className="destination-name">
+            {cleanDestination(day.destination)}
+            {isTravel && (
+              <>
+                <span className="mx-2 text-[#64748B]">→</span>
+                <span className="destination-name">{cleanDestination(nextDay.destination)}</span>
+              </>
+            )}
+          </span>
+        </div>
+        <span className="destination-subtitle">
+          {getDestinationSubtitle(day, index)}
+        </span>
+      </div>
+    );
+  };
+
   const renderFoodCell = (day: { dayIndex: number; destination: string }) => {
     const dayFood = dayFoods?.find(f => f.dayIndex === day.dayIndex);
     const foodCount = dayFood?.foodItems.length || 0;
@@ -324,9 +359,9 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
           <div className="flex items-center space-x-2">
             <FaUtensils className="text-gray-500" />
             {foodCount > 0 ? (
-              <span className="font-['Inter_var'] font-[600]">{foodCount} food spot{foodCount !== 1 ? 's' : ''}</span>
+              <span className="destination-name">{foodCount} food spot{foodCount !== 1 ? 's' : ''}</span>
             ) : (
-              <span className="text-gray-400 font-['Inter_var']">Add food spots</span>
+              <span className="destination-subtitle">Add food spots</span>
             )}
           </div>
           <FaPlus className="text-gray-400" />
@@ -346,7 +381,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
 
       return (
         <div className="border-b-2 border-gray-200">
-          <div className={`grid ${dayFoods ? 'grid-cols-[200px,1fr,140px,120px,120px,120px]' : 'grid-cols-[200px,1fr,140px,120px,120px]'} gap-4 px-6 py-3 bg-gray-50`}>
+          <div className="grid grid-cols-[200px,180px,200px,120px,120px,120px] gap-4 px-6 py-3 bg-gray-50">
             <div className="col-span-full flex items-center justify-center gap-3">
               <div className="flex items-center gap-2">
                 <div className="w-10 h-10 rounded-full bg-pink-500/10 flex items-center justify-center">
@@ -356,14 +391,14 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
                   {type?.toLowerCase().includes('bus') && <BusIcon className="w-6 h-6 text-pink-500" />}
                 </div>
                 <div className="flex flex-col">
-                  <span className="font-['Inter_var'] font-[600] text-[#1E293B]">
+                  <span className="destination-name">
                     {type}
                   </span>
-                  <span className="text-sm font-['Inter_var'] text-[#64748B]">{duration}</span>
+                  <span className="destination-subtitle">{duration}</span>
                 </div>
               </div>
-              <span className="font-['Inter_var'] text-[#64748B] mx-2">·</span>
-              <span className="font-['Inter_var'] text-[#64748B]">
+              <span className="destination-subtitle mx-2">·</span>
+              <span className="destination-name">
                 From {cleanDestination(currentDay.destination)} to {cleanDestination(nextDay.destination)}
               </span>
             </div>
@@ -375,32 +410,32 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 [&_.destination-name]:font-['Inter_var'] [&_.destination-name]:text-[14px] [&_.destination-name]:font-[600] [&_.destination-name]:text-[#1E293B] [&_.destination-subtitle]:font-['Inter_var'] [&_.destination-subtitle]:text-[13px] [&_.destination-subtitle]:text-[#64748B] [&_.destination-subtitle]:mt-1">
       {/* Column Headers */}
-      <div className="grid grid-cols-[200px,100px,180px,120px,120px,120px] gap-0 px-4 py-2 text-xs text-[#0f3e4a] border-b border-gray-200">
+      <div className="grid grid-cols-[200px,180px,200px,120px,120px,120px] gap-0 px-6 py-3 border-b border-gray-200">
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-[#6366F1]" />
-          <span className="font-[600] font-['Inter_var']">DATE</span>
+          <span className="destination-name uppercase">DATE</span>
         </div>
         <div className="flex items-center gap-2">
           <MapPin className="w-4 h-4 text-[#00C48C]" />
-          <span className="font-[600] font-['Inter_var']">DESTINATION</span>
+          <span className="destination-name uppercase">DESTINATION</span>
         </div>
         <div className="flex items-center gap-2">
           <Bed className="w-4 h-4 text-[#F59E0B]" />
-          <span className="font-[600] font-['Inter_var']">SLEEPING</span>
+          <span className="destination-name uppercase">SLEEPING</span>
         </div>
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-[#00B8A9]" />
-          <span className="font-[600] font-['Inter_var']">DISCOVER</span>
+          <span className="destination-name uppercase">DISCOVER</span>
         </div>
         <div className="flex items-center gap-2">
           <Utensils className="w-4 h-4 text-[#8B5CF6]" />
-          <span className="font-[600] font-['Inter_var']">FOOD</span>
+          <span className="destination-name uppercase">FOOD</span>
         </div>
         <div className="flex items-center gap-2">
           <StickyNote className="w-4 h-4 text-[#3B82F6]" />
-          <span className="font-[600] font-['Inter_var']">NOTES</span>
+          <span className="destination-name uppercase">NOTES</span>
         </div>
       </div>
 
@@ -408,36 +443,35 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
       <div className="space-y-1">
         {expandedDays.map((day, index) => (
           <React.Fragment key={index}>
-            <div className="grid grid-cols-[200px,100px,180px,120px,120px,120px] gap-0 items-center bg-white px-4 py-2 hover:bg-[#f1f8fa] transition-colors">
+            <div className="grid grid-cols-[200px,180px,200px,120px,120px,120px] gap-0 items-center bg-white px-6 py-3 border-b border-gray-200 hover:bg-[#f1f8fa] transition-colors">
               <div>
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-full bg-[#6366F1]/10 flex items-center justify-center text-xs font-medium text-[#6366F1]">
-                    {index + 1}
+                <div className="flex flex-col">
+                  <div className="destination-name">
+                    {formatDate(day.date)}
                   </div>
-                  <div>
-                    <div className="font-['Inter_var'] font-[600] text-sm text-[#0f3e4a]">
-                      {formatDate(day.date)}
-                    </div>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="destination-subtitle">Day {index + 1}</span>
+                    {index < expandedDays.length - 1 && day.destination !== expandedDays[index + 1].destination && (
+                      <>
+                        <span className="destination-subtitle">·</span>
+                        <span className="destination-subtitle text-[#F43F5E]">Travel day</span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
-              <div>
-                <div className="font-['Inter_var'] font-[600] text-sm text-[#0f3e4a]">
-                  {cleanDestination(day.destination)}
-                </div>
+              <div className="flex items-center">
+                {renderDestinationCell(day, index)}
               </div>
-              <div>
+              <div className="flex items-center">
                 {dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel ? (
-                  <div className="text-xs group relative flex items-start justify-start flex-col">
-                    <button
-                      onClick={() => handleHotelClick(day)}
-                      className="font-['Inter_var'] font-[600] text-[#0f3e4a] hover:text-[#00C48C] transition-colors"
-                    >
-                      <span className="max-w-[140px] truncate block">
-                        {dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel}
-                      </span>
-                    </button>
-                    <div className="text-[10px] text-[#0f3e4a]">To be booked</div>
+                  <div className="flex flex-col">
+                    <span className="destination-name">
+                      {dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel}
+                    </span>
+                    <span className="destination-subtitle">
+                      Booked
+                    </span>
                   </div>
                 ) : (
                   <div className="flex items-center justify-start">
@@ -450,67 +484,55 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
                   </div>
                 )}
               </div>
-              <div>
+              <div className="flex items-center justify-center">
                 {dayAttractions.find(da => da.dayIndex === day.dayIndex)?.selectedAttractions.length ? (
-                  <div className="flex items-center justify-center">
-                    <button
-                      onClick={() => handleDiscoverClick(day, day.dayIndex)}
-                      className="font-['Inter_var'] font-[600] text-xs text-[#0f3e4a] hover:text-[#00C48C] transition-colors"
-                    >
-                      {dayAttractions.find(da => da.dayIndex === day.dayIndex)?.selectedAttractions.length} to do's
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleDiscoverClick(day, day.dayIndex)}
+                    className="destination-name hover:text-[#00C48C] transition-colors"
+                  >
+                    {dayAttractions.find(da => da.dayIndex === day.dayIndex)?.selectedAttractions.length} to do's
+                  </button>
                 ) : (
-                  <div className="flex items-center justify-center">
-                    <button
-                      onClick={() => handleDiscoverClick(day, day.dayIndex)}
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-[#00B8A9] hover:bg-[#00B8A9]/10 border border-[#00B8A9]"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleDiscoverClick(day, day.dayIndex)}
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-[#00B8A9] hover:bg-[#00B8A9]/10 border border-[#00B8A9]"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
                 )}
               </div>
-              <div>
+              <div className="flex items-center justify-center">
                 {dayFoods?.find(f => f.dayIndex === day.dayIndex)?.foodItems.length ? (
-                  <div className="flex items-center justify-center">
-                    <button
-                      onClick={() => onFoodClick && onFoodClick(day.destination, day.dayIndex)}
-                      className="font-['Inter_var'] font-[600] text-xs text-[#0f3e4a] hover:text-[#00C48C] transition-colors"
-                    >
-                      {dayFoods.find(f => f.dayIndex === day.dayIndex)?.foodItems.length} food spots
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => onFoodClick && onFoodClick(day.destination, day.dayIndex)}
+                    className="destination-name hover:text-[#00C48C] transition-colors"
+                  >
+                    {dayFoods.find(f => f.dayIndex === day.dayIndex)?.foodItems.length} food spots
+                  </button>
                 ) : (
-                  <div className="flex items-center justify-center">
-                    <button
-                      onClick={() => onFoodClick && onFoodClick(day.destination, day.dayIndex)}
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-[#8B5CF6] hover:bg-[#8B5CF6]/10 border border-[#8B5CF6]"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => onFoodClick && onFoodClick(day.destination, day.dayIndex)}
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-[#8B5CF6] hover:bg-[#8B5CF6]/10 border border-[#8B5CF6]"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
                 )}
               </div>
-              <div>
+              <div className="flex items-center justify-center">
                 {dayNotes.find(n => n.dayIndex === day.dayIndex)?.notes ? (
-                  <div className="flex items-center justify-center">
-                    <button
-                      onClick={() => handleNotesClick(day)}
-                      className="font-['Inter_var'] font-[600] text-xs text-[#0f3e4a] hover:text-[#00C48C] transition-colors max-w-[80px] truncate"
-                    >
-                      {dayNotes.find(n => n.dayIndex === day.dayIndex)?.notes}
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleNotesClick(day)}
+                    className="destination-name hover:text-[#00C48C] transition-colors max-w-[80px] truncate"
+                  >
+                    {dayNotes.find(n => n.dayIndex === day.dayIndex)?.notes}
+                  </button>
                 ) : (
-                  <div className="flex items-center justify-center">
-                    <button
-                      onClick={() => handleNotesClick(day)}
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-[#3B82F6] hover:bg-[#3B82F6]/10 border border-[#3B82F6]"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleNotesClick(day)}
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-[#3B82F6] hover:bg-[#3B82F6]/10 border border-[#3B82F6]"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
                 )}
               </div>
             </div>
