@@ -150,3 +150,9 @@ body {
   display: none;
   /* Chrome, Safari and Opera */
 }
+
+.heading-text {
+  color: rgb(15 62 74 / var(--tw-text-opacity, 1));
+  font-family: 'Inter var';
+  font-weight: 600;
+}

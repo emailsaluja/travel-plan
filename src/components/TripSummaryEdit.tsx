@@ -4,23 +4,19 @@ import {
   Users,
   MapPin,
   Mountain,
-  Waves,
-  Building2,
-  Tent,
-  Hotel,
-  Plane,
-  Train,
-  Car,
-  Bus,
-  Footprints,
-  Camera,
-  Utensils,
-  ShoppingBag,
-  Landmark,
-  TreePine,
+  Star,
+  Sparkles,
+  Clock,
+  Globe2,
   Castle,
-  Church,
-  Star
+  ChevronDown,
+  Footprints,
+  Palmtree,
+  Building2,
+  Navigation,
+  Utensils,
+  Library,
+  Landmark
 } from 'lucide-react';
 import { countries } from '../data/countries';
 
@@ -35,24 +31,20 @@ interface TripSummary {
 }
 
 const AVAILABLE_TAGS = [
-  { id: 'nature', icon: Mountain, label: 'Nature' },
-  { id: 'beach', icon: Waves, label: 'Beach' },
+  { id: 'family', icon: Users, label: 'Family Friendly' },
+  { id: 'bucket-list', icon: Star, label: 'Bucket List' },
+  { id: 'popular', icon: Sparkles, label: 'Most Popular' },
+  { id: 'adventure', icon: Footprints, label: 'Adventure' },
+  { id: 'short', icon: Clock, label: 'Short Trip' },
+  { id: 'multi-country', icon: Globe2, label: 'Multi Country' },
+  { id: 'europe', icon: Castle, label: 'Europe' },
+  { id: 'mountains', icon: Mountain, label: 'Mountains' },
+  { id: 'beach', icon: Palmtree, label: 'Beach' },
   { id: 'city', icon: Building2, label: 'City' },
-  { id: 'camping', icon: Tent, label: 'Camping' },
-  { id: 'hotel', icon: Hotel, label: 'Hotel' },
-  { id: 'plane', icon: Plane, label: 'Plane' },
-  { id: 'train', icon: Train, label: 'Train' },
-  { id: 'car', icon: Car, label: 'Car' },
-  { id: 'bus', icon: Bus, label: 'Bus' },
-  { id: 'hiking', icon: Footprints, label: 'Hiking' },
-  { id: 'photography', icon: Camera, label: 'Photography' },
+  { id: 'hiking', icon: Navigation, label: 'Hiking' },
   { id: 'food', icon: Utensils, label: 'Food' },
-  { id: 'shopping', icon: ShoppingBag, label: 'Shopping' },
-  { id: 'museum', icon: Landmark, label: 'Museum' },
-  { id: 'park', icon: TreePine, label: 'Park' },
-  { id: 'castle', icon: Castle, label: 'Castle' },
-  { id: 'temple', icon: Church, label: 'Temple' },
-  { id: 'once-in-a-life', icon: Star, label: 'Once in a Life' }
+  { id: 'museum', icon: Library, label: 'Museum' },
+  { id: 'history', icon: Landmark, label: 'History' }
 ];
 
 interface TripSummaryEditProps {

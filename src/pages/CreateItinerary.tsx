@@ -200,13 +200,20 @@ const CreateItinerary: React.FC = () => {
 
   // Add available tags constant
   const AVAILABLE_TAGS = [
-    { id: 'family', label: 'Family Friendly 👨‍👩‍👧‍👦' },
-    { id: 'bucket-list', label: 'Bucket List 🌟' },
-    { id: 'popular', label: 'Most Popular 🔥' },
-    { id: 'adventure', label: 'Adventure 🏃‍♂️' },
-    { id: 'short', label: 'Short Trip ⚡' },
-    { id: 'multi-country', label: 'Multi Country 🌎' },
-    { id: 'europe', label: 'Europe 🏰' }
+    { id: 'family', label: 'Family Friendly' },
+    { id: 'bucket-list', label: 'Bucket List' },
+    { id: 'popular', label: 'Most Popular' },
+    { id: 'adventure', label: 'Adventure' },
+    { id: 'short', label: 'Short Trip' },
+    { id: 'multi-country', label: 'Multi Country' },
+    { id: 'europe', label: 'Europe' },
+    { id: 'mountains', label: 'Mountains' },
+    { id: 'beach', label: 'Beach' },
+    { id: 'city', label: 'City' },
+    { id: 'hiking', label: 'Hiking' },
+    { id: 'food', label: 'Food' },
+    { id: 'museum', label: 'Museum' },
+    { id: 'history', label: 'History' }
   ];
 
   useEffect(() => {
@@ -1210,7 +1217,7 @@ const CreateItinerary: React.FC = () => {
             <div className="w-64 h-full">
               <div className="p-4 h-full">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-[600] font-['Poppins',sans-serif] text-[#1e293b]">Trip Summary</h2>
+                  <h2 className="text-lg destination-name">Trip Summary</h2>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setShowTripSummaryEdit(true)}
@@ -1228,96 +1235,130 @@ const CreateItinerary: React.FC = () => {
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Trip Name</label>
+                    <label className="block text-sm destination-subtitle mb-1">Trip Name</label>
                     <input
                       type="text"
+                      id="tripName"
                       name="tripName"
                       value={tripSummary.tripName}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
                       placeholder="Enter trip name"
+                      required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                    <label className="block text-sm destination-subtitle mb-1">Country</label>
                     <div className="relative">
                       <input
                         type="text"
-                        value={countrySearch}
-                        onChange={(e) => setCountrySearch(e.target.value)}
+                        value={tripSummary.country || countrySearch}
+                        onChange={(e) => {
+                          setCountrySearch(e.target.value);
+                          setShowCountries(true);
+                          if (tripSummary.country) {
+                            setTripSummary(prev => ({ ...prev, country: '' }));
+                          }
+                        }}
                         onFocus={() => setShowCountries(true)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
-                        placeholder="Select country"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
+                        placeholder="Select a country"
+                        required
                       />
-                      {showCountries && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10">
-                          {filteredCountries.map(country => (
-                            <button
-                              key={country}
-                              className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 transition-colors"
-                              onClick={() => {
-                                setTripSummary(prev => ({ ...prev, country }));
-                                setCountrySearch(country);
-                                setShowCountries(false);
-                              }}
-                            >
-                              {country}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      <button
+                        type="button"
+                        className="absolute right-2 top-1/2 -translate-y-1/2"
+                        onClick={() => setShowCountries(!showCountries)}
+                      >
+                        <ChevronDown className="h-4 w-4 text-[#00C48C]" />
+                      </button>
                     </div>
+
+                    {/* Countries dropdown */}
+                    {showCountries && (
+                      <div className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base overflow-auto">
+                        {filteredCountries.map((country, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors font-['Inter_var']"
+                            onClick={() => handleCountrySelect(country)}
+                          >
+                            {country}
+                          </button>
+                        ))}
+                        {filteredCountries.length === 0 && (
+                          <div className="px-4 py-2 text-sm text-gray-500 font-['Inter_var']">
+                            No countries found
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
-                      <input
-                        type="number"
-                        name="duration"
-                        value={tripSummary.duration}
-                        onChange={handleInputChange}
-                        min="1"
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
-                      />
+                      <label className="block text-sm destination-subtitle mb-1">Duration</label>
+                      <div className="flex items-center">
+                        <Calendar className="w-5 h-5 text-[#00C48C] mr-2" />
+                        <input
+                          type="number"
+                          id="duration"
+                          name="duration"
+                          min="1"
+                          value={tripSummary.duration}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
+                          required
+                        />
+                      </div>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Travelers</label>
-                      <input
-                        type="number"
-                        name="passengers"
-                        value={tripSummary.passengers}
-                        onChange={handleInputChange}
-                        min="1"
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
-                      />
+                      <label className="block text-sm destination-subtitle mb-1">Travelers</label>
+                      <div className="flex items-center">
+                        <Users className="w-5 h-5 text-[#00C48C] mr-2" />
+                        <input
+                          type="number"
+                          id="passengers"
+                          name="passengers"
+                          min="1"
+                          value={tripSummary.passengers}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
+                          required
+                        />
+                      </div>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                    <input
-                      type="date"
-                      name="startDate"
-                      value={tripSummary.startDate}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
-                    />
+                    <label className="block text-sm destination-subtitle mb-1">Start Date</label>
+                    <div className="flex items-center">
+                      <Calendar className="w-5 h-5 text-[#00C48C] mr-2" />
+                      <input
+                        type="date"
+                        id="startDate"
+                        name="startDate"
+                        value={tripSummary.startDate}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
+                        min={new Date().toISOString().split('T')[0]}
+                        required
+                      />
+                    </div>
                   </div>
                   <div className="mt-4">
-                    <label className="flex items-center justify-between text-sm font-medium text-gray-700">
+                    <label className="flex items-center justify-between text-sm destination-subtitle">
                       <span>Privacy</span>
                       <button
                         type="button"
                         onClick={() => setTripSummary(prev => ({ ...prev, isPrivate: !prev.isPrivate }))}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${tripSummary.isPrivate ? 'bg-[#00C48C]' : 'bg-gray-200'
-                          }`}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${tripSummary.isPrivate ? 'bg-[#00C48C]' : 'bg-gray-200'}`}
                       >
                         <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${tripSummary.isPrivate ? 'translate-x-6' : 'translate-x-1'
-                            }`}
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${tripSummary.isPrivate ? 'translate-x-6' : 'translate-x-1'}`}
                         />
                       </button>
                     </label>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-sm destination-subtitle mt-1">
                       {tripSummary.isPrivate ? 'Only you can view this itinerary' : 'Anyone with the link can view this itinerary'}
                     </p>
                   </div>
@@ -1345,7 +1386,7 @@ const CreateItinerary: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
                         <div className="flex items-center gap-3">
-                          <h1 className="text-2xl font-[600] font-['Poppins',sans-serif] text-[#1e293b]">
+                          <h1 className="text-2xl heading-text">
                             {tripSummary.tripName || 'Untitled Trip'}
                           </h1>
                           <button
@@ -1406,7 +1447,7 @@ const CreateItinerary: React.FC = () => {
                           </div>
                         </div>
                         <div className="flex flex-col">
-                          <span className="font-[600] font-['Inter_var'] text-[#1e293b] text-lg">Nights</span>
+                          <span className="heading-text text-lg">Nights</span>
                           <span className="text-sm text-gray-500">planned</span>
                         </div>
                       </div>
@@ -1622,7 +1663,7 @@ const CreateItinerary: React.FC = () => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       {/* Popup content */}
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-        <h2 className="text-xl font-[600] font-['Poppins',sans-serif] mb-4">Trip Summary</h2>
+        <h1 className="text-2xl font-[600] font-['Poppins',sans-serif] text-[#1e293b]">Trip Summary</h1>
 
         {error && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
@@ -1630,9 +1671,9 @@ const CreateItinerary: React.FC = () => {
           </div>
         )}
 
-        <form className="space-y-4">
+        <form className="space-y-4 mt-6">
           <div>
-            <label htmlFor="tripName" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="tripName" className="block text-sm destination-subtitle mb-1">
               Trip Name
             </label>
             <input
@@ -1641,7 +1682,7 @@ const CreateItinerary: React.FC = () => {
               name="tripName"
               value={tripSummary.tripName}
               onChange={handleInputChange}
-              className="w-full border border-gray-300 rounded-md shadow-sm p-2"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
               placeholder="Enter trip name"
               required
             />
@@ -1649,7 +1690,7 @@ const CreateItinerary: React.FC = () => {
 
           {/* Add Country Selector */}
           <div className="relative">
-            <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="country" className="block text-sm destination-subtitle mb-1">
               Country
             </label>
             <div className="relative">
@@ -1664,7 +1705,7 @@ const CreateItinerary: React.FC = () => {
                   }
                 }}
                 onFocus={() => setShowCountries(true)}
-                className="w-full border border-gray-300 rounded-md shadow-sm p-2"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
                 placeholder="Select a country"
                 required
               />
@@ -1673,9 +1714,7 @@ const CreateItinerary: React.FC = () => {
                 className="absolute right-2 top-1/2 -translate-y-1/2"
                 onClick={() => setShowCountries(!showCountries)}
               >
-                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                <ChevronDown className="h-4 w-4 text-[#00C48C]" />
               </button>
             </div>
 
@@ -1686,14 +1725,14 @@ const CreateItinerary: React.FC = () => {
                   <button
                     key={index}
                     type="button"
-                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors"
+                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors font-['Inter_var']"
                     onClick={() => handleCountrySelect(country)}
                   >
                     {country}
                   </button>
                 ))}
                 {filteredCountries.length === 0 && (
-                  <div className="px-4 py-2 text-sm text-gray-500">
+                  <div className="px-4 py-2 text-sm text-gray-500 font-['Inter_var']">
                     No countries found
                   </div>
                 )}
@@ -1701,68 +1740,80 @@ const CreateItinerary: React.FC = () => {
             )}
           </div>
 
-          <div>
-            <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
-              Duration (days)
-            </label>
-            <input
-              type="number"
-              id="duration"
-              name="duration"
-              min="1"
-              value={tripSummary.duration}
-              onChange={handleInputChange}
-              className="w-full border border-gray-300 rounded-md shadow-sm p-2"
-              required
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm destination-subtitle mb-1">
+                Duration
+              </label>
+              <div className="flex items-center">
+                <Calendar className="w-5 h-5 text-[#00C48C] mr-2" />
+                <input
+                  type="number"
+                  id="duration"
+                  name="duration"
+                  min="1"
+                  value={tripSummary.duration}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm destination-subtitle mb-1">
+                Travelers
+              </label>
+              <div className="flex items-center">
+                <Users className="w-5 h-5 text-[#00C48C] mr-2" />
+                <input
+                  type="number"
+                  id="passengers"
+                  name="passengers"
+                  min="1"
+                  value={tripSummary.passengers}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
+                  required
+                />
+              </div>
+            </div>
           </div>
 
           <div>
-            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="startDate" className="block text-sm destination-subtitle mb-1">
               Start Date
             </label>
-            <input
-              type="date"
-              id="startDate"
-              name="startDate"
-              value={tripSummary.startDate}
-              onChange={handleInputChange}
-              className="w-full border border-gray-300 rounded-md shadow-sm p-2"
-              min={new Date().toISOString().split('T')[0]}
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="passengers" className="block text-sm font-medium text-gray-700 mb-1">
-              Number of Passengers
-            </label>
-            <input
-              type="number"
-              id="passengers"
-              name="passengers"
-              min="1"
-              value={tripSummary.passengers}
-              onChange={handleInputChange}
-              className="w-full border border-gray-300 rounded-md shadow-sm p-2"
-              required
-            />
+            <div className="flex items-center">
+              <Calendar className="w-5 h-5 text-[#00C48C] mr-2" />
+              <input
+                type="date"
+                id="startDate"
+                name="startDate"
+                value={tripSummary.startDate}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
+                min={new Date().toISOString().split('T')[0]}
+                required
+              />
+            </div>
           </div>
 
           <div className="flex justify-end space-x-3 mt-6">
             <button
               type="button"
               onClick={() => navigate('/dashboard')}
-              className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
+              className="px-6 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors font-['Inter_var']"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleProceed}
-              className="px-4 py-2 text-sm text-white bg-rose-500 rounded-md hover:bg-rose-600"
+              className="px-6 py-2 bg-[#00C48C] text-white rounded-lg hover:bg-[#00B380] transition-colors shadow-sm flex items-center gap-2 font-['Inter_var']"
             >
-              Proceed
+              <span>Proceed</span>
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </form>
