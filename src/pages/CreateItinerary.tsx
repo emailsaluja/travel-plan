@@ -886,27 +886,27 @@ const CreateItinerary: React.FC = () => {
         {/* Column Headers */}
         <div className="grid grid-cols-[200px,100px,180px,120px,120px,140px] gap-0 px-4 py-2 text-xs text-[#0f3e4a] border-b border-gray-200">
           <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-[#00C48C]" />
+            <MapPin className="w-4 h-4 destination-icon" />
             <span className="font-[600] font-['Inter_var']">DESTINATION</span>
           </div>
           <div className="flex items-center gap-2">
-            <Moon className="w-4 h-4 text-[#6366F1]" />
+            <Moon className="w-4 h-4 nights-icon" />
             <span className="font-[600] font-['Inter_var']">NIGHTS</span>
           </div>
           <div className="flex items-center justify-center gap-2">
-            <Bed className="w-4 h-4 text-[#F59E0B]" />
+            <Bed className="w-4 h-4 sleeping-icon" />
             <span className="font-[600] font-['Inter_var']">SLEEPING</span>
           </div>
           <div className="flex items-center justify-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#00B8A9]" />
+            <Sparkles className="w-4 h-4 discover-icon" />
             <span className="font-[600] font-['Inter_var']">DISCOVER</span>
           </div>
           <div className="flex items-center justify-center gap-2">
-            <Utensils className="w-4 h-4 text-[#8B5CF6]" />
+            <Utensils className="w-4 h-4 food-icon" />
             <span className="font-[600] font-['Inter_var']">FOOD</span>
           </div>
           <div className="flex items-center justify-center gap-2">
-            <Transport className="w-4 h-4 text-pink-500" />
+            <Transport className="w-4 h-4 transport-icon" />
             <span className="font-[600] font-['Inter_var']">TRANSPORT</span>
           </div>
         </div>
@@ -991,9 +991,9 @@ const CreateItinerary: React.FC = () => {
                           setCurrentDestinationIndexForHotel(index);
                           setIsHotelSearchOpen(true);
                         }}
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-[#F59E0B] hover:bg-[#F59E0B]/10 border border-[#F59E0B]"
+                        className="sleeping-action column-action"
                       >
-                        <Plus className="w-4 h-4" />
+                        <Plus className="w-4 h-4" strokeWidth={2.5} />
                       </button>
                     </div>
                   )}
@@ -1018,9 +1018,9 @@ const CreateItinerary: React.FC = () => {
                           setActiveDestinationIndex(index);
                           setShowDiscoverPopup(true);
                         }}
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-[#00B8A9] hover:bg-[#00B8A9]/10 border border-[#00B8A9]"
+                        className="discover-action column-action"
                       >
-                        <Plus className="w-4 h-4" />
+                        <Plus className="w-4 h-4" strokeWidth={2.5} />
                       </button>
                     </div>
                   )}
@@ -1057,9 +1057,9 @@ const CreateItinerary: React.FC = () => {
                           onClick={() => {
                             handleDayFoodSelect(cleanDestination(day.destination), index);
                           }}
-                          className="w-6 h-6 rounded-full flex items-center justify-center text-[#8B5CF6] hover:bg-[#8B5CF6]/10 border border-[#8B5CF6]"
+                          className="food-action column-action"
                         >
-                          <Plus className="w-4 h-4" />
+                          <Plus className="w-4 h-4" strokeWidth={2.5} />
                         </button>
                       </div>
                     );
@@ -1095,28 +1095,28 @@ const CreateItinerary: React.FC = () => {
                           >
                             <div>
                               {day.transport.includes('Drive') && (
-                                <div className="w-6 h-6 rounded-full bg-pink-500/10 flex items-center justify-center">
-                                  <Car className="w-4 h-4 text-pink-500" />
+                                <div className="transport-mode-bg">
+                                  <Car className="transport-car-icon" />
                                 </div>
                               )}
                               {day.transport.includes('Flight') && (
-                                <div className="w-6 h-6 rounded-full bg-pink-500/10 flex items-center justify-center">
-                                  <Plane className="w-4 h-4 text-pink-500" />
+                                <div className="transport-mode-bg">
+                                  <Plane className="transport-plane-icon" />
                                 </div>
                               )}
                               {day.transport.includes('Train') && (
-                                <div className="w-6 h-6 rounded-full bg-pink-500/10 flex items-center justify-center">
-                                  <Train className="w-4 h-4 text-pink-500" />
+                                <div className="transport-mode-bg">
+                                  <Train className="transport-train-icon" />
                                 </div>
                               )}
                               {day.transport.includes('Bus') && (
-                                <div className="w-6 h-6 rounded-full bg-pink-500/10 flex items-center justify-center">
-                                  <BusIcon className="w-4 h-4 text-pink-500" />
+                                <div className="transport-mode-bg">
+                                  <BusIcon className="transport-bus-icon" />
                                 </div>
                               )}
                             </div>
                             <div className="text-[10px] font-['Inter_var'] font-[600] mt-0.5">
-                              <span className="font-['Inter_var'] font-[600] text-xs text-pink-500">
+                              <span className="transport-duration">
                                 {day.transport.split(' · ')[1]
                                   .replace(' hours', 'h')
                                   .replace(' hour', 'h')
@@ -1138,9 +1138,9 @@ const CreateItinerary: React.FC = () => {
                               });
                               setShowTransportPopup(true);
                             }}
-                            className="w-6 h-6 rounded-full flex items-center justify-center border text-pink-500 hover:bg-pink-500/10 border-pink-500"
+                            className="transport-action column-action"
                           >
-                            <Plus className="w-4 h-4" />
+                            <Plus className="w-4 h-4" strokeWidth={2.5} />
                           </button>
                         </div>
                       )}
@@ -1377,7 +1377,7 @@ const CreateItinerary: React.FC = () => {
           </button>
 
           {/* Left side - Form */}
-          <div className={`${isMapCollapsed ? 'w-[90%]' : 'w-[50%]'} h-full transition-all duration-300`}>
+          <div className={`${isMapCollapsed ? 'w-[90%]' : 'w-[55%]'} h-full transition-all duration-300`}>
             <div className="h-full">
               <div className="h-full">
                 <div className="bg-white h-full flex flex-col">
@@ -1398,24 +1398,16 @@ const CreateItinerary: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-4 text-sm text-gray-600">
                           <div className="flex items-center gap-2">
-                            <Globe className="w-4 h-4" />
-                            <span>{tripSummary.country}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4" />
-                            <span>{new Date(tripSummary.startDate).toLocaleDateString('en-US', {
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric'
-                            })}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-4 h-4" />
-                            <span>{tripSummary.duration} days</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Users className="w-4 h-4" />
-                            <span>{tripSummary.passengers} travelers</span>
+                            <span className="sub-heading">
+                              {(() => {
+                                const startDate = new Date(tripSummary.startDate);
+                                const endDate = new Date(startDate);
+                                endDate.setDate(startDate.getDate() + tripSummary.duration - 1);
+
+                                return `${startDate.getDate()} ${startDate.toLocaleString('default', { month: 'short' })} - ${endDate.getDate()} ${endDate.toLocaleString('default', { month: 'short' })}`;
+                              })()}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -1546,7 +1538,7 @@ const CreateItinerary: React.FC = () => {
           </div>
 
           {/* Right side - Map */}
-          <div className={`${isMapCollapsed ? 'w-[10%]' : 'w-[50%]'} h-full relative transition-all duration-300`}>
+          <div className={`${isMapCollapsed ? 'w-[10%]' : 'w-[45%]'} h-full relative transition-all duration-300`}>
             <button
               onClick={() => setIsMapCollapsed(!isMapCollapsed)}
               className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center hover:bg-gray-50 transition-all"

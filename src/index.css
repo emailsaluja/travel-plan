@@ -156,3 +156,122 @@ body {
   font-family: 'Inter var';
   font-weight: 600;
 }
+
+.sub-heading {
+  font-family: 'Inter var';
+  font-weight: 600;
+  color: inherit;
+}
+
+/* Column icon colors */
+.destination-icon {
+  color: #00C48C;
+}
+
+.nights-icon {
+  color: #6366F1;
+}
+
+.sleeping-icon {
+  color: #F59E0B;
+}
+
+.discover-icon {
+  color: #00B8A9;
+}
+
+.food-icon {
+  color: #8B5CF6;
+}
+
+.transport-icon {
+  color: #EC4899;
+}
+
+/* Transport mode icons */
+.transport-car-icon {
+  @apply w-4 h-4;
+  color: #EC4899;
+}
+
+.transport-plane-icon {
+  @apply w-4 h-4;
+  color: #EC4899;
+}
+
+.transport-train-icon {
+  @apply w-4 h-4;
+  color: #EC4899;
+}
+
+.transport-bus-icon {
+  @apply w-4 h-4;
+  color: #EC4899;
+}
+
+.transport-mode-bg {
+  @apply w-6 h-6 rounded-full flex items-center justify-center;
+  background-color: rgba(236, 72, 153, 0.1);
+}
+
+.transport-duration {
+  @apply font-['Inter_var'] font-[600] text-xs;
+  color: #EC4899;
+}
+
+/* Column action buttons */
+.sleeping-action {
+  @apply w-6 h-6 rounded-full flex items-center justify-center text-white;
+  background-color: #F59E0B;
+}
+
+.sleeping-action:hover {
+  background-color: rgba(245, 158, 11, 0.8);
+}
+
+.discover-action {
+  @apply w-6 h-6 rounded-full flex items-center justify-center text-white;
+  background-color: #00B8A9;
+}
+
+.discover-action:hover {
+  background-color: rgba(0, 184, 169, 0.8);
+}
+
+.food-action {
+  @apply w-6 h-6 rounded-full flex items-center justify-center text-white;
+  background-color: #8B5CF6;
+}
+
+.food-action:hover {
+  background-color: rgba(139, 92, 246, 0.8);
+}
+
+.notes-action {
+  @apply w-6 h-6 rounded-full flex items-center justify-center text-white;
+  background-color: #3B82F6;
+}
+
+.notes-action:hover {
+  background-color: rgba(59, 130, 246, 0.8);
+}
+
+.transport-action {
+  @apply w-6 h-6 rounded-full flex items-center justify-center text-white;
+  background-color: #EC4899;
+}
+
+.transport-action:hover {
+  background-color: rgba(236, 72, 153, 0.8);
+}
+
+/* Transport icons background */
+.transport-mode-bg {
+  @apply w-6 h-6 rounded-full flex items-center justify-center;
+  background-color: rgba(236, 72, 153, 0.1);
+}
+
+/* Common transitions */
+.column-action {
+  @apply transition-colors duration-200;
+}

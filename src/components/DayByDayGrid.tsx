@@ -381,7 +381,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
 
       return (
         <div className="border-b-2 border-gray-200">
-          <div className="grid grid-cols-[200px,180px,200px,120px,120px,120px] gap-4 px-6 py-3 bg-gray-50">
+          <div className="grid grid-cols-[200px,180px,200px,120px,120px,120px] gap-0 px-4 py-2 bg-gray-50">
             <div className="col-span-full flex items-center justify-center gap-3">
               <div className="flex items-center gap-2">
                 <div className="w-10 h-10 rounded-full bg-pink-500/10 flex items-center justify-center">
@@ -412,7 +412,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   return (
     <div className="space-y-4 [&_.destination-name]:font-['Inter_var'] [&_.destination-name]:text-[14px] [&_.destination-name]:font-[600] [&_.destination-name]:text-[#1E293B] [&_.destination-subtitle]:font-['Inter_var'] [&_.destination-subtitle]:text-[13px] [&_.destination-subtitle]:text-[#64748B] [&_.destination-subtitle]:mt-1">
       {/* Column Headers */}
-      <div className="grid grid-cols-[200px,180px,200px,120px,120px,120px] gap-0 px-6 py-3 border-b border-gray-200">
+      <div className="grid grid-cols-[200px,180px,200px,120px,120px,120px] gap-0 px-4 py-2 text-xs text-[#0f3e4a] border-b border-gray-200">
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-[#6366F1]" />
           <span className="destination-name uppercase">DATE</span>
@@ -443,7 +443,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
       <div className="space-y-1">
         {expandedDays.map((day, index) => (
           <React.Fragment key={index}>
-            <div className="grid grid-cols-[200px,180px,200px,120px,120px,120px] gap-0 items-center bg-white px-6 py-3 border-b border-gray-200 hover:bg-[#f1f8fa] transition-colors">
+            <div className="grid grid-cols-[200px,180px,200px,120px,120px,120px] gap-0 items-center bg-white px-4 py-2 hover:bg-[#f1f8fa] transition-colors">
               <div>
                 <div className="flex flex-col">
                   <div className="destination-name">
@@ -477,9 +477,9 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
                   <div className="flex items-center justify-start">
                     <button
                       onClick={() => handleHotelClick(day)}
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-[#F59E0B] hover:bg-[#F59E0B]/10 border border-[#F59E0B]"
+                      className="sleeping-action column-action"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-4 h-4" strokeWidth={2.5} />
                     </button>
                   </div>
                 )}
@@ -488,16 +488,16 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
                 {dayAttractions.find(da => da.dayIndex === day.dayIndex)?.selectedAttractions.length ? (
                   <button
                     onClick={() => handleDiscoverClick(day, day.dayIndex)}
-                    className="destination-name hover:text-[#00C48C] transition-colors"
+                    className="destination-name hover:text-[#00B8A9] transition-colors"
                   >
                     {dayAttractions.find(da => da.dayIndex === day.dayIndex)?.selectedAttractions.length} to do's
                   </button>
                 ) : (
                   <button
                     onClick={() => handleDiscoverClick(day, day.dayIndex)}
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-[#00B8A9] hover:bg-[#00B8A9]/10 border border-[#00B8A9]"
+                    className="discover-action column-action"
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="w-4 h-4" strokeWidth={2.5} />
                   </button>
                 )}
               </div>
@@ -512,9 +512,9 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
                 ) : (
                   <button
                     onClick={() => onFoodClick && onFoodClick(day.destination, day.dayIndex)}
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-[#8B5CF6] hover:bg-[#8B5CF6]/10 border border-[#8B5CF6]"
+                    className="food-action column-action"
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="w-4 h-4" strokeWidth={2.5} />
                   </button>
                 )}
               </div>
@@ -529,9 +529,9 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
                 ) : (
                   <button
                     onClick={() => handleNotesClick(day)}
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-[#3B82F6] hover:bg-[#3B82F6]/10 border border-[#3B82F6]"
+                    className="notes-action column-action"
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="w-4 h-4" strokeWidth={2.5} />
                   </button>
                 )}
               </div>
