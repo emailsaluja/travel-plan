@@ -1084,9 +1084,14 @@ const CreateItinerary: React.FC = () => {
                         <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2">
                           <button
                             onClick={() => {
+                              const fromDest = day?.destination ? cleanDestination(day.destination) : '';
+                              const toDest = index < itineraryDays.length - 1 && itineraryDays[index + 1]?.destination
+                                ? cleanDestination(itineraryDays[index + 1].destination)
+                                : '';
+
                               setCurrentDestinationForTransport({
-                                from: cleanDestination(day.destination),
-                                to: index < itineraryDays.length - 1 ? cleanDestination(itineraryDays[index + 1].destination) : '',
+                                from: fromDest,
+                                to: toDest,
                                 index
                               });
                               setShowTransportPopup(true);
@@ -1117,12 +1122,17 @@ const CreateItinerary: React.FC = () => {
                             </div>
                             <div className="text-[10px] font-['Inter_var'] font-[600] mt-0.5">
                               <span className="transport-duration">
-                                {day.transport.split(' · ')[1]
-                                  .replace(' hours', 'h')
-                                  .replace(' hour', 'h')
-                                  .replace(' mins', 'm')
-                                  .replace(' min', 'm')
-                                  .replace('0h ', '')}
+                                {(() => {
+                                  const transportParts = day.transport?.split(' · ');
+                                  if (!transportParts || transportParts.length < 2) return '';
+
+                                  return transportParts[1]
+                                    .replace(' hours', 'h')
+                                    .replace(' hour', 'h')
+                                    .replace(' mins', 'm')
+                                    .replace(' min', 'm')
+                                    .replace('0h ', '');
+                                })()}
                               </span>
                             </div>
                           </button>
@@ -1131,9 +1141,14 @@ const CreateItinerary: React.FC = () => {
                         <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2">
                           <button
                             onClick={() => {
+                              const fromDest = day?.destination ? cleanDestination(day.destination) : '';
+                              const toDest = index < itineraryDays.length - 1 && itineraryDays[index + 1]?.destination
+                                ? cleanDestination(itineraryDays[index + 1].destination)
+                                : '';
+
                               setCurrentDestinationForTransport({
-                                from: cleanDestination(day.destination),
-                                to: index < itineraryDays.length - 1 ? cleanDestination(itineraryDays[index + 1].destination) : '',
+                                from: fromDest,
+                                to: toDest,
                                 index
                               });
                               setShowTransportPopup(true);

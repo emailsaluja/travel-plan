@@ -16,7 +16,8 @@ import {
   Navigation,
   Utensils,
   Library,
-  Landmark
+  Landmark,
+  X
 } from 'lucide-react';
 import { countries } from '../data/countries';
 
@@ -130,38 +131,46 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6 max-w-4xl mx-auto">
-      <h2 className="text-xl font-semibold mb-6">Edit Trip Summary</h2>
+    <div className="bg-white rounded-2xl shadow-xl p-8 max-w-4xl mx-auto relative">
+      <div className="flex items-center justify-between mb-8">
+        <h2 className="text-2xl font-semibold text-[#1e293b]">Edit Trip Summary</h2>
+        <button
+          onClick={onClose}
+          className="p-2 text-gray-500 hover:text-[#00C48C] rounded-lg transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
 
       {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
           {error}
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-2 gap-8">
         {/* Left Column */}
         <div className="space-y-6">
           <div>
-            <label htmlFor="tripName" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="tripName" className="block text-sm font-medium text-gray-700 mb-2">
               Trip Name
             </label>
             <div className="flex items-center">
-              <MapPin className="w-5 h-5 text-gray-400 mr-2" />
+              <MapPin className="w-5 h-5 text-[#00C48C] mr-2" />
               <input
                 type="text"
                 id="tripName"
                 name="tripName"
                 value={editedSummary.tripName}
                 onChange={handleInputChange}
-                className="flex-1 border border-gray-300 rounded-md shadow-sm p-2"
+                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
                 placeholder="Enter trip name"
               />
             </div>
           </div>
 
           <div className="relative">
-            <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-2">
               Country
             </label>
             <div className="relative">
@@ -176,34 +185,32 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
                   }
                 }}
                 onFocus={() => setShowCountries(true)}
-                className="w-full border border-gray-300 rounded-md shadow-sm p-2"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
                 placeholder="Select a country"
               />
               <button
                 type="button"
-                className="absolute right-2 top-1/2 -translate-y-1/2"
+                className="absolute right-3 top-1/2 -translate-y-1/2"
                 onClick={() => setShowCountries(!showCountries)}
               >
-                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                <ChevronDown className="h-5 w-5 text-gray-400" />
               </button>
             </div>
 
             {showCountries && (
-              <div className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base overflow-auto">
+              <div className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-lg py-1 text-base overflow-auto border border-gray-100">
                 {filteredCountries.map((country, index) => (
                   <button
                     key={index}
                     type="button"
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                     onClick={() => handleCountrySelect(country)}
                   >
                     {country}
                   </button>
                 ))}
                 {filteredCountries.length === 0 && (
-                  <div className="px-4 py-2 text-sm text-gray-500">
+                  <div className="px-4 py-2.5 text-sm text-gray-500">
                     No countries found
                   </div>
                 )}
@@ -212,11 +219,11 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
           </div>
 
           <div>
-            <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-2">
               Duration (days)
             </label>
             <div className="flex items-center">
-              <Calendar className="w-5 h-5 text-gray-400 mr-2" />
+              <Calendar className="w-5 h-5 text-[#00C48C] mr-2" />
               <input
                 type="number"
                 id="duration"
@@ -224,35 +231,35 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
                 min="1"
                 value={editedSummary.duration}
                 onChange={handleInputChange}
-                className="flex-1 border border-gray-300 rounded-md shadow-sm p-2"
+                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">
               Start Date
             </label>
             <div className="flex items-center">
-              <Calendar className="w-5 h-5 text-gray-400 mr-2" />
+              <Calendar className="w-5 h-5 text-[#00C48C] mr-2" />
               <input
                 type="date"
                 id="startDate"
                 name="startDate"
                 value={editedSummary.startDate}
                 onChange={handleInputChange}
-                className="flex-1 border border-gray-300 rounded-md shadow-sm p-2"
+                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
                 min={new Date().toISOString().split('T')[0]}
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="passengers" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="passengers" className="block text-sm font-medium text-gray-700 mb-2">
               Number of Passengers
             </label>
             <div className="flex items-center">
-              <Users className="w-5 h-5 text-gray-400 mr-2" />
+              <Users className="w-5 h-5 text-[#00C48C] mr-2" />
               <input
                 type="number"
                 id="passengers"
@@ -260,13 +267,13 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
                 min="1"
                 value={editedSummary.passengers}
                 onChange={handleInputChange}
-                className="flex-1 border border-gray-300 rounded-md shadow-sm p-2"
+                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
               />
             </div>
           </div>
 
           <div>
-            <label className="flex items-center justify-between text-sm font-medium text-gray-700">
+            <label className="flex items-center justify-between text-sm font-medium text-gray-700 mb-2">
               <span>Privacy</span>
               <button
                 type="button"
@@ -280,7 +287,7 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
                 />
               </button>
             </label>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-gray-500">
               {editedSummary.isPrivate ? 'Only you can view this itinerary' : 'Anyone with the link can view this itinerary'}
             </p>
           </div>
@@ -288,27 +295,27 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
 
         {/* Right Column - Tags */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 mb-3">
             Tags
           </label>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             {AVAILABLE_TAGS.map(({ id, icon: Icon, label }) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => handleToggleTag(id)}
-                className={`flex flex-col items-center p-3 rounded-lg border transition-colors ${editedSummary.tags.includes(id)
-                  ? 'border-[#00C48C] bg-[#00C48C]/10'
-                  : 'border-gray-200 hover:border-gray-300'
+                className={`flex flex-col items-center p-3 rounded-lg border transition-all duration-200 ${editedSummary.tags.includes(id)
+                    ? 'border-[#00C48C] bg-[#00C48C]/10 shadow-sm'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
               >
-                <Icon className={`w-6 h-6 mb-1 ${editedSummary.tags.includes(id)
-                  ? 'text-[#00C48C]'
-                  : 'text-gray-500'
+                <Icon className={`w-5 h-5 mb-1.5 ${editedSummary.tags.includes(id)
+                    ? 'text-[#00C48C]'
+                    : 'text-gray-500'
                   }`} />
-                <span className={`text-xs ${editedSummary.tags.includes(id)
-                  ? 'text-[#00C48C] font-medium'
-                  : 'text-gray-500'
+                <span className={`text-xs font-medium ${editedSummary.tags.includes(id)
+                    ? 'text-[#00C48C]'
+                    : 'text-gray-600'
                   }`}>
                   {label}
                 </span>
@@ -318,18 +325,18 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
         </div>
       </div>
 
-      <div className="flex justify-end space-x-3 pt-6 mt-6 border-t">
+      <div className="flex justify-end space-x-4 pt-8 mt-8 border-t">
         <button
           type="button"
           onClick={onClose}
-          className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
+          className="px-6 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
         >
           Cancel
         </button>
         <button
           type="button"
           onClick={handleSubmit}
-          className="px-4 py-2 text-sm text-white bg-rose-500 rounded-md hover:bg-rose-600"
+          className="px-6 py-2.5 text-sm font-medium text-white bg-[#00C48C] rounded-lg hover:bg-[#00B37D] transition-colors"
         >
           Save Changes
         </button>
