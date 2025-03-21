@@ -290,8 +290,8 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   };
 
   const handleFoodClick = (day: ExpandedDay) => {
-    if (onFoodSelect) {
-      onFoodSelect(day.destination, day.dayIndex);
+    if (onFoodClick) {
+      onFoodClick(day.destination, day.dayIndex);
     }
   };
 
@@ -379,26 +379,32 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
       // Split transport info into type and duration (e.g., "Drive · 3h" -> ["Drive", "3h"])
       const [type, duration] = transportInfo.split(' · ');
 
+      // Convert duration format (e.g., "6h41mins" to "6h 41m")
+      const formattedDuration = duration
+        ?.replace(/(\d+)h(\d+)mins?/, '$1h $2m')
+        ?.replace(/hours?/g, 'h')
+        ?.replace(/minutes?/g, 'm')
+        ?.replace(/\s+/g, ' ');
+
       return (
-        <div className="border-b-2 border-gray-200">
-          <div className="grid grid-cols-[200px,180px,200px,120px,120px,120px] gap-0 px-4 py-2 bg-gray-50">
+        <div className="border-t-2 border-b-2 border-gray-200">
+          <div className="grid grid-cols-[180px,200px,200px,120px,120px] gap-0 px-4 py-2 bg-gray-50">
             <div className="col-span-full flex items-center justify-center gap-3">
               <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-full bg-pink-500/10 flex items-center justify-center">
-                  {type?.toLowerCase().includes('drive') && <Car className="w-6 h-6 text-pink-500" />}
-                  {type?.toLowerCase().includes('flight') && <Plane className="w-6 h-6 text-pink-500" />}
-                  {type?.toLowerCase().includes('train') && <Train className="w-6 h-6 text-pink-500" />}
-                  {type?.toLowerCase().includes('bus') && <BusIcon className="w-6 h-6 text-pink-500" />}
+                <div className="w-8 h-8 rounded-full bg-pink-500/10 flex items-center justify-center">
+                  {type?.toLowerCase().includes('drive') && <Car className="w-4 h-4 text-pink-500" />}
+                  {type?.toLowerCase().includes('flight') && <Plane className="w-4 h-4 text-pink-500" />}
+                  {type?.toLowerCase().includes('train') && <Train className="w-4 h-4 text-pink-500" />}
+                  {type?.toLowerCase().includes('bus') && <BusIcon className="w-4 h-4 text-pink-500" />}
                 </div>
-                <div className="flex flex-col">
-                  <span className="destination-name">
-                    {type}
+                <div className="flex items-center gap-2">
+                  <span className="destination-name text-[#EC4899]">
+                    {type} · {formattedDuration}
                   </span>
-                  <span className="destination-subtitle">{duration}</span>
                 </div>
               </div>
               <span className="destination-subtitle mx-2">·</span>
-              <span className="destination-name">
+              <span className="destination-name text-[#EC4899]">
                 From {cleanDestination(currentDay.destination)} to {cleanDestination(nextDay.destination)}
               </span>
             </div>
@@ -412,7 +418,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   return (
     <div className="space-y-4 [&_.destination-name]:font-['Inter_var'] [&_.destination-name]:text-[14px] [&_.destination-name]:font-[600] [&_.destination-name]:text-[#1E293B] [&_.destination-subtitle]:font-['Inter_var'] [&_.destination-subtitle]:text-[13px] [&_.destination-subtitle]:text-[#64748B] [&_.destination-subtitle]:mt-1">
       {/* Column Headers */}
-      <div className="grid grid-cols-[200px,180px,200px,120px,120px,120px] gap-0 px-4 py-2 text-xs text-[#0f3e4a] border-b border-gray-200">
+      <div className="grid grid-cols-[180px,200px,200px,120px,120px] gap-0 px-4 py-2 text-xs text-[#0f3e4a] border-b border-gray-200">
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-[#6366F1]" />
           <span className="destination-name uppercase">DATE</span>
@@ -430,10 +436,6 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
           <span className="destination-name uppercase">DISCOVER</span>
         </div>
         <div className="flex items-center gap-2">
-          <Utensils className="w-4 h-4 text-[#8B5CF6]" />
-          <span className="destination-name uppercase">FOOD</span>
-        </div>
-        <div className="flex items-center gap-2">
           <StickyNote className="w-4 h-4 text-[#3B82F6]" />
           <span className="destination-name uppercase">NOTES</span>
         </div>
@@ -443,7 +445,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
       <div className="space-y-1">
         {expandedDays.map((day, index) => (
           <React.Fragment key={index}>
-            <div className="grid grid-cols-[200px,180px,200px,120px,120px,120px] gap-0 items-center bg-white px-4 py-2 hover:bg-[#f1f8fa] transition-colors">
+            <div className="grid grid-cols-[180px,200px,200px,120px,120px] gap-0 items-center bg-white px-4 py-2 hover:bg-[#f1f8fa] transition-colors">
               <div>
                 <div className="flex flex-col">
                   <div className="destination-name">
@@ -467,7 +469,9 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
                 {dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel ? (
                   <div className="flex flex-col">
                     <span className="destination-name">
-                      {dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel}
+                      {(dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel || '').length > 22
+                        ? `${dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel?.slice(0, 22)}...`
+                        : dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel}
                     </span>
                     <span className="destination-subtitle">
                       Booked
@@ -496,23 +500,6 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
                   <button
                     onClick={() => handleDiscoverClick(day, day.dayIndex)}
                     className="discover-action column-action"
-                  >
-                    <Plus className="w-4 h-4" strokeWidth={2.5} />
-                  </button>
-                )}
-              </div>
-              <div className="flex items-center justify-center">
-                {dayFoods?.find(f => f.dayIndex === day.dayIndex)?.foodItems.length ? (
-                  <button
-                    onClick={() => onFoodClick && onFoodClick(day.destination, day.dayIndex)}
-                    className="destination-name hover:text-[#00C48C] transition-colors"
-                  >
-                    {dayFoods.find(f => f.dayIndex === day.dayIndex)?.foodItems.length} food spots
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => onFoodClick && onFoodClick(day.destination, day.dayIndex)}
-                    className="food-action column-action"
                   >
                     <Plus className="w-4 h-4" strokeWidth={2.5} />
                   </button>
