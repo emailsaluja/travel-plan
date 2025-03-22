@@ -417,23 +417,16 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
   };
 
   // Sort attractions with selected ones at the top
-  const sortedAttractions = [...attractions].sort((a, b) => {
-    // First priority: selected items
-    if (a.isSelected && !b.isSelected) return -1;
-    if (!a.isSelected && b.isSelected) return 1;
+  const sortedAttractions = [...attractions]
+    .filter(attraction => !attraction.isManuallyAdded) // Filter out manually added attractions
+    .sort((a, b) => {
+      // First priority: selected items
+      if (a.isSelected && !b.isSelected) return -1;
+      if (!a.isSelected && b.isSelected) return 1;
 
-    // Second priority: manually added items
-    if (a.isManuallyAdded && !b.isManuallyAdded) return -1;
-    if (!a.isManuallyAdded && b.isManuallyAdded) return 1;
-
-    // Third priority: number of reviews (for non-manual attractions)
-    if (!a.isManuallyAdded && !b.isManuallyAdded) {
+      // Second priority: number of reviews
       return (b.userRatingsTotal || 0) - (a.userRatingsTotal || 0);
-    }
-
-    // If both are manually added or other cases, maintain current order
-    return 0;
-  });
+    });
 
   // Load manual attractions
   useEffect(() => {
@@ -774,6 +767,48 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
             </div>
           ) : activeTab === 'manual' ? (
             <div className="space-y-6">
+              {/* Manual Attractions List */}
+              <div className="mb-8">
+                <h3 className="mb-4 font-['Inter_var'] font-[600] text-[#1E293B]">Your Custom Attractions</h3>
+                <div className="grid gap-4">
+                  {manualAttractions.map((attraction) => (
+                    <div
+                      key={attraction.id}
+                      className={`group relative rounded-lg border p-4 transition-all hover:shadow-md ${selectedAttractions.includes(attraction.name)
+                        ? 'border-[#00B8A9] bg-[#00B8A9]/5'
+                        : 'border-gray-200 hover:border-[#00B8A9]'
+                        }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <MapPin className={`h-5 w-5 ${selectedAttractions.includes(attraction.name) ? 'text-[#00B8A9]' : 'text-gray-400'}`} />
+                          <div>
+                            <div className="font-['Inter_var'] font-[600] text-[#1E293B]">{attraction.name}</div>
+                            {attraction.description && (
+                              <div className="text-sm text-gray-500">{attraction.description}</div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleEditAttraction(attraction)}
+                            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAttraction(attraction.id)}
+                            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Search Input */}
               <div className="relative">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -852,65 +887,6 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
                   </button>
                 </div>
               </form>
-
-              {/* Manual Attractions List */}
-              <div className="mt-8">
-                <h3 className="mb-4 font-['Inter_var'] font-[600] text-[#1E293B]">Your Custom Attractions</h3>
-                <div className="grid gap-4">
-                  {manualAttractions.map((attraction) => (
-                    <div
-                      key={attraction.id}
-                      className={`group relative rounded-lg border p-4 transition-all hover:shadow-md ${selectedAttractions.includes(attraction.name)
-                        ? 'border-[#00B8A9] bg-[#00B8A9]/5'
-                        : 'border-gray-200 hover:border-[#00B8A9]'
-                        }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="font-['Inter_var'] font-[600] text-[#1E293B]">{attraction.name}</h4>
-                          <p className="mt-1 text-sm text-gray-500">{attraction.description}</p>
-                          {attraction.rating && (
-                            <div className="mt-2 flex items-center gap-2">
-                              <div className="flex items-center">
-                                {[...Array(Math.floor(Number(attraction.rating)))].map((_, i) => (
-                                  <Star key={i} className="h-4 w-4 fill-[#00B8A9] text-[#00B8A9]" />
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleEditAttraction(attraction)}
-                            className="rounded-full p-2 text-gray-400 hover:bg-[#00B8A9]/10 hover:text-[#00B8A9]"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteAttraction(attraction.id)}
-                            className="rounded-full p-2 text-gray-400 hover:bg-red-50 hover:text-red-500"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleAttractionToggle(attraction)}
-                            className={`rounded-full p-2 ${selectedAttractions.includes(attraction.name)
-                              ? 'bg-[#00B8A9] text-white'
-                              : 'text-[#00B8A9] hover:bg-[#00B8A9]/10'
-                              }`}
-                          >
-                            {selectedAttractions.includes(attraction.name) ? (
-                              <Check className="h-5 w-5" />
-                            ) : (
-                              <Plus className="h-5 w-5" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
           ) : (
             <div className="space-y-6">
