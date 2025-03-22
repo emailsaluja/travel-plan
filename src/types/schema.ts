@@ -38,7 +38,7 @@ export interface UserItineraryDestination {
     transport: string;
     notes: string;
     food: string;
-    hotel: string;
+    manual_hotel: string;
     order_index: number;
 }
 

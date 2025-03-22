@@ -76,6 +76,7 @@ interface ItineraryDay {
   notes: string;
   food: string;
   hotel?: string;
+  manual_hotel?: string;
 }
 
 interface TripSummary {
@@ -137,6 +138,7 @@ interface UserItineraryData {
     transport: string;
     notes: string;
     food: string;
+    manual_hotel: string;
     order_index: number;
   }>;
   day_attractions?: UserItineraryDayAttraction[];
@@ -244,7 +246,8 @@ const CreateItinerary: React.FC = () => {
               transport: dest.transport || '',
               notes: dest.notes || '',
               food: dest.food || '',
-              hotel: dest.hotel || ''  // Load destination-specific hotel
+              hotel: dest.hotel || '',
+              manual_hotel: dest.manual_hotel || ''
             }));
 
             console.log('Setting destinations with hotels:', destinationsWithHotels);
@@ -336,7 +339,9 @@ const CreateItinerary: React.FC = () => {
       discover: '',
       transport: '',
       notes: '',
-      food: ''
+      food: '',
+      hotel: '',
+      manual_hotel: ''
     };
     setItineraryDays([emptyDay]);
   };
@@ -441,6 +446,11 @@ const CreateItinerary: React.FC = () => {
         // Convert food items to string
         const foodString = Array.from(foodItems).join(', ');
 
+        // Find the hotel for this destination
+        const hotelForDestination = dayHotels.find(h => h.dayIndex === startDayIndex);
+        const isManualHotel = hotelForDestination?.isManual;
+        const hotelName = hotelForDestination?.hotel || '';
+
         return {
           destination: day.destination,
           nights: day.nights,
@@ -448,7 +458,8 @@ const CreateItinerary: React.FC = () => {
           transport: day.transport || '',
           notes: day.notes || '',
           food: foodString,
-          hotel: day.hotel || ''
+          hotel: isManualHotel ? '' : hotelName,
+          manual_hotel: isManualHotel ? hotelName : ''
         };
       });
 
@@ -520,7 +531,9 @@ const CreateItinerary: React.FC = () => {
       discover: '',
       transport: '',
       notes: '',
-      food: ''
+      food: '',
+      hotel: '',
+      manual_hotel: ''
     };
     setItineraryDays(prev => [...prev, newDay]);
   };
@@ -758,14 +771,16 @@ const CreateItinerary: React.FC = () => {
 
   const handleHotelSelect = (hotel: string, isManual?: boolean) => {
     if (currentDestinationIndexForHotel >= 0) {
+      // Update the specific destination's hotel
+      const updatedDestinations = [...itineraryDays];
+
       if (activeTab === 'destinations') {
-        // Update the specific destination's hotel
-        const updatedDestinations = [...itineraryDays];
+        // Update the destination's hotel fields
         updatedDestinations[currentDestinationIndexForHotel] = {
           ...updatedDestinations[currentDestinationIndexForHotel],
-          hotel  // Store hotel in the destination
+          hotel: isManual ? '' : hotel,
+          manual_hotel: isManual ? hotel : ''
         };
-        setItineraryDays(updatedDestinations);
 
         // Calculate the start and end day indices for the selected destination
         let startDayIndex = 0;
@@ -788,17 +803,49 @@ const CreateItinerary: React.FC = () => {
           });
         }
 
+        // Sort hotels by day index
+        updatedHotels.sort((a, b) => a.dayIndex - b.dayIndex);
         setDayHotels(updatedHotels);
       } else {
         // Day by Day view - update only the selected day
-        const updatedHotels = dayHotels.filter(h => h.dayIndex !== currentDestinationIndexForHotel);
-        updatedHotels.push({
-          dayIndex: currentDestinationIndexForHotel,
-          hotel,
-          isManual
-        });
+        const updatedHotels = [...dayHotels];
+        const hotelIndex = updatedHotels.findIndex(h => h.dayIndex === currentDestinationIndexForHotel);
+
+        if (hotelIndex !== -1) {
+          updatedHotels[hotelIndex] = {
+            dayIndex: currentDestinationIndexForHotel,
+            hotel,
+            isManual
+          };
+        } else {
+          updatedHotels.push({
+            dayIndex: currentDestinationIndexForHotel,
+            hotel,
+            isManual
+          });
+          // Sort hotels by day index
+          updatedHotels.sort((a, b) => a.dayIndex - b.dayIndex);
+        }
+
         setDayHotels(updatedHotels);
+
+        // Find which destination this day belongs to and update it
+        let currentDayCount = 0;
+        for (let i = 0; i < itineraryDays.length; i++) {
+          const nextDayCount = currentDayCount + itineraryDays[i].nights;
+          if (currentDestinationIndexForHotel >= currentDayCount && currentDestinationIndexForHotel < nextDayCount) {
+            updatedDestinations[i] = {
+              ...updatedDestinations[i],
+              hotel: isManual ? '' : hotel,
+              manual_hotel: isManual ? hotel : ''
+            };
+            break;
+          }
+          currentDayCount = nextDayCount;
+        }
       }
+
+      setItineraryDays(updatedDestinations);
       setIsHotelSearchOpen(false);
     }
   };
@@ -967,7 +1014,7 @@ const CreateItinerary: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  {day.hotel || dayHotels.find(h => h.dayIndex === index)?.hotel ? (
+                  {(day.hotel || day.manual_hotel || dayHotels.find(h => h.dayIndex === index)?.hotel) ? (
                     <div className="text-xs group relative flex items-center justify-start flex-col">
                       <button
                         onClick={() => {
@@ -978,7 +1025,7 @@ const CreateItinerary: React.FC = () => {
                         className="font-['Inter_var'] font-[600] text-sm text-[#0f3e4a] hover:text-[#00C48C] transition-colors"
                       >
                         <span className="max-w-[140px] truncate block">
-                          {day.hotel || dayHotels.find(h => h.dayIndex === index)?.hotel}
+                          {day.manual_hotel || day.hotel || dayHotels.find(h => h.dayIndex === index)?.hotel}
                         </span>
                       </button>
                       <div className="text-[10px] text-[#0f3e4a]">To be booked</div>
@@ -1176,7 +1223,7 @@ const CreateItinerary: React.FC = () => {
             onClick={() => {
               setItineraryDays([
                 ...itineraryDays,
-                { destination: '', nights: 1, discover: '', transport: '', notes: '', food: '' }
+                { destination: '', nights: 1, discover: '', transport: '', notes: '', food: '', hotel: '', manual_hotel: '' }
               ]);
             }}
             className="flex items-center gap-2 px-4 py-2 text-sm text-[#0f3e4a] hover:text-[#00C48C] transition-colors font-['Inter_var'] font-[600]"

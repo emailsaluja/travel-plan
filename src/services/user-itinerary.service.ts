@@ -8,7 +8,8 @@ interface UserItineraryDestination {
   transport: string;
   notes: string;
   food: string;
-  hotel: string;
+  hotel?: string;
+  manual_hotel: string;
   order_index: number;
 }
 
@@ -79,7 +80,7 @@ export interface UserItinerary {
     transport: string;
     notes: string;
     food: string;
-    hotel: string;
+    manual_hotel: string;
     order_index: number;
   }[];
   day_attractions: {
@@ -109,7 +110,8 @@ export interface SaveItineraryData {
     transport: string;
     notes: string;
     food: string;
-    hotel: string;
+    hotel?: string;
+    manual_hotel?: string;
   }[];
   dayAttractions: {
     dayIndex: number;
@@ -123,6 +125,27 @@ export interface SaveItineraryData {
     day_index: number;
     notes: string;
   }[];
+}
+
+interface LikedItinerary {
+  id: string;
+  trip_name: string;
+  country: string;
+  start_date: string;
+  duration: number;
+  passengers: number;
+  created_at: string;
+  destinations: Array<{
+    destination: string;
+    nights: number;
+    discover: string;
+    transport: string;
+    notes: string;
+    food: string;
+    hotel?: string;
+    manual_hotel?: string;
+  }>;
+  liked_at: string;
 }
 
 export const UserItineraryService = {
@@ -156,6 +179,7 @@ export const UserItineraryService = {
         notes: dest.notes,
         food: dest.food,
         hotel: dest.hotel || '',
+        manual_hotel: dest.manual_hotel || '',
         order_index: index
       }));
 
@@ -284,6 +308,7 @@ export const UserItineraryService = {
             notes,
             food,
             hotel,
+            manual_hotel,
             order_index
           ),
           day_attractions:user_itinerary_day_attractions(
@@ -507,6 +532,7 @@ export const UserItineraryService = {
         notes: dest.notes,
         food: dest.food,
         hotel: dest.hotel || '',
+        manual_hotel: dest.manual_hotel || '',
         order_index: index
       }));
 
@@ -743,7 +769,7 @@ export const UserItineraryService = {
           transport: dest.transport || '',
           notes: dest.notes || '',
           food: dest.food || '',
-          hotel: dest.hotel || '',
+          manual_hotel: dest.manual_hotel || '',
           order_index: index
         }));
 
