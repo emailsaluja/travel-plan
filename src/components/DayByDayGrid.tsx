@@ -80,7 +80,6 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   onNotesClick
 }) => {
   const [showDiscoverPopup, setShowDiscoverPopup] = useState(false);
-  const [showHotelPopup, setShowHotelPopup] = useState(false);
   const [showNotesPopup, setShowNotesPopup] = useState(false);
   const [showFoodPopup, setShowFoodPopup] = useState(false);
   const [selectedDay, setSelectedDay] = useState<{
@@ -89,11 +88,6 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
     discover: string;
     dayIndex: number;
     allAttractions: string[];
-  } | null>(null);
-  const [selectedDayForHotel, setSelectedDayForHotel] = useState<{
-    dayIndex: number;
-    destination: string;
-    sleeping: string;
   } | null>(null);
   const [selectedDayForNotes, setSelectedDayForNotes] = useState<{
     dayIndex: number;
@@ -225,36 +219,10 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
     }
   };
 
-  const handleHotelSelect = (hotel: string) => {
-    if (selectedDayForHotel) {
-      const newHotels = [...dayHotels];
-      const hotelIndex = newHotels.findIndex(h => h.dayIndex === selectedDayForHotel.dayIndex);
-
-      if (hotelIndex !== -1) {
-        newHotels[hotelIndex] = {
-          ...newHotels[hotelIndex],
-          hotel
-        };
-      } else {
-        newHotels.push({
-          dayIndex: selectedDayForHotel.dayIndex,
-          hotel
-        });
-      }
-
-      onDayHotelsUpdate(newHotels);
-      setShowHotelPopup(false);
-      setSelectedDayForHotel(null);
-    }
-  };
-
   const handleHotelClick = (day: ExpandedDay) => {
-    setSelectedDayForHotel({
-      dayIndex: day.dayIndex,
-      destination: day.destination,
-      sleeping: dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel || ''
-    });
-    setShowHotelPopup(true);
+    if (onHotelClick) {
+      onHotelClick(day.destination, day.dayIndex);
+    }
   };
 
   const handleNotesClick = (day: ExpandedDay) => {
@@ -467,7 +435,10 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
               </div>
               <div className="flex items-center">
                 {dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel ? (
-                  <div className="flex flex-col">
+                  <button
+                    onClick={() => handleHotelClick(day)}
+                    className="flex flex-col text-left hover:text-[#F59E0B] transition-colors"
+                  >
                     <span className="destination-name">
                       {(dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel || '').length > 22
                         ? `${dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel?.slice(0, 22)}...`
@@ -476,7 +447,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
                     <span className="destination-subtitle">
                       Booked
                     </span>
-                  </div>
+                  </button>
                 ) : (
                   <div className="flex items-center justify-start">
                     <button
@@ -543,20 +514,6 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
           )?.selectedAttractions || []}
           allDestinationAttractions={selectedDay.allAttractions}
           onAttractionsUpdate={handleUpdateDayAttractions}
-        />
-      )}
-
-      {/* Hotel Search Popup */}
-      {showHotelPopup && selectedDayForHotel && (
-        <HotelSearchPopup
-          isOpen={showHotelPopup}
-          onClose={() => {
-            setShowHotelPopup(false);
-            setSelectedDayForHotel(null);
-          }}
-          destination={selectedDayForHotel.destination}
-          selectedHotel={selectedDayForHotel.sleeping}
-          onHotelSelect={handleHotelSelect}
         />
       )}
 
