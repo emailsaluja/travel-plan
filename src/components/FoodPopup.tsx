@@ -15,6 +15,7 @@ interface FoodPlace {
     isSelected?: boolean;
     address?: string;
     openNow?: boolean;
+    isManuallyAdded?: boolean;
 }
 
 interface PlaceSearchResponse {
@@ -51,6 +52,7 @@ const FoodPopup: React.FC<FoodPopupProps> = ({
     const [manualFoodName, setManualFoodName] = useState('');
     const [manualFoodAddress, setManualFoodAddress] = useState('');
     const [foodPlaces, setFoodPlaces] = useState<FoodPlace[]>([]);
+    const [manualFoodPlaces, setManualFoodPlaces] = useState<FoodPlace[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -58,10 +60,20 @@ const FoodPopup: React.FC<FoodPopupProps> = ({
     const placesService = useRef<google.maps.places.PlacesService | null>(null);
     const searchDebounceTimeout = useRef<NodeJS.Timeout>();
 
-    // Initialize selected items when the popup opens
+    // Initialize selected items and manual food places when the popup opens
     useEffect(() => {
         if (isOpen) {
             setSelectedItems(selectedFoodItems || []);
+            // Only convert items that start with 'manual-' to manual food places
+            const manualPlaces = selectedFoodItems
+                .filter(item => item.startsWith('manual-'))
+                .map(item => ({
+                    id: item,
+                    name: item.replace('manual-', ''),
+                    isManuallyAdded: true,
+                    isSelected: true
+                }));
+            setManualFoodPlaces(manualPlaces);
         }
     }, [isOpen, selectedFoodItems]);
 
@@ -171,7 +183,8 @@ const FoodPopup: React.FC<FoodPopupProps> = ({
                                     address: place.formatted_address,
                                     openNow: place.opening_hours?.isOpen(),
                                     cuisine: place.types?.find(type => type !== 'restaurant' && type !== 'food')?.replace(/_/g, ' '),
-                                    isSelected: selectedItems.includes(place.name || '')
+                                    isSelected: selectedItems.includes(place.name || ''),
+                                    isManuallyAdded: false
                                 }));
 
                                 foodPlacesData.sort((a, b) => {
@@ -247,11 +260,24 @@ const FoodPopup: React.FC<FoodPopupProps> = ({
     const handleManualAdd = (e: React.FormEvent) => {
         e.preventDefault();
         if (manualFoodName.trim()) {
-            const newSelectedItems = [...selectedItems, manualFoodName.trim()];
+            const newManualPlace: FoodPlace = {
+                id: `manual-${manualFoodName.trim()}`,
+                name: manualFoodName.trim(),
+                address: manualFoodAddress.trim(),
+                isManuallyAdded: true,
+                isSelected: true
+            };
+
+            // Add to manual food places
+            setManualFoodPlaces(prev => [...prev, newManualPlace]);
+
+            // Add to selected items with the manual- prefix
+            const newSelectedItems = [...selectedItems, newManualPlace.id];
             setSelectedItems(newSelectedItems);
+
+            // Clear form
             setManualFoodName('');
             setManualFoodAddress('');
-            onFoodSelect(newSelectedItems);
         }
     };
 
@@ -411,6 +437,42 @@ const FoodPopup: React.FC<FoodPopupProps> = ({
                     ) : (
                         // Manual add tab content
                         <div className="p-4">
+                            {/* Manually Added Restaurants List */}
+                            {manualFoodPlaces.length > 0 && (
+                                <div className="mb-8">
+                                    <h3 className="text-sm font-medium text-gray-700 mb-4">Your Custom Restaurants</h3>
+                                    <div className="space-y-2">
+                                        {manualFoodPlaces.map((place) => (
+                                            <div
+                                                key={place.id}
+                                                className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:border-[#8B5CF6] transition-colors"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <Utensils className="h-5 w-5 text-[#8B5CF6]" />
+                                                    <div>
+                                                        <div className="font-medium text-gray-900">{place.name}</div>
+                                                        {place.address && (
+                                                            <div className="text-sm text-gray-500">{place.address}</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        const newManualPlaces = manualFoodPlaces.filter(p => p.id !== place.id);
+                                                        const newSelectedItems = selectedItems.filter(item => item !== place.id);
+                                                        setManualFoodPlaces(newManualPlaces);
+                                                        setSelectedItems(newSelectedItems);
+                                                    }}
+                                                    className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                                                >
+                                                    <Minus className="h-4 w-4 text-gray-500" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <form onSubmit={handleManualAdd} className="space-y-4">
                                 <div>
                                     <label htmlFor="foodName" className="block text-sm font-medium text-gray-700 mb-1">
@@ -446,33 +508,6 @@ const FoodPopup: React.FC<FoodPopupProps> = ({
                                     Add Restaurant
                                 </button>
                             </form>
-
-                            {/* Selected Items List */}
-                            {selectedItems.length > 0 && (
-                                <div className="mt-6">
-                                    <h3 className="text-sm font-medium text-gray-700 mb-2">Selected Restaurants</h3>
-                                    <div className="space-y-2">
-                                        {selectedItems.map((item, index) => (
-                                            <div
-                                                key={index}
-                                                className="flex items-center justify-between bg-gray-50 p-2 rounded-lg"
-                                            >
-                                                <span className="text-sm text-gray-700">{item}</span>
-                                                <button
-                                                    onClick={() => {
-                                                        const newItems = selectedItems.filter((_, i) => i !== index);
-                                                        setSelectedItems(newItems);
-                                                        onFoodSelect(newItems);
-                                                    }}
-                                                    className="p-1 hover:bg-gray-200 rounded-full transition-colors"
-                                                >
-                                                    <Minus className="w-4 h-4 text-gray-500" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     )}
                 </div>
