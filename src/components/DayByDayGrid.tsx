@@ -174,20 +174,16 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
           }
         });
 
-        // Update each day's attractions only if they don't exist or if they're different
+        // Update each day's attractions, preserving existing ones if they exist
         expandedDays.forEach(day => {
-          const dbAttractions = attractionsMap.get(day.dayIndex);
           const existingAttractions = dayAttractions.find(da => da.dayIndex === day.dayIndex);
+          const dbAttractions = attractionsMap.get(day.dayIndex);
 
-          // Only update if:
-          // 1. We have database attractions and they're different from existing ones
-          // 2. We don't have existing attractions and we can initialize from destinations
           if (dbAttractions) {
-            const currentAttractions = existingAttractions?.selectedAttractions || [];
-            if (JSON.stringify(currentAttractions) !== JSON.stringify(dbAttractions)) {
-              onDayAttractionsUpdate(day.dayIndex, dbAttractions);
-            }
+            // If we have database attractions, use those
+            onDayAttractionsUpdate(day.dayIndex, dbAttractions);
           } else if (!existingAttractions) {
+            // If no database attractions and no existing attractions, initialize from destinations
             const destinationData = destinations.find(d => d.destination === day.destination);
             const destinationAttractions = [
               ...(destinationData?.discover?.split(',').filter(Boolean) || []),
@@ -205,7 +201,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
     };
 
     loadAttractionsFromDatabase();
-  }, [itineraryId, destinations]); // Only depend on itineraryId and destinations
+  }, [itineraryId, onDayAttractionsUpdate, destinations, dayAttractions, expandedDays]);
 
   const handleDiscoverClick = (day: ExpandedDay, index: number) => {
     const destinationData = destinations.find(d => d.destination === day.destination);

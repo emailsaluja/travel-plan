@@ -305,17 +305,17 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
                 type="button"
                 onClick={() => handleToggleTag(id)}
                 className={`flex flex-col items-center p-3 rounded-lg border transition-all duration-200 ${editedSummary.tags.includes(id)
-                    ? 'border-[#00C48C] bg-[#00C48C]/10 shadow-sm'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  ? 'border-[#00C48C] bg-[#00C48C]/10 shadow-sm'
+                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
               >
                 <Icon className={`w-5 h-5 mb-1.5 ${editedSummary.tags.includes(id)
-                    ? 'text-[#00C48C]'
-                    : 'text-gray-500'
+                  ? 'text-[#00C48C]'
+                  : 'text-gray-500'
                   }`} />
                 <span className={`text-xs font-medium ${editedSummary.tags.includes(id)
-                    ? 'text-[#00C48C]'
-                    : 'text-gray-600'
+                  ? 'text-[#00C48C]'
+                  : 'text-gray-600'
                   }`}>
                   {label}
                 </span>

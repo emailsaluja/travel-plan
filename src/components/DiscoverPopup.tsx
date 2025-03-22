@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, MapPin, Star, Search, Plus, Edit2, Trash2, Check, Compass } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { cleanDestination } from '../utils/stringUtils';
+import { placesCacheService } from '../services/places-cache.service';
+import { GoogleMapsService } from '../services/google-maps.service';
 
 interface Attraction {
   id: string;
@@ -91,10 +93,8 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
       clearAllState();
       setLoading(true);
 
-      // Initialize Places Service with a map div (required by Google Maps API)
-      const mapDiv = document.createElement('div');
-      const map = new google.maps.Map(mapDiv);
-      placesService.current = new google.maps.places.PlacesService(map);
+      // Use the shared Places Service
+      const placesService = GoogleMapsService.getPlacesService();
 
       // First, find the location of the destination
       const destinationRequest = {
@@ -102,7 +102,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
         fields: ['geometry']
       };
 
-      placesService.current.findPlaceFromQuery(destinationRequest, (results, status) => {
+      placesService.findPlaceFromQuery(destinationRequest, (results, status) => {
         if (status === google.maps.places.PlacesServiceStatus.OK && results && results[0]) {
           const location = results[0].geometry?.location;
 
@@ -118,56 +118,56 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
             Promise.all([
               // Major Tourist Attractions
               new Promise((resolve) => {
-                placesService.current?.nearbySearch(
+                placesService.nearbySearch(
                   { ...attractionsRequest, type: 'tourist_attraction' },
                   (results, status) => resolve({ results, status })
                 );
               }),
               // Historical & Cultural Sites
               new Promise((resolve) => {
-                placesService.current?.nearbySearch(
+                placesService.nearbySearch(
                   { ...attractionsRequest, type: 'museum' },
                   (results, status) => resolve({ results, status })
                 );
               }),
               // Religious Sites
               new Promise((resolve) => {
-                placesService.current?.nearbySearch(
+                placesService.nearbySearch(
                   { ...attractionsRequest, type: 'place_of_worship' },
                   (results, status) => resolve({ results, status })
                 );
               }),
               // Parks and Nature
               new Promise((resolve) => {
-                placesService.current?.nearbySearch(
+                placesService.nearbySearch(
                   { ...attractionsRequest, type: 'park' },
                   (results, status) => resolve({ results, status })
                 );
               }),
               // Landmarks
               new Promise((resolve) => {
-                placesService.current?.nearbySearch(
+                placesService.nearbySearch(
                   { ...attractionsRequest, type: 'landmark' },
                   (results, status) => resolve({ results, status })
                 );
               }),
               // Amusement Parks
               new Promise((resolve) => {
-                placesService.current?.nearbySearch(
+                placesService.nearbySearch(
                   { ...attractionsRequest, type: 'amusement_park' },
                   (results, status) => resolve({ results, status })
                 );
               }),
               // Art Galleries
               new Promise((resolve) => {
-                placesService.current?.nearbySearch(
+                placesService.nearbySearch(
                   { ...attractionsRequest, type: 'art_gallery' },
                   (results, status) => resolve({ results, status })
                 );
               }),
               // Famous View Points
               new Promise((resolve) => {
-                placesService.current?.textSearch({
+                placesService.textSearch({
                   location: location,
                   radius: 50000,
                   query: `best viewpoints in ${cleanDestination(destination)}`
@@ -175,7 +175,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
               }),
               // Historical Sites
               new Promise((resolve) => {
-                placesService.current?.textSearch({
+                placesService.textSearch({
                   location: location,
                   radius: 50000,
                   query: `historical sites in ${cleanDestination(destination)}`
@@ -183,7 +183,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
               }),
               // Must Visit Places
               new Promise((resolve) => {
-                placesService.current?.textSearch({
+                placesService.textSearch({
                   location: location,
                   radius: 50000,
                   query: `must visit places in ${cleanDestination(destination)}`
@@ -335,8 +335,8 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
 
   // Initialize autocomplete service
   useEffect(() => {
-    if (window.google && !autocompleteService.current) {
-      autocompleteService.current = new window.google.maps.places.AutocompleteService();
+    if (window.google) {
+      autocompleteService.current = GoogleMapsService.getAutocompleteService();
     }
   }, []);
 
@@ -775,6 +775,143 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
   const handleBookTour = (tourId: string) => {
     // This is a placeholder function - you can implement actual booking logic later
     alert('Booking feature coming soon! This will connect to a booking system in the future.');
+  };
+
+  const fetchPlaceDetails = async (placeId: string) => {
+    try {
+      // Try to get from cache first
+      const cachedDetails = await placesCacheService.getPlaceDetails(placeId);
+      if (cachedDetails) {
+        return cachedDetails;
+      }
+
+      // If not in cache, fetch from Google Places API
+      return new Promise((resolve, reject) => {
+        if (!placesService.current) return reject('Places service not initialized');
+
+        placesService.current.getDetails(
+          { placeId },
+          async (place, status) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && place) {
+              // Save to cache
+              await placesCacheService.savePlaceDetails(placeId, place);
+              resolve(place);
+            } else {
+              reject(status);
+            }
+          }
+        );
+      });
+    } catch (error) {
+      console.error('Error fetching place details:', error);
+      throw error;
+    }
+  };
+
+  const fetchNearbyPlaces = async (location: string, type: string) => {
+    try {
+      // Try to get from cache first
+      const cachedPlaces = await placesCacheService.getNearbyPlaces(location, type);
+      if (cachedPlaces) {
+        return cachedPlaces;
+      }
+
+      // If not in cache, fetch from Google Places API
+      return new Promise((resolve, reject) => {
+        if (!placesService.current) return reject('Places service not initialized');
+
+        const [lat, lng] = location.split(',').map(Number);
+        const request = {
+          location: new google.maps.LatLng(lat, lng),
+          radius: 5000,
+          type: type.toLowerCase()
+        };
+
+        placesService.current.nearbySearch(
+          request,
+          async (results, status) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+              // Save to cache
+              await placesCacheService.saveNearbyPlaces(location, type, results);
+              resolve(results);
+            } else {
+              reject(status);
+            }
+          }
+        );
+      });
+    } catch (error) {
+      console.error('Error fetching nearby places:', error);
+      throw error;
+    }
+  };
+
+  const handlePlaceAutocomplete = async (input: string) => {
+    try {
+      // Try to get from cache first
+      const cachedPredictions = await placesCacheService.getPlacePredictions(input);
+      if (cachedPredictions) {
+        return cachedPredictions;
+      }
+
+      // If not in cache, fetch from Google Places API
+      return new Promise((resolve, reject) => {
+        if (!autocompleteService.current) return reject('Autocomplete service not initialized');
+
+        autocompleteService.current.getPlacePredictions(
+          { input },
+          async (predictions, status) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+              // Save to cache
+              await placesCacheService.savePlacePredictions(input, predictions);
+              resolve(predictions);
+            } else {
+              reject(status);
+            }
+          }
+        );
+      });
+    } catch (error) {
+      console.error('Error fetching place predictions:', error);
+      throw error;
+    }
+  };
+
+  // Update the existing functions to use the new cached versions
+  useEffect(() => {
+    const initializeServices = () => {
+      const map = new google.maps.Map(document.createElement('div'));
+      placesService.current = new google.maps.places.PlacesService(map);
+      autocompleteService.current = new window.google.maps.places.AutocompleteService();
+    };
+
+    if (window.google && window.google.maps) {
+      initializeServices();
+    }
+  }, []);
+
+  const handleSearch = async (input: string) => {
+    if (!input) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      const predictions = await handlePlaceAutocomplete(input);
+      setSearchResults(predictions || []);
+    } catch (error) {
+      console.error('Error during search:', error);
+      setSearchResults([]);
+    }
+  };
+
+  const handlePlaceSelect = async (placeId: string) => {
+    try {
+      const place = await fetchPlaceDetails(placeId);
+      // Rest of your place selection logic
+    } catch (error) {
+      console.error('Error selecting place:', error);
+    }
   };
 
   if (!isOpen) return null;

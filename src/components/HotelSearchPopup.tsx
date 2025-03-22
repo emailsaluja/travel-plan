@@ -2,20 +2,21 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, MapPin, Star, Search, Plus, Building2, Edit2, Trash2, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { cleanDestination } from '../utils/stringUtils';
+import { placesCacheService } from '../services/places-cache.service';
+import { GoogleMapsService } from '../services/google-maps.service';
 
 interface Hotel {
   id: string;
   name: string;
-  description?: string;
   rating?: number;
   userRatingsTotal?: number;
   photoUrl?: string;
   priceLevel?: number;
-  amenities?: string[];
-  isSelected?: boolean;
-  isManuallyAdded?: boolean;
-  destination?: string;
-  user_id?: string;
+  description: string;
+  isSelected: boolean;
+  isManuallyAdded: boolean;
+  destination: string;
+  place_id?: string;
 }
 
 interface HotelSearchPopupProps {
@@ -112,6 +113,37 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
     }
   }, [destination, isOpen]);
 
+  const fetchHotelDetails = async (placeId: string) => {
+    try {
+      // Try to get from cache first
+      const cachedDetails = await placesCacheService.getPlaceDetails(placeId);
+      if (cachedDetails) {
+        return cachedDetails;
+      }
+
+      // If not in cache, fetch from Google Places API
+      return new Promise((resolve, reject) => {
+        if (!placesService.current) return reject('Places service not initialized');
+
+        placesService.current.getDetails(
+          { placeId },
+          async (place, status) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && place) {
+              // Save to cache
+              await placesCacheService.savePlaceDetails(placeId, place);
+              resolve(place);
+            } else {
+              reject(status);
+            }
+          }
+        );
+      });
+    } catch (error) {
+      console.error('Error fetching hotel details:', error);
+      throw error;
+    }
+  };
+
   const searchHotels = useCallback(async () => {
     if (!placesService.current) {
       setError("Places service not initialized");
@@ -120,14 +152,23 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
 
     setLoading(true);
     setError(null);
-    const uniqueHotels = new Map<string, google.maps.places.PlaceResult>();
-
-    const searchRequest: google.maps.places.TextSearchRequest = {
-      query: destination === "Venice" ? "hotels in Venice Italy" : `hotels in ${destination}`,
-      type: "lodging"
-    };
 
     try {
+      // Try to get from cache first
+      const cachedHotels = await placesCacheService.getNearbyPlaces(destination, 'lodging');
+      if (cachedHotels) {
+        processHotelsData(cachedHotels);
+        return;
+      }
+
+      // If not in cache, perform the search
+      const searchRequest: google.maps.places.TextSearchRequest = {
+        query: destination === "Venice" ? "hotels in Venice Italy" : `hotels in ${destination}`,
+        type: "lodging"
+      };
+
+      const uniqueHotels = new Map<string, google.maps.places.PlaceResult>();
+
       // First search - general hotels
       const generalResults = await new Promise<google.maps.places.PlaceResult[]>((resolve, reject) => {
         placesService.current?.textSearch(searchRequest, (results, status) => {
@@ -173,30 +214,14 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
         });
       }
 
-      const sortedHotels = Array.from(uniqueHotels.values()).sort((a, b) => {
-        const scoreA = (a.rating || 0) * Math.log(a.user_ratings_total || 1);
-        const scoreB = (b.rating || 0) * Math.log(b.user_ratings_total || 1);
-        return scoreB - scoreA;
-      });
+      const results = Array.from(uniqueHotels.values());
 
-      console.log(`Found ${sortedHotels.length} unique hotels for ${destination}`);
+      // Save to cache
+      await placesCacheService.saveNearbyPlaces(destination, 'lodging', results);
 
-      // Convert to our Hotel format
-      const hotelsData: Hotel[] = sortedHotels.map(place => ({
-        id: place.place_id || '',
-        name: place.name || '',
-        rating: place.rating,
-        userRatingsTotal: place.user_ratings_total,
-        photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 }),
-        priceLevel: place.price_level,
-        description: place.formatted_address || place.vicinity || '',
-        isSelected: selectedHotel === place.name,
-        isManuallyAdded: false,
-        destination: destination
-      }));
+      // Process the results
+      processHotelsData(results);
 
-      setHotels(hotelsData);
-      setLoading(false);
     } catch (err) {
       console.error('Error searching for hotels:', err);
       setError("Failed to load hotels. Please try again.");
@@ -204,12 +229,97 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
     }
   }, [destination, placesService, selectedHotel]);
 
-  // Initialize autocomplete service
-  useEffect(() => {
-    if (window.google && !autocompleteService.current) {
-      autocompleteService.current = new window.google.maps.places.AutocompleteService();
+  const processHotelsData = (results: google.maps.places.PlaceResult[]) => {
+    const sortedHotels = results.sort((a, b) => {
+      const scoreA = (a.rating || 0) * Math.log(a.user_ratings_total || 1);
+      const scoreB = (b.rating || 0) * Math.log(b.user_ratings_total || 1);
+      return scoreB - scoreA;
+    });
+
+    console.log(`Found ${sortedHotels.length} unique hotels for ${destination}`);
+
+    // Convert to our Hotel format
+    const hotelsData: Hotel[] = sortedHotels.map(place => ({
+      id: place.place_id || '',
+      place_id: place.place_id || '',
+      name: place.name || '',
+      rating: place.rating,
+      userRatingsTotal: place.user_ratings_total,
+      photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 }),
+      priceLevel: place.price_level,
+      description: place.formatted_address || place.vicinity || '',
+      isSelected: selectedHotel === place.name,
+      isManuallyAdded: false,
+      destination: destination
+    }));
+
+    setHotels(hotelsData);
+    setLoading(false);
+  };
+
+  const handleHotelSelect = async (hotel: Hotel) => {
+    try {
+      if (hotel.place_id) {
+        const placeDetails = await fetchHotelDetails(hotel.place_id);
+        // Update the hotel with additional details if needed
+        onHotelSelect(hotel.name, hotel.isManuallyAdded);
+        onClose();
+      }
+    } catch (error) {
+      console.error('Error selecting hotel:', error);
     }
-  }, []);
+  };
+
+  const handlePlaceAutocomplete = async (input: string) => {
+    try {
+      // Try to get from cache first
+      const cachedPredictions = await placesCacheService.getPlacePredictions(input);
+      if (cachedPredictions) {
+        return cachedPredictions;
+      }
+
+      // If not in cache, fetch from Google Places API
+      return new Promise((resolve, reject) => {
+        if (!autocompleteService.current) return reject('Autocomplete service not initialized');
+
+        const request = {
+          input,
+          types: ['lodging']
+        };
+
+        autocompleteService.current.getPlacePredictions(
+          request,
+          async (predictions, status) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+              // Save to cache
+              await placesCacheService.savePlacePredictions(input, predictions);
+              resolve(predictions);
+            } else {
+              reject(status);
+            }
+          }
+        );
+      });
+    } catch (error) {
+      console.error('Error fetching hotel predictions:', error);
+      throw error;
+    }
+  };
+
+  const handleSearch = async (input: string) => {
+    if (!input) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      const predictions = await handlePlaceAutocomplete(input);
+      setSearchResults(predictions || []);
+    } catch (error) {
+      console.error('Error during search:', error);
+      setSearchResults([]);
+    }
+  };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
@@ -323,17 +433,10 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
     setActiveTab('manual');
   };
 
-  const handleHotelSelect = (hotel: Hotel) => {
-    onHotelSelect(hotel.name, hotel.isManuallyAdded);
-    onClose();
-  };
-
   // Initialize Places Service
   useEffect(() => {
     if (isOpen && window.google) {
-      const mapDiv = document.createElement('div');
-      const map = new google.maps.Map(mapDiv);
-      placesService.current = new google.maps.places.PlacesService(map);
+      placesService.current = GoogleMapsService.getPlacesService();
       searchHotels();
     }
   }, [isOpen, searchHotels]);
