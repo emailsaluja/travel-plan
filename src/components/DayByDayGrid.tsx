@@ -6,6 +6,7 @@ import NotesPopup from './NotesPopup';
 import FoodPopup from './FoodPopup';
 import { FaUtensils, FaPlus } from 'react-icons/fa';
 import { cleanDestination } from '../utils/stringUtils';
+import { supabase } from '../lib/supabase';
 
 interface DayHotel {
   dayIndex: number;
@@ -23,6 +24,7 @@ interface DayByDayGridProps {
     notes: string;
     hotel?: string;
     food: string;
+    manual_discover?: string;
   }>;
   onDestinationsUpdate: (destinations: any[]) => void;
   dayAttractions: Array<{
@@ -45,6 +47,7 @@ interface DayByDayGridProps {
   }>;
   onFoodClick?: (destination: string, dayIndex: number) => void;
   onNotesClick: (destination: string, dayIndex: number) => void;
+  itineraryId: string;
 }
 
 interface ExpandedDay {
@@ -77,7 +80,8 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   onFoodSelect,
   dayFoods,
   onFoodClick,
-  onNotesClick
+  onNotesClick,
+  itineraryId
 }) => {
   const [showDiscoverPopup, setShowDiscoverPopup] = useState(false);
   const [showNotesPopup, setShowNotesPopup] = useState(false);
@@ -146,48 +150,70 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
 
   const expandedDays = generateExpandedDays();
 
+  // Add effect to load attractions from database
   useEffect(() => {
-    // Process each day
-    expandedDays.forEach(day => {
-      // Check if we already have attractions for this day in dayAttractions
-      const existingDayAttractions = dayAttractions.find(da => da.dayIndex === day.dayIndex);
+    const loadAttractionsFromDatabase = async () => {
+      if (!itineraryId) return;
 
-      // Only proceed if there are no attractions at all for this day
-      if (!existingDayAttractions) {
-        // Get all available attractions for this destination from the destinations array
-        const destinationData = destinations.find(d => d.destination === day.destination);
-        // Split by comma and clean each attraction
-        const destinationAttractions = destinationData?.discover
-          .split(',')
-          .map(attraction => attraction.trim())
-          .filter(attraction => attraction.length > 0) || [];
+      try {
+        const { data, error } = await supabase
+          .from('user_itinerary_day_attractions')
+          .select('day_index, attractions')
+          .eq('itinerary_id', itineraryId);
 
-        // If there are attractions available in the destination, select them all for this day
-        if (destinationAttractions.length > 0) {
-          console.log(`Auto-selecting attractions for day ${day.dayIndex}:`, destinationAttractions);
-          onDayAttractionsUpdate(day.dayIndex, destinationAttractions);
+        if (error) {
+          console.error('Error loading attractions:', error);
+          return;
         }
-      } else {
-        // Clean existing attractions
-        const cleanedAttractions = existingDayAttractions.selectedAttractions
-          .map(attraction => attraction.trim())
-          .filter(attraction => attraction.length > 0);
 
-        // Update if cleaning changed anything
-        if (JSON.stringify(cleanedAttractions) !== JSON.stringify(existingDayAttractions.selectedAttractions)) {
-          onDayAttractionsUpdate(day.dayIndex, cleanedAttractions);
-        }
+        // Create a map of all day attractions
+        const attractionsMap = new Map();
+        data.forEach(item => {
+          if (item.day_index !== undefined && Array.isArray(item.attractions)) {
+            attractionsMap.set(item.day_index, item.attractions);
+          }
+        });
+
+        // Update each day's attractions only if they don't exist or if they're different
+        expandedDays.forEach(day => {
+          const dbAttractions = attractionsMap.get(day.dayIndex);
+          const existingAttractions = dayAttractions.find(da => da.dayIndex === day.dayIndex);
+
+          // Only update if:
+          // 1. We have database attractions and they're different from existing ones
+          // 2. We don't have existing attractions and we can initialize from destinations
+          if (dbAttractions) {
+            const currentAttractions = existingAttractions?.selectedAttractions || [];
+            if (JSON.stringify(currentAttractions) !== JSON.stringify(dbAttractions)) {
+              onDayAttractionsUpdate(day.dayIndex, dbAttractions);
+            }
+          } else if (!existingAttractions) {
+            const destinationData = destinations.find(d => d.destination === day.destination);
+            const destinationAttractions = [
+              ...(destinationData?.discover?.split(',').filter(Boolean) || []),
+              ...(destinationData?.manual_discover?.split(',').filter(Boolean) || [])
+            ].map(attraction => attraction.trim());
+
+            if (destinationAttractions.length > 0) {
+              onDayAttractionsUpdate(day.dayIndex, destinationAttractions);
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Failed to load attractions:', error);
       }
-    });
-  }, [destinations, dayAttractions, onDayAttractionsUpdate]);
+    };
+
+    loadAttractionsFromDatabase();
+  }, [itineraryId, destinations]); // Only depend on itineraryId and destinations
 
   const handleDiscoverClick = (day: ExpandedDay, index: number) => {
     const destinationData = destinations.find(d => d.destination === day.destination);
     // Clean destination attractions
-    const destinationAttractions = destinationData?.discover
-      .split(',')
-      .map(attraction => attraction.trim())
-      .filter(attraction => attraction.length > 0) || [];
+    const destinationAttractions = [
+      ...(destinationData?.discover?.split(',').filter(Boolean) || []),
+      ...(destinationData?.manual_discover?.split(',').filter(Boolean) || [])
+    ].map(attraction => attraction.trim());
 
     // Get and clean the current attractions for this specific day
     const currentDayAttractions = dayAttractions.find(da => da.dayIndex === day.dayIndex);
@@ -207,7 +233,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
     setShowDiscoverPopup(true);
   };
 
-  const handleUpdateDayAttractions = (attractions: string[]) => {
+  const handleUpdateDayAttractions = async (attractions: string[]) => {
     if (selectedDay) {
       // Clean attractions before updating
       const cleanedAttractions = attractions
@@ -215,7 +241,35 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
         .filter(attraction => attraction.length > 0);
 
       console.log('Updating attractions for day:', selectedDay.dayIndex, 'with:', cleanedAttractions);
-      onDayAttractionsUpdate(selectedDay.dayIndex, cleanedAttractions);
+
+      try {
+        // Update the local state first for immediate feedback
+        onDayAttractionsUpdate(selectedDay.dayIndex, cleanedAttractions);
+
+        // Update the database
+        const { error } = await supabase
+          .from('user_itinerary_day_attractions')
+          .upsert({
+            itinerary_id: itineraryId,
+            day_index: selectedDay.dayIndex,
+            attractions: cleanedAttractions
+          });
+
+        if (error) {
+          console.error('Error updating attractions:', error);
+          // Revert local state if database update fails
+          const previousAttractions = dayAttractions.find(da => da.dayIndex === selectedDay.dayIndex)?.selectedAttractions || [];
+          onDayAttractionsUpdate(selectedDay.dayIndex, previousAttractions);
+          throw error;
+        }
+
+        // Close the popup and reset selected day
+        setShowDiscoverPopup(false);
+        setSelectedDay(null);
+
+      } catch (error) {
+        console.error('Failed to update attractions:', error);
+      }
     }
   };
 

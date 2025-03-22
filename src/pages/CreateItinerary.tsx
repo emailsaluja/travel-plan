@@ -72,6 +72,7 @@ interface ItineraryDay {
   destination: string;
   nights: number;
   discover: string;
+  manual_discover: string;
   transport: string;
   notes: string;
   food: string;
@@ -238,11 +239,12 @@ const CreateItinerary: React.FC = () => {
             });
             setCountrySearch(data.country);
 
-            // Set destinations with their specific hotels
+            // Set destinations with their specific hotels and manual_discover
             const destinationsWithHotels = data.destinations.map((dest: any) => ({
               destination: cleanDestination(dest.destination),
               nights: dest.nights,
               discover: dest.discover || '',
+              manual_discover: dest.manual_discover || '',
               transport: dest.transport || '',
               notes: dest.notes || '',
               food: dest.food || '',
@@ -293,13 +295,25 @@ const CreateItinerary: React.FC = () => {
 
             setDayFoods(newDayFoods);
 
-            // Set day attractions
-            if (data.day_attractions) {
-              console.log('Setting day attractions:', data.day_attractions);
-              const attractions = data.day_attractions.map((da: any) => ({
-                dayIndex: da.day_index,
-                selectedAttractions: Array.isArray(da.attractions) ? da.attractions : []
-              }));
+            // Set day attractions from manual_discover
+            if (data.destinations) {
+              console.log('Setting day attractions from manual_discover:', data.destinations);
+              let dayIndex = 0;
+              const attractions = data.destinations.flatMap((dest: any) => {
+                const manualAttractions = dest.manual_discover ? dest.manual_discover.split(', ').filter(Boolean) : [];
+                const regularAttractions = dest.discover ? dest.discover.split(', ').filter(Boolean) : [];
+                const result = [];
+
+                for (let i = 0; i < dest.nights; i++) {
+                  result.push({
+                    dayIndex: dayIndex + i,
+                    selectedAttractions: i === 0 ? [...regularAttractions, ...manualAttractions] : []
+                  });
+                }
+                dayIndex += dest.nights;
+                return result;
+              });
+
               setDayAttractions(attractions);
               setIsDayAttractionsInitialized(true);
             }
@@ -337,6 +351,7 @@ const CreateItinerary: React.FC = () => {
       destination: '',
       nights: 1,
       discover: '',
+      manual_discover: '',
       transport: '',
       notes: '',
       food: '',
@@ -455,6 +470,7 @@ const CreateItinerary: React.FC = () => {
           destination: day.destination,
           nights: day.nights,
           discover: day.discover || '',
+          manual_discover: day.manual_discover || '',
           transport: day.transport || '',
           notes: day.notes || '',
           food: foodString,
@@ -529,6 +545,7 @@ const CreateItinerary: React.FC = () => {
       destination: '',
       nights: 1,
       discover: '',
+      manual_discover: '',
       transport: '',
       notes: '',
       food: '',
@@ -580,10 +597,12 @@ const CreateItinerary: React.FC = () => {
     setCountrySearch('');
   };
 
-  const handleDiscoverSelect = (index: number, attractions: string[]) => {
+  const handleDiscoverSelect = (index: number, attractions: string[], manualAttractions: string[]) => {
     const updatedDays = [...itineraryDays];
     updatedDays[index].discover = attractions.join(', ');
+    updatedDays[index].manual_discover = manualAttractions.join(', ');
     setItineraryDays(updatedDays);
+    setShouldUpdateDayAttractions(true);
   };
 
   const handleDestinationsUpdate = (updatedDestinations: typeof itineraryDays) => {
@@ -1046,7 +1065,7 @@ const CreateItinerary: React.FC = () => {
                   )}
                 </div>
                 <div>
-                  {day.discover ? (
+                  {day.discover || day.manual_discover ? (
                     <div className="flex items-center justify-center">
                       <button
                         onClick={() => {
@@ -1055,7 +1074,10 @@ const CreateItinerary: React.FC = () => {
                         }}
                         className="font-['Inter_var'] font-[600] text-sm text-[#0f3e4a] hover:text-[#00C48C] transition-colors"
                       >
-                        {day.discover.split(',').length} to do's
+                        {[
+                          ...day.discover.split(',').filter(Boolean),
+                          ...day.manual_discover.split(',').filter(Boolean)
+                        ].length} to do's
                       </button>
                     </div>
                   ) : (
@@ -1223,7 +1245,7 @@ const CreateItinerary: React.FC = () => {
             onClick={() => {
               setItineraryDays([
                 ...itineraryDays,
-                { destination: '', nights: 1, discover: '', transport: '', notes: '', food: '', hotel: '', manual_hotel: '' }
+                { destination: '', nights: 1, discover: '', manual_discover: '', transport: '', notes: '', food: '', hotel: '', manual_hotel: '' }
               ]);
             }}
             className="flex items-center gap-2 px-4 py-2 text-sm text-[#0f3e4a] hover:text-[#00C48C] transition-colors font-['Inter_var'] font-[600]"
@@ -1553,6 +1575,8 @@ const CreateItinerary: React.FC = () => {
                             setCurrentDestinationIndexForHotel(dayIndex);
                             setIsHotelSearchOpen(true);
                           }}
+                          onFoodClick={handleDayFoodSelect}
+                          dayFoods={dayFoods}
                           onNotesClick={(destination, dayIndex) => {
                             const currentNotes = dayNotes.find(n => n.dayIndex === dayIndex)?.notes || '';
                             const updatedNotes = [...dayNotes];
@@ -1564,6 +1588,7 @@ const CreateItinerary: React.FC = () => {
                             }
                             handleDayNotesUpdate(updatedNotes);
                           }}
+                          itineraryId={itineraryId || ''}
                         />
                       </div>
                     )}
@@ -1693,8 +1718,13 @@ const CreateItinerary: React.FC = () => {
                 setActiveDestinationIndex(null);
               }}
               destination={cleanDestination(itineraryDays[activeDestinationIndex].destination)}
-              selectedAttractions={itineraryDays[activeDestinationIndex].discover.split(',').filter(Boolean)}
-              onAttractionsSelect={(attractions) => handleDiscoverSelect(activeDestinationIndex, attractions)}
+              selectedAttractions={[
+                ...itineraryDays[activeDestinationIndex].discover.split(',').filter(Boolean),
+                ...itineraryDays[activeDestinationIndex].manual_discover?.split(',').filter(Boolean) || []
+              ]}
+              onAttractionsSelect={(attractions, manualAttractions) =>
+                handleDiscoverSelect(activeDestinationIndex, attractions, manualAttractions)
+              }
             />
           </div>
         )}

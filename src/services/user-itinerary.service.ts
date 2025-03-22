@@ -10,6 +10,7 @@ interface UserItineraryDestination {
   food: string;
   hotel?: string;
   manual_hotel: string;
+  manual_discover: string;
   order_index: number;
 }
 
@@ -112,6 +113,7 @@ export interface SaveItineraryData {
     food: string;
     hotel?: string;
     manual_hotel?: string;
+    manual_discover?: string;
   }[];
   dayAttractions: {
     dayIndex: number;
@@ -180,6 +182,7 @@ export const UserItineraryService = {
         food: dest.food,
         hotel: dest.hotel || '',
         manual_hotel: dest.manual_hotel || '',
+        manual_discover: dest.manual_discover || '',
         order_index: index
       }));
 
@@ -309,6 +312,7 @@ export const UserItineraryService = {
             food,
             hotel,
             manual_hotel,
+            manual_discover,
             order_index
           ),
           day_attractions:user_itinerary_day_attractions(
@@ -533,6 +537,7 @@ export const UserItineraryService = {
         food: dest.food,
         hotel: dest.hotel || '',
         manual_hotel: dest.manual_hotel || '',
+        manual_discover: dest.manual_discover || '',
         order_index: index
       }));
 
@@ -770,6 +775,7 @@ export const UserItineraryService = {
           notes: dest.notes || '',
           food: dest.food || '',
           manual_hotel: dest.manual_hotel || '',
+          manual_discover: dest.manual_discover || '',
           order_index: index
         }));
 

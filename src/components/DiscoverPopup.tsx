@@ -31,7 +31,7 @@ interface DiscoverPopupProps {
   isOpen: boolean;
   onClose: () => void;
   destination: string;
-  onAttractionsSelect: (attractions: string[]) => void;
+  onAttractionsSelect: (attractions: string[], manualAttractions: string[]) => void;
   selectedAttractions?: string[];
 }
 
@@ -51,9 +51,11 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
   const [searchResults, setSearchResults] = useState<google.maps.places.AutocompletePrediction[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [googlePlacesLoaded, setGooglePlacesLoaded] = useState(false);
   const placesService = useRef<google.maps.places.PlacesService | null>(null);
   const autocompleteService = useRef<google.maps.places.AutocompleteService | null>(null);
   const searchDebounceTimeout = useRef<NodeJS.Timeout>();
+  const attractionsRef = useRef<Attraction[]>([]);
 
   // Manual attraction form state
   const [manualAttraction, setManualAttraction] = useState({
@@ -65,8 +67,28 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
 
   const [tours, setTours] = useState<Tour[]>([]);
 
+  // First useEffect to load Google Places results
   useEffect(() => {
+    const clearAllState = () => {
+      setGooglePlacesLoaded(false);
+      setAttractions([]);
+      setManualAttractions([]);
+      attractionsRef.current = [];
+      setSearchQuery('');
+      setSearchResults([]);
+      setShowSearchResults(false);
+      setActiveTab('search');
+      setManualAttraction({
+        name: '',
+        description: '',
+        rating: ''
+      });
+      setEditingAttraction(null);
+      setLoading(false);
+    };
+
     if (isOpen && destination && window.google) {
+      clearAllState();
       setLoading(true);
 
       // Initialize Places Service with a map div (required by Google Maps API)
@@ -213,44 +235,103 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
                 rating: place.rating,
                 userRatingsTotal: place.user_ratings_total,
                 photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 }),
-                isSelected: false, // Initialize as not selected
+                isSelected: false,
                 description: place.vicinity || place.formatted_address,
                 isManuallyAdded: false
               }));
 
-              // For each selected attraction, try to find a match in attractionsData
-              const selectedAttractionObjects = selectedAttractions.map(selectedName => {
+              // Mark selected attractions
+              selectedAttractions.forEach(selectedName => {
                 const match = attractionsData.find(a =>
                   a.name.toLowerCase() === selectedName.toLowerCase() ||
                   selectedName.toLowerCase().includes(a.name.toLowerCase()) ||
                   a.name.toLowerCase().includes(selectedName.toLowerCase())
                 );
-
                 if (match) {
                   match.isSelected = true;
-                  return null; // Return null for matches found in attractionsData
                 }
+              });
 
-                // If no match found, create a new manually added attraction
-                return {
-                  id: `manual-${selectedName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                  name: selectedName,
-                  isSelected: true,
-                  isManuallyAdded: true,
-                  rating: 0,
-                  userRatingsTotal: 0
-                };
-              }).filter(Boolean) as Attraction[]; // Remove null values and keep only manual attractions
-
-              // Update attractions with selected state and add manual ones
-              setAttractions([...selectedAttractionObjects, ...attractionsData]);
+              // Update attractions with selected state
+              setAttractions(attractionsData);
+              attractionsRef.current = attractionsData; // Store in ref for stable reference
+              setGooglePlacesLoaded(true);
               setLoading(false);
             });
           }
         }
       });
     }
+
+    // Cleanup function
+    return () => {
+      if (!isOpen) {
+        clearAllState();
+      }
+    };
   }, [isOpen, destination, selectedAttractions]);
+
+  // Second useEffect to load manual attractions after Google Places are loaded
+  useEffect(() => {
+    const loadManualAttractions = async () => {
+      if (!googlePlacesLoaded) return;
+
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Get existing manual attractions from the database first
+        const { data: dbAttractions, error } = await supabase
+          .from('attractions')
+          .select('*')
+          .eq('destination', destination)
+          .eq('user_id', user.id)
+          .eq('is_manually_added', true);
+
+        if (error) throw error;
+
+        // Get all selected attractions that aren't in Google Places
+        const regularAttractionNames = attractionsRef.current.map(a => a.name.toLowerCase());
+
+        // Filter out any attractions that exist in Google Places
+        const dbUiAttractions: Attraction[] = (dbAttractions || [])
+          .filter(attraction => {
+            const lowerName = attraction.name.toLowerCase();
+            return !regularAttractionNames.some(regularName =>
+              regularName === lowerName ||
+              lowerName.includes(regularName) ||
+              regularName.includes(lowerName)
+            );
+          })
+          .map(attraction => ({
+            ...attraction,
+            photoUrl: attraction.photo_url,
+            userRatingsTotal: attraction.user_ratings_total,
+            isSelected: selectedAttractions.includes(attraction.name),
+            isManuallyAdded: true
+          }));
+
+        // Set manual attractions directly from database
+        setManualAttractions(dbUiAttractions);
+      } catch (error) {
+        console.error('Error loading manual attractions:', error);
+      }
+    };
+
+    if (isOpen && destination) {
+      loadManualAttractions();
+    }
+  }, [destination, isOpen, selectedAttractions, googlePlacesLoaded]);
+
+  // Clear search results when closing popup
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchQuery('');
+      setSearchResults([]);
+      setShowSearchResults(false);
+      setActiveTab('search');
+    }
+  }, [isOpen]);
 
   // Initialize autocomplete service
   useEffect(() => {
@@ -292,20 +373,36 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
     }, 300);
   };
 
-  const handleAddCustomAttraction = (prediction: google.maps.places.AutocompletePrediction) => {
+  const handleAddCustomAttraction = async (prediction: google.maps.places.AutocompletePrediction) => {
     if (!placesService.current) return;
 
-    // Check if attraction already exists in our list
-    const existingAttraction = attractions.find(a =>
+    const predictionName = prediction.structured_formatting.main_text.toLowerCase();
+
+    // Check if attraction already exists in Google Places results
+    const existingAttraction = attractionsRef.current.find(a =>
       a.id === prediction.place_id || // Match by ID first
-      a.name.toLowerCase() === prediction.structured_formatting.main_text.toLowerCase() || // Then by exact name
-      prediction.structured_formatting.main_text.toLowerCase().includes(a.name.toLowerCase()) || // Then by partial name
-      a.name.toLowerCase().includes(prediction.structured_formatting.main_text.toLowerCase()) // Then by reverse partial name
+      a.name.toLowerCase() === predictionName || // Then by exact name
+      predictionName.includes(a.name.toLowerCase()) || // Then by partial name
+      a.name.toLowerCase().includes(predictionName) // Then by reverse partial name
     );
 
     if (existingAttraction) {
       if (!existingAttraction.isSelected) {
         handleAttractionToggle(existingAttraction);
+      }
+      setSearchQuery('');
+      setShowSearchResults(false);
+      return;
+    }
+
+    // Also check if it exists in manual attractions
+    const existingManual = manualAttractions.find(a =>
+      a.name.toLowerCase() === predictionName
+    );
+
+    if (existingManual) {
+      if (!selectedAttractions.includes(existingManual.name)) {
+        handleManualAttractionToggle(existingManual);
       }
       setSearchQuery('');
       setShowSearchResults(false);
@@ -321,7 +418,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
     placesService.current.getDetails(request, async (place, status) => {
       if (status === google.maps.places.PlacesServiceStatus.OK && place) {
         // Check again after getting full details
-        const existingWithDetails = attractions.find(a =>
+        const existingWithDetails = attractionsRef.current.find(a =>
           a.id === place.place_id ||
           a.name.toLowerCase() === (place.name || '').toLowerCase()
         );
@@ -386,7 +483,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
             setManualAttractions(prev => [uiAttraction, ...prev]);
 
             // Update selected attractions
-            onAttractionsSelect([uiAttraction.name, ...selectedAttractions]);
+            onAttractionsSelect([uiAttraction.name, ...selectedAttractions], []);
           } catch (error) {
             console.error('Error saving attraction:', error);
           }
@@ -412,8 +509,35 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
       .filter(a => a.isSelected)
       .map(a => a.name);
 
-    // Call the parent's onAttractionsSelect with the updated list
-    onAttractionsSelect(selectedAttractions);
+    // Get all selected manual attractions
+    const selectedManualAttractions = manualAttractions
+      .filter(a => a.isSelected)
+      .map(a => a.name);
+
+    // Call the parent's onAttractionsSelect with both lists
+    onAttractionsSelect(selectedAttractions, selectedManualAttractions);
+  };
+
+  const handleManualAttractionToggle = (attraction: Attraction) => {
+    const updatedManualAttractions = manualAttractions.map(a =>
+      a.id === attraction.id
+        ? { ...a, isSelected: !a.isSelected }
+        : a
+    );
+    setManualAttractions(updatedManualAttractions);
+
+    // Get all selected attractions
+    const selectedAttractions = attractions
+      .filter(a => a.isSelected)
+      .map(a => a.name);
+
+    // Get all selected manual attractions
+    const selectedManualAttractions = updatedManualAttractions
+      .filter(a => a.isSelected)
+      .map(a => a.name);
+
+    // Call the parent's onAttractionsSelect with both lists
+    onAttractionsSelect(selectedAttractions, selectedManualAttractions);
   };
 
   // Sort attractions with selected ones at the top
@@ -427,42 +551,6 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
       // Second priority: number of reviews
       return (b.userRatingsTotal || 0) - (a.userRatingsTotal || 0);
     });
-
-  // Load manual attractions
-  useEffect(() => {
-    const loadManualAttractions = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const { data: attractions, error } = await supabase
-          .from('attractions')
-          .select('*')
-          .eq('destination', destination)
-          .eq('user_id', user.id)
-          .eq('is_manually_added', true);
-
-        if (error) throw error;
-
-        // Convert the database format to our UI format
-        const uiAttractions: Attraction[] = (attractions || []).map(attraction => ({
-          ...attraction,
-          photoUrl: attraction.photo_url,
-          userRatingsTotal: attraction.user_ratings_total,
-          isSelected: selectedAttractions.includes(attraction.name),
-          isManuallyAdded: attraction.is_manually_added
-        }));
-
-        setManualAttractions(uiAttractions);
-      } catch (error) {
-        console.error('Error loading manual attractions:', error);
-      }
-    };
-
-    if (isOpen && destination) {
-      loadManualAttractions();
-    }
-  }, [destination, isOpen, selectedAttractions]);
 
   const handleDeleteAttraction = async (attractionId: string) => {
     try {
@@ -480,7 +568,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
       const attraction = manualAttractions.find(a => a.id === attractionId);
       if (attraction && selectedAttractions.includes(attraction.name)) {
         const newSelected = selectedAttractions.filter(name => name !== attraction.name);
-        onAttractionsSelect(newSelected);
+        onAttractionsSelect(newSelected, []);
       }
     } catch (error) {
       console.error('Error deleting attraction:', error);
@@ -495,9 +583,36 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
         throw new Error('User not authenticated');
       }
 
+      // Check if the attraction already exists in Google Places
+      const attractionName = manualAttraction.name.toLowerCase().trim();
+      const existsInGooglePlaces = attractionsRef.current.some(a =>
+        a.name.toLowerCase() === attractionName ||
+        attractionName.includes(a.name.toLowerCase()) ||
+        a.name.toLowerCase().includes(attractionName)
+      );
+
+      if (existsInGooglePlaces) {
+        alert('This attraction already exists in the search results. Please select it from there.');
+        return;
+      }
+
+      // Check if it already exists in manual attractions (case-insensitive)
+      const existsInManual = manualAttractions.some(a => {
+        const existingName = a.name.toLowerCase().trim();
+        return (existingName === attractionName ||
+          existingName.includes(attractionName) ||
+          attractionName.includes(existingName)) &&
+          a.id !== (editingAttraction?.id || '');
+      });
+
+      if (existsInManual) {
+        alert('This attraction already exists in your custom attractions.');
+        return;
+      }
+
       const attraction = {
         id: editingAttraction ? editingAttraction.id : `manual-${Date.now()}`,
-        name: manualAttraction.name,
+        name: manualAttraction.name.trim(),
         description: manualAttraction.description,
         rating: parseFloat(manualAttraction.rating) || undefined,
         photo_url: undefined,
@@ -528,6 +643,24 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
 
         setManualAttractions(prev => prev.map(a => a.id === attraction.id ? uiAttraction : a));
       } else {
+        // Get current selected attractions before adding new one
+        const currentSelectedAttractions = attractions
+          .filter(a => a.isSelected)
+          .map(a => a.name);
+
+        // Check if it exists in selected attractions
+        const existsInSelected = currentSelectedAttractions.some(name => {
+          const selectedName = name.toLowerCase().trim();
+          return selectedName === attractionName ||
+            selectedName.includes(attractionName) ||
+            attractionName.includes(selectedName);
+        });
+
+        if (existsInSelected) {
+          alert('This attraction is already selected.');
+          return;
+        }
+
         // Insert new attraction
         const { data, error } = await supabase
           .from('attractions')
@@ -557,9 +690,18 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
       });
       setEditingAttraction(null);
 
-      // Add to selected attractions
-      const newSelected = [...selectedAttractions, manualAttraction.name];
-      onAttractionsSelect(newSelected);
+      // Get all selected attractions
+      const selectedAttractions = attractions
+        .filter(a => a.isSelected)
+        .map(a => a.name);
+
+      // Get all selected manual attractions and add the new one
+      const selectedManualAttractions = [...manualAttractions
+        .filter(a => a.isSelected)
+        .map(a => a.name), manualAttraction.name];
+
+      // Call the parent's onAttractionsSelect with both lists
+      onAttractionsSelect(selectedAttractions, selectedManualAttractions);
     } catch (error) {
       console.error('Error saving attraction:', error);
     }

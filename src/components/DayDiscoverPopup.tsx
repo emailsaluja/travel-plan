@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, MapPin, Star, Compass } from 'lucide-react';
+import { X, MapPin, Star, Compass, Check } from 'lucide-react';
 import { cleanDestination } from '../utils/stringUtils';
 
 interface DayDiscoverPopupProps {
@@ -21,44 +21,42 @@ const DayDiscoverPopup: React.FC<DayDiscoverPopupProps> = ({
   allDestinationAttractions,
   onAttractionsUpdate,
 }) => {
-  const [attractions, setAttractions] = useState<string[]>([]);
+  const [localAttractions, setLocalAttractions] = useState<string[]>([]);
 
-  // Initialize with all attractions selected
+  // Initialize local state with selected attractions when the popup opens or when selectedAttractions changes
   useEffect(() => {
-    if (isOpen && allDestinationAttractions.length > 0) {
-      // If no attractions are selected yet, select all attractions
-      if (selectedAttractions.length === 0) {
-        setAttractions(allDestinationAttractions);
-        onAttractionsUpdate(allDestinationAttractions);
-      } else {
-        setAttractions(selectedAttractions);
-      }
+    if (isOpen) {
+      setLocalAttractions(selectedAttractions);
     }
-  }, [isOpen, allDestinationAttractions, selectedAttractions, onAttractionsUpdate]);
+  }, [isOpen, selectedAttractions]);
 
   const handleAttractionToggle = (attraction: string) => {
-    const updatedAttractions = attractions.includes(attraction)
-      ? attractions.filter(a => a !== attraction)
-      : [...attractions, attraction];
-    setAttractions(updatedAttractions);
-    onAttractionsUpdate(updatedAttractions);
+    const updatedAttractions = localAttractions.includes(attraction)
+      ? localAttractions.filter(a => a !== attraction)
+      : [...localAttractions, attraction];
+
+    setLocalAttractions(updatedAttractions);
   };
 
   const handleSelectAll = () => {
-    setAttractions(allDestinationAttractions);
-    onAttractionsUpdate(allDestinationAttractions);
+    setLocalAttractions(allDestinationAttractions);
   };
 
   const handleDeselectAll = () => {
-    setAttractions([]);
-    onAttractionsUpdate([]);
+    setLocalAttractions([]);
+  };
+
+  const handleClose = () => {
+    // Save the current state before closing
+    onAttractionsUpdate(localAttractions);
+    onClose();
   };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onClose} />
+      <div className="absolute inset-0 bg-black bg-opacity-50" onClick={handleClose} />
       <div className="relative w-full max-w-3xl bg-white rounded-xl shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
@@ -87,7 +85,7 @@ const DayDiscoverPopup: React.FC<DayDiscoverPopupProps> = ({
               Deselect All
             </button>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
             >
               <X className="h-5 w-5" />
@@ -108,9 +106,9 @@ const DayDiscoverPopup: React.FC<DayDiscoverPopupProps> = ({
               {allDestinationAttractions.map((attraction) => (
                 <div
                   key={attraction}
-                  className={`group relative rounded-lg border p-4 transition-all hover:shadow-md ${attractions.includes(attraction)
-                    ? 'border-[#00B8A9] bg-[#00B8A9]/5'
-                    : 'border-gray-200 hover:border-[#00B8A9]'
+                  className={`group relative rounded-lg border p-4 transition-all hover:shadow-md ${localAttractions.includes(attraction)
+                      ? 'border-[#00B8A9] bg-[#00B8A9]/5'
+                      : 'border-gray-200 hover:border-[#00B8A9]'
                     }`}
                 >
                   <button
@@ -119,13 +117,17 @@ const DayDiscoverPopup: React.FC<DayDiscoverPopupProps> = ({
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <MapPin className={`h-5 w-5 ${attractions.includes(attraction) ? 'text-[#00B8A9]' : 'text-gray-400'}`} />
+                        <MapPin className={`h-5 w-5 ${localAttractions.includes(attraction) ? 'text-[#00B8A9]' : 'text-gray-400'
+                          }`} />
                         <span className="font-['Inter_var'] font-[600] text-[#1E293B]">
                           {attraction}
                         </span>
                       </div>
-                      <div className={`h-2 w-2 rounded-full transition-colors ${attractions.includes(attraction) ? 'bg-[#00B8A9]' : 'bg-gray-300'
-                        }`} />
+                      {localAttractions.includes(attraction) ? (
+                        <Check className="h-5 w-5 text-[#00B8A9]" />
+                      ) : (
+                        <div className="h-2 w-2 rounded-full bg-gray-300" />
+                      )}
                     </div>
                   </button>
                 </div>

@@ -1,3 +1,16 @@
+export interface ItineraryDay {
+    date: Date;
+    dayIndex: number;
+    destination: string;
+    discover: string;
+    manual_discover: string;
+    transport: string;
+    notes: string;
+    food: string;
+    hotel?: string;
+    manual_hotel?: string;
+}
+
 export interface SaveItineraryData {
     tripSummary: {
         tripName: string;
@@ -12,6 +25,7 @@ export interface SaveItineraryData {
         destination: string;
         nights: number;
         discover: string;
+        manual_discover: string;
         transport: string;
         notes: string;
         food: string;
