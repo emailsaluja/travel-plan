@@ -78,6 +78,7 @@ interface ItineraryDay {
   transport: string;
   notes: string;
   food: string;
+  food_desc?: string;
   hotel?: string;
   manual_hotel?: string;
   manual_hotel_desc?: string;
@@ -160,6 +161,12 @@ interface UserItineraryData {
   }>;
 }
 
+interface DayFood {
+  dayIndex: number;
+  foodItems: string[];
+  foodDesc?: string;
+}
+
 const CreateItinerary: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -200,7 +207,7 @@ const CreateItinerary: React.FC = () => {
   const [dayNotes, setDayNotes] = useState<DayNote[]>([]);
   const [showFoodPopup, setShowFoodPopup] = useState(false);
   const [activeDestinationIndexForFood, setActiveDestinationIndexForFood] = useState<number | null>(null);
-  const [dayFoods, setDayFoods] = useState<Array<{ dayIndex: number; foodItems: string[] }>>([]);
+  const [dayFoods, setDayFoods] = useState<DayFood[]>([]);
   const [showTripSummary, setShowTripSummary] = useState(false);
   const [isMapCollapsed, setIsMapCollapsed] = useState(false);
 
@@ -273,7 +280,7 @@ const CreateItinerary: React.FC = () => {
 
             // Initialize dayFoods from destinations data
             let currentDayIndex = 0;
-            const newDayFoods: Array<{ dayIndex: number; foodItems: string[] }> = [];
+            const newDayFoods: DayFood[] = [];
 
             data.destinations.forEach((dest: any) => {
               const foodItems = dest.food ? dest.food.split(', ').filter(Boolean) : [];
@@ -361,6 +368,7 @@ const CreateItinerary: React.FC = () => {
       transport: '',
       notes: '',
       food: '',
+      food_desc: '',
       hotel: '',
       manual_hotel: '',
       manual_hotel_desc: ''
@@ -559,6 +567,7 @@ const CreateItinerary: React.FC = () => {
       transport: '',
       notes: '',
       food: '',
+      food_desc: '',
       hotel: '',
       manual_hotel: '',
       manual_hotel_desc: ''
@@ -904,61 +913,74 @@ const CreateItinerary: React.FC = () => {
     setShowFoodPopup(true);
   };
 
-  const handleFoodSelect = (dayIndex: number, foodItems: string[]) => {
-    // Clean the food items first
-    const cleanedFoodItems = [...new Set(
-      foodItems
-        .map(item => item.trim())
-        .filter(item => item.length > 0)
-    )];
+  const handleFoodSelect = (dayIndex: number, foodItems: string[], foodDesc?: string) => {
+    // Parse the food descriptions from the first item if it exists
+    let descriptions: Record<string, string> = {};
+    if (foodItems.length > 0 && foodItems[0].startsWith('{')) {
+      try {
+        descriptions = JSON.parse(foodItems[0]);
+        // Remove the JSON string from foodItems
+        foodItems = foodItems.slice(1);
+      } catch (error) {
+        console.error('Error parsing food descriptions:', error);
+      }
+    }
 
-    // Calculate the start day index for this destination
+    // Clean the food items
+    const cleanedFoodItems = foodItems
+      .map(item => item.trim())
+      .filter(Boolean);
+
+    // Update the itineraryDays state with the food items
+    const updatedItineraryDays = [...itineraryDays];
+    updatedItineraryDays[dayIndex] = {
+      ...updatedItineraryDays[dayIndex],
+      food: cleanedFoodItems.join(', '),
+      food_desc: foodDesc
+    };
+
+    // Calculate start day index for this destination
     let startDayIndex = 0;
     for (let i = 0; i < dayIndex; i++) {
       startDayIndex += itineraryDays[i].nights;
     }
 
-    // Update food items for all days of this destination
+    // Update dayFoods for this destination's days
     const updatedDayFoods = [...dayFoods];
+    const nights = itineraryDays[dayIndex].nights;
 
-    // First, ensure we have entries for all days of this destination
-    for (let i = 0; i < itineraryDays[dayIndex].nights; i++) {
+    // Remove any existing food entries for this destination's days
+    for (let i = 0; i < nights; i++) {
       const currentDayIndex = startDayIndex + i;
       const existingIndex = updatedDayFoods.findIndex(f => f.dayIndex === currentDayIndex);
-
-      if (existingIndex === -1) {
-        updatedDayFoods.push({
-          dayIndex: currentDayIndex,
-          foodItems: cleanedFoodItems // Set food items for all days
-        });
-      } else {
-        // Update food items for all days
-        updatedDayFoods[existingIndex] = {
-          ...updatedDayFoods[existingIndex],
-          foodItems: cleanedFoodItems
-        };
+      if (existingIndex !== -1) {
+        updatedDayFoods.splice(existingIndex, 1);
       }
     }
 
-    // Update dayFoods state
-    setDayFoods(updatedDayFoods);
+    // Add new food entries for this destination's days
+    for (let i = 0; i < nights; i++) {
+      const currentDayIndex = startDayIndex + i;
+      updatedDayFoods.push({
+        dayIndex: currentDayIndex,
+        foodItems: cleanedFoodItems,
+        foodDesc: foodDesc
+      });
+    }
 
-    // Update itineraryDays state with the food items
-    const updatedItineraryDays = [...itineraryDays];
-    updatedItineraryDays[dayIndex] = {
-      ...updatedItineraryDays[dayIndex],
-      food: cleanedFoodItems.join(', ')
-    };
+    // Sort dayFoods by dayIndex
+    updatedDayFoods.sort((a, b) => a.dayIndex - b.dayIndex);
+
+    // Update states
+    setDayFoods(updatedDayFoods);
     setItineraryDays(updatedItineraryDays);
 
     console.log('Updated food items:', {
-      dayFoods: updatedDayFoods,
-      itineraryDays: updatedItineraryDays[dayIndex].food
+      destination: updatedItineraryDays[dayIndex].destination,
+      foodItems: cleanedFoodItems,
+      foodDesc: foodDesc,
+      dayFoods: updatedDayFoods
     });
-
-    // Close the popup
-    setShowFoodPopup(false);
-    setActiveDestinationIndexForFood(null);
   };
 
   const renderDestinationsGrid = () => {
@@ -1275,7 +1297,7 @@ const CreateItinerary: React.FC = () => {
             onClick={() => {
               setItineraryDays([
                 ...itineraryDays,
-                { destination: '', nights: 1, discover: '', manual_discover: '', manual_discover_desc: '', transport: '', notes: '', food: '', hotel: '', manual_hotel: '', manual_hotel_desc: '' }
+                { destination: '', nights: 1, discover: '', manual_discover: '', manual_discover_desc: '', transport: '', notes: '', food: '', food_desc: '', hotel: '', manual_hotel: '', manual_hotel_desc: '' }
               ]);
             }}
             className="flex items-center gap-2 px-4 py-2 text-sm text-[#0f3e4a] hover:text-[#00C48C] transition-colors font-['Inter_var'] font-[600]"
