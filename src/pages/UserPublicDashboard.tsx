@@ -1,9 +1,149 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, Calendar, Clock, Users } from 'lucide-react';
+import { MapPin, Calendar, Clock, Users, Search, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CountryImagesService } from '../services/country-images.service';
 import { cleanDestination } from '../utils/stringUtils';
+import WorldMap from '../components/WorldMap';
+
+// Add country code mapping
+const COUNTRY_CODES: { [key: string]: string } = {
+    'Afghanistan': 'AF',
+    'Albania': 'AL',
+    'Algeria': 'DZ',
+    'Andorra': 'AD',
+    'Angola': 'AO',
+    'Argentina': 'AR',
+    'Armenia': 'AM',
+    'Australia': 'AU',
+    'Austria': 'AT',
+    'Azerbaijan': 'AZ',
+    'Bahamas': 'BS',
+    'Bahrain': 'BH',
+    'Bangladesh': 'BD',
+    'Barbados': 'BB',
+    'Belarus': 'BY',
+    'Belgium': 'BE',
+    'Belize': 'BZ',
+    'Bhutan': 'BT',
+    'Bolivia': 'BO',
+    'Bosnia and Herzegovina': 'BA',
+    'Botswana': 'BW',
+    'Brazil': 'BR',
+    'Brunei': 'BN',
+    'Bulgaria': 'BG',
+    'Cambodia': 'KH',
+    'Cameroon': 'CM',
+    'Canada': 'CA',
+    'Chile': 'CL',
+    'China': 'CN',
+    'Colombia': 'CO',
+    'Costa Rica': 'CR',
+    'Croatia': 'HR',
+    'Cuba': 'CU',
+    'Cyprus': 'CY',
+    'Czech Republic': 'CZ',
+    'Denmark': 'DK',
+    'Dominican Republic': 'DO',
+    'Ecuador': 'EC',
+    'Egypt': 'EG',
+    'El Salvador': 'SV',
+    'Estonia': 'EE',
+    'Ethiopia': 'ET',
+    'Fiji': 'FJ',
+    'Finland': 'FI',
+    'France': 'FR',
+    'Georgia': 'GE',
+    'Germany': 'DE',
+    'Ghana': 'GH',
+    'Greece': 'GR',
+    'Guatemala': 'GT',
+    'Haiti': 'HT',
+    'Honduras': 'HN',
+    'Hungary': 'HU',
+    'Iceland': 'IS',
+    'India': 'IN',
+    'Indonesia': 'ID',
+    'Iran': 'IR',
+    'Iraq': 'IQ',
+    'Ireland': 'IE',
+    'Israel': 'IL',
+    'Italy': 'IT',
+    'Jamaica': 'JM',
+    'Japan': 'JP',
+    'Jordan': 'JO',
+    'Kazakhstan': 'KZ',
+    'Kenya': 'KE',
+    'Kuwait': 'KW',
+    'Kyrgyzstan': 'KG',
+    'Laos': 'LA',
+    'Latvia': 'LV',
+    'Lebanon': 'LB',
+    'Libya': 'LY',
+    'Liechtenstein': 'LI',
+    'Lithuania': 'LT',
+    'Luxembourg': 'LU',
+    'Madagascar': 'MG',
+    'Malaysia': 'MY',
+    'Maldives': 'MV',
+    'Malta': 'MT',
+    'Mexico': 'MX',
+    'Monaco': 'MC',
+    'Mongolia': 'MN',
+    'Montenegro': 'ME',
+    'Morocco': 'MA',
+    'Myanmar': 'MM',
+    'Nepal': 'NP',
+    'Netherlands': 'NL',
+    'New Zealand': 'NZ',
+    'Nicaragua': 'NI',
+    'Nigeria': 'NG',
+    'North Korea': 'KP',
+    'Norway': 'NO',
+    'Oman': 'OM',
+    'Pakistan': 'PK',
+    'Panama': 'PA',
+    'Papua New Guinea': 'PG',
+    'Paraguay': 'PY',
+    'Peru': 'PE',
+    'Philippines': 'PH',
+    'Poland': 'PL',
+    'Portugal': 'PT',
+    'Qatar': 'QA',
+    'Romania': 'RO',
+    'Russia': 'RU',
+    'Saudi Arabia': 'SA',
+    'Serbia': 'RS',
+    'Singapore': 'SG',
+    'Slovakia': 'SK',
+    'Slovenia': 'SI',
+    'South Africa': 'ZA',
+    'South Korea': 'KR',
+    'Spain': 'ES',
+    'Sri Lanka': 'LK',
+    'Sweden': 'SE',
+    'Switzerland': 'CH',
+    'Syria': 'SY',
+    'Taiwan': 'TW',
+    'Tajikistan': 'TJ',
+    'Tanzania': 'TZ',
+    'Thailand': 'TH',
+    'Tunisia': 'TN',
+    'Turkey': 'TR',
+    'Turkmenistan': 'TM',
+    'Uganda': 'UG',
+    'Ukraine': 'UA',
+    'United Arab Emirates': 'AE',
+    'United Kingdom': 'GB',
+    'United States': 'US',
+    'Uruguay': 'UY',
+    'Uzbekistan': 'UZ',
+    'Vatican City': 'VA',
+    'Venezuela': 'VE',
+    'Vietnam': 'VN',
+    'Yemen': 'YE',
+    'Zimbabwe': 'ZW'
+};
 
 interface UserProfile {
     username: string;
@@ -22,6 +162,7 @@ interface Itinerary {
     start_date: string;
     duration: number;
     passengers: number;
+    created_at: string;
     destinations: {
         destination: string;
         nights: number;
@@ -36,6 +177,103 @@ const UserPublicDashboard = () => {
     const [error, setError] = useState<string | null>(null);
     const [countryImages, setCountryImages] = useState<{ [key: string]: string[] }>({});
     const [selectedImages, setSelectedImages] = useState<{ [key: string]: string }>({});
+    const [isEditing, setIsEditing] = useState(false);
+    const [isCountrySelectOpen, setIsCountrySelectOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Get unique visited countries and their ISO codes
+    const visitedCountries = React.useMemo(() => {
+        const uniqueCountries = Array.from(new Set(itineraries.map(i => i.country)));
+        return uniqueCountries
+            .map(country => COUNTRY_CODES[country])
+            .filter((code): code is string => !!code);
+    }, [itineraries]);
+
+    // Get all countries array
+    const allCountries = React.useMemo(() => {
+        return Object.entries(COUNTRY_CODES).map(([name, code]) => ({
+            name,
+            code,
+            isVisited: visitedCountries.includes(code)
+        }));
+    }, [visitedCountries]);
+
+    // Filter countries based on search
+    const filteredCountries = React.useMemo(() => {
+        if (!searchQuery) {
+            // Sort countries with visited ones first
+            return [...allCountries].sort((a, b) => {
+                if (a.isVisited === b.isVisited) {
+                    return a.name.localeCompare(b.name);
+                }
+                return a.isVisited ? -1 : 1;
+            });
+        }
+        const query = searchQuery.toLowerCase();
+        // Filter and sort matching countries with visited ones first
+        return allCountries
+            .filter(country => country.name.toLowerCase().includes(query))
+            .sort((a, b) => {
+                if (a.isVisited === b.isVisited) {
+                    return a.name.localeCompare(b.name);
+                }
+                return a.isVisited ? -1 : 1;
+            });
+    }, [allCountries, searchQuery]);
+
+    const handleCountryToggle = async (countryCode: string, isVisited: boolean) => {
+        if (!profile) return;
+
+        try {
+            // Find the country name from the code
+            const countryName = Object.entries(COUNTRY_CODES).find(([_, code]) => code === countryCode)?.[0];
+            if (!countryName) return;
+
+            if (isVisited) {
+                // Create a new itinerary for the country with all required fields
+                const newItinerary = {
+                    trip_name: `Visit to ${countryName}`,
+                    country: countryName,
+                    start_date: new Date().toISOString(),
+                    duration: 1,
+                    passengers: 1,
+                    is_private: false,
+                    user_id: profile.user_id,
+                    created_at: new Date().toISOString()
+                };
+
+                const { data, error } = await supabase
+                    .from('user_itineraries')
+                    .insert([newItinerary])
+                    .select()
+                    .single();
+
+                if (error) {
+                    console.error('Error creating itinerary:', error);
+                    throw error;
+                }
+
+                // Add the empty destinations array for the frontend
+                setItineraries(prev => [...prev, { ...data, destinations: [] }]);
+            } else {
+                // Remove itineraries for this country
+                const { error } = await supabase
+                    .from('user_itineraries')
+                    .delete()
+                    .eq('user_id', profile.user_id)
+                    .eq('country', countryName);
+
+                if (error) {
+                    console.error('Error deleting itinerary:', error);
+                    throw error;
+                }
+
+                setItineraries(prev => prev.filter(i => i.country !== countryName));
+            }
+        } catch (error) {
+            console.error('Error toggling country:', error);
+        }
+    };
 
     useEffect(() => {
         loadUserProfile();
@@ -169,45 +407,112 @@ const UserPublicDashboard = () => {
 
     return (
         <div className="min-h-screen bg-white">
-            {/* Hero Banner */}
-            <div className="h-[300px] relative">
-                {profile.hero_banner_url ? (
-                    <div className="absolute inset-0">
-                        <img
-                            src={profile.hero_banner_url}
-                            alt="Hero Banner"
-                            className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/20"></div>
-                    </div>
-                ) : (
-                    <div className="absolute inset-0 bg-gradient-to-r from-[#00C48C] to-[#00B380]">
-                        <div className="absolute inset-0 bg-black/20"></div>
-                    </div>
-                )}
-                <div className="max-w-[1400px] mx-auto px-4 h-full flex items-end pb-8 relative">
-                    <div className="flex items-end gap-6">
-                        <div className="w-32 h-32 rounded-xl bg-white shadow-lg overflow-hidden">
-                            <img
-                                src={profile.profile_picture_url || '/images/profile-icon.svg'}
-                                alt={profile.full_name}
-                                className="w-full h-full object-cover"
-                            />
-                        </div>
-                        <div className="mb-4 text-white">
-                            <h1 className="text-3xl font-bold mb-2">{profile.full_name}</h1>
-                            {itineraries.length > 0 && (
-                                <div className="flex items-center gap-2 text-white/80">
-                                    <MapPin className="w-4 h-4" />
-                                    <p className="text-sm">
-                                        {Array.from(new Set(itineraries.map(itinerary => itinerary.country))).join(', ')}
-                                    </p>
+            {/* World Map with Profile Overlay */}
+            <div className="w-full relative">
+                <WorldMap
+                    visitedCountries={visitedCountries}
+                    isEditable={isEditing}
+                    onCountryToggle={handleCountryToggle}
+                />
+                <div className="absolute bottom-4 right-4 w-72 bg-white/80 backdrop-blur-md rounded-2xl shadow-lg overflow-hidden">
+                    <div className="p-4">
+                        <div className="flex items-center gap-4 mb-4">
+                            <div className="w-14 h-14 rounded-full bg-white/90 shadow-sm overflow-hidden">
+                                <img
+                                    src={profile.profile_picture_url || '/images/profile-icon.svg'}
+                                    alt={profile.full_name}
+                                    className="w-full h-full object-cover"
+                                />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h1 className="text-lg font-medium text-gray-900 truncate mb-1">{profile.full_name}</h1>
+                                <div className="flex items-center gap-3 text-sm text-gray-600">
+                                    <div className="flex items-center gap-1.5">
+                                        <MapPin className="w-4 h-4" />
+                                        <span>{visitedCountries.length}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <Calendar className="w-4 h-4" />
+                                        <span>{itineraries.length}</span>
+                                    </div>
                                 </div>
-                            )}
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setIsCountrySelectOpen(true)}
+                                className="flex-1 py-2 px-3 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+                            >
+                                Countries
+                            </button>
+                            <button
+                                onClick={() => setIsEditing(!isEditing)}
+                                className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium transition-colors ${isEditing
+                                        ? 'bg-[#00C48C] text-white hover:bg-[#00B380]'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    }`}
+                            >
+                                {isEditing ? 'Done' : 'Edit Map'}
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Country Selection Modal */}
+            {isCountrySelectOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col">
+                        <div className="p-4 border-b border-gray-200">
+                            <div className="flex items-center justify-between mb-2">
+                                <h2 className="text-lg font-semibold text-gray-900">Select Countries</h2>
+                                <button
+                                    onClick={() => setIsCountrySelectOpen(false)}
+                                    className="text-gray-500 hover:text-gray-700"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="relative">
+                                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Search countries..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
+                                />
+                            </div>
+                        </div>
+                        <div className="overflow-y-auto flex-1 p-4">
+                            <div className="grid grid-cols-1 gap-2">
+                                {filteredCountries.map((country) => (
+                                    <button
+                                        key={country.code}
+                                        onClick={() => handleCountryToggle(country.code, !country.isVisited)}
+                                        className={`flex items-center justify-between p-2 rounded-md transition-colors ${country.isVisited
+                                            ? 'bg-[#00C48C]/10 text-[#00C48C] hover:bg-[#00C48C]/20'
+                                            : 'hover:bg-gray-100'
+                                            }`}
+                                    >
+                                        <span>{country.name}</span>
+                                        <div className={`w-4 h-4 rounded-full border ${country.isVisited
+                                            ? 'border-[#00C48C] bg-[#00C48C]'
+                                            : 'border-gray-300'
+                                            }`}>
+                                            {country.isVisited && (
+                                                <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            )}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Content */}
             <div className="max-w-[1400px] mx-auto px-4 py-12">
@@ -225,45 +530,32 @@ const UserPublicDashboard = () => {
                                 to={`/view-itinerary/${itinerary.id}`}
                                 className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
                             >
-                                <div className="relative h-48 bg-gray-100">
-                                    {selectedImages[itinerary.id] ? (
-                                        <img
-                                            src={selectedImages[itinerary.id]}
-                                            alt={itinerary.country}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full bg-gradient-to-br from-[#00C48C] to-[#00B380]" />
-                                    )}
-                                    <div className="absolute inset-0 bg-black/20"></div>
-                                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent">
-                                        <h3 className="text-xl font-semibold text-white mb-1">
-                                            {itinerary.trip_name}
-                                        </h3>
-                                        <div className="flex items-center gap-2 text-white/90">
+                                <div className="relative h-48">
+                                    <img
+                                        src={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                        alt={itinerary.trip_name}
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <div className="p-4">
+                                    <h3 className="font-semibold text-lg mb-2">{itinerary.trip_name}</h3>
+                                    <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
+                                        <div className="flex items-center gap-1">
                                             <MapPin className="w-4 h-4" />
                                             <span>{itinerary.country}</span>
                                         </div>
-                                    </div>
-                                </div>
-                                <div className="p-4">
-                                    <div className="flex items-center gap-4 text-sm text-gray-600">
                                         <div className="flex items-center gap-1">
                                             <Calendar className="w-4 h-4" />
-                                            <span>{formatDate(itinerary.start_date)}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <Clock className="w-4 h-4" />
                                             <span>{itinerary.duration} days</span>
                                         </div>
                                         <div className="flex items-center gap-1">
                                             <Users className="w-4 h-4" />
-                                            <span>{itinerary.passengers}</span>
+                                            <span>{itinerary.passengers} travelers</span>
                                         </div>
                                     </div>
-                                    <div className="mt-2 text-sm text-gray-600">
-                                        {itinerary.destinations.map(d => cleanDestination(d.destination)).join(' → ')}
-                                    </div>
+                                    <p className="text-sm text-gray-500">
+                                        {formatDate(itinerary.start_date)}
+                                    </p>
                                 </div>
                             </Link>
                         ))}
