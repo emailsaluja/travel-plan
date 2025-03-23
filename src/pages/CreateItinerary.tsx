@@ -49,7 +49,7 @@ import HotelSearchPopup from '../components/HotelSearchPopup';
 import TransportPopup from '../components/TransportPopup';
 import FoodPopup from '../components/FoodPopup';
 import TopNavigation from '../components/TopNavigation';
-import ItineraryMap from '../components/ItineraryMap';
+import MapboxMap from '../components/MapboxMap';
 
 interface DestinationData {
   destination: string;
@@ -70,6 +70,7 @@ interface SaveDestinationData {
 
 interface ItineraryDay {
   destination: string;
+  tempDestination?: string; // Temporary value for display during autocomplete
   nights: number;
   discover: string;
   manual_discover: string;
@@ -78,6 +79,7 @@ interface ItineraryDay {
   food: string;
   hotel?: string;
   manual_hotel?: string;
+  manual_hotel_desc?: string;
 }
 
 interface TripSummary {
@@ -249,7 +251,8 @@ const CreateItinerary: React.FC = () => {
               notes: dest.notes || '',
               food: dest.food || '',
               hotel: dest.hotel || '',
-              manual_hotel: dest.manual_hotel || ''
+              manual_hotel: dest.manual_hotel || '',
+              manual_hotel_desc: dest.manual_hotel_desc || ''
             }));
 
             console.log('Setting destinations with hotels:', destinationsWithHotels);
@@ -356,7 +359,8 @@ const CreateItinerary: React.FC = () => {
       notes: '',
       food: '',
       hotel: '',
-      manual_hotel: ''
+      manual_hotel: '',
+      manual_hotel_desc: ''
     };
     setItineraryDays([emptyDay]);
   };
@@ -475,7 +479,8 @@ const CreateItinerary: React.FC = () => {
           notes: day.notes || '',
           food: foodString,
           hotel: isManualHotel ? '' : hotelName,
-          manual_hotel: isManualHotel ? hotelName : ''
+          manual_hotel: isManualHotel ? hotelName : '',
+          manual_hotel_desc: day.manual_hotel_desc || ''
         };
       });
 
@@ -550,7 +555,8 @@ const CreateItinerary: React.FC = () => {
       notes: '',
       food: '',
       hotel: '',
-      manual_hotel: ''
+      manual_hotel: '',
+      manual_hotel_desc: ''
     };
     setItineraryDays(prev => [...prev, newDay]);
   };
@@ -788,7 +794,7 @@ const CreateItinerary: React.FC = () => {
     setItineraryDays(updatedDestinations);
   };
 
-  const handleHotelSelect = (hotel: string, isManual?: boolean) => {
+  const handleHotelSelect = (hotel: string, isManual?: boolean, description?: string) => {
     if (currentDestinationIndexForHotel >= 0) {
       // Update the specific destination's hotel
       const updatedDestinations = [...itineraryDays];
@@ -798,7 +804,8 @@ const CreateItinerary: React.FC = () => {
         updatedDestinations[currentDestinationIndexForHotel] = {
           ...updatedDestinations[currentDestinationIndexForHotel],
           hotel: isManual ? '' : hotel,
-          manual_hotel: isManual ? hotel : ''
+          manual_hotel: isManual ? hotel : '',
+          manual_hotel_desc: isManual ? description || '' : ''
         };
 
         // Calculate the start and end day indices for the selected destination
@@ -856,7 +863,8 @@ const CreateItinerary: React.FC = () => {
             updatedDestinations[i] = {
               ...updatedDestinations[i],
               hotel: isManual ? '' : hotel,
-              manual_hotel: isManual ? hotel : ''
+              manual_hotel: isManual ? hotel : '',
+              manual_hotel_desc: isManual ? description || '' : ''
             };
             break;
           }
@@ -997,11 +1005,26 @@ const CreateItinerary: React.FC = () => {
                     </div>
                     <div>
                       <PlaceAutocomplete
-                        value={day.destination.split(',')[0]}
-                        onChange={(value) => handleDayUpdate(index, 'destination', value)}
+                        value={day.tempDestination || day.destination.split(',')[0]}
+                        onChange={(value) => {
+                          // Only update the UI value, don't update the actual destination yet
+                          const updatedDays = [...itineraryDays];
+                          updatedDays[index] = {
+                            ...updatedDays[index],
+                            tempDestination: value // This is just for display
+                          };
+                          setItineraryDays(updatedDays);
+                        }}
                         country={tripSummary.country}
                         onPlaceSelect={(place) => {
-                          handleDayUpdate(index, 'destination', place.name || '');
+                          // Update the actual destination only when a place is selected
+                          const updatedDays = [...itineraryDays];
+                          updatedDays[index] = {
+                            ...updatedDays[index],
+                            destination: place.name || '',
+                            tempDestination: undefined // Clear the temporary value
+                          };
+                          setItineraryDays(updatedDays);
                         }}
                         startDate=""
                         nights={0}
@@ -1245,7 +1268,7 @@ const CreateItinerary: React.FC = () => {
             onClick={() => {
               setItineraryDays([
                 ...itineraryDays,
-                { destination: '', nights: 1, discover: '', manual_discover: '', transport: '', notes: '', food: '', hotel: '', manual_hotel: '' }
+                { destination: '', nights: 1, discover: '', manual_discover: '', transport: '', notes: '', food: '', hotel: '', manual_hotel: '', manual_hotel_desc: '' }
               ]);
             }}
             className="flex items-center gap-2 px-4 py-2 text-sm text-[#0f3e4a] hover:text-[#00C48C] transition-colors font-['Inter_var'] font-[600]"
@@ -1632,8 +1655,8 @@ const CreateItinerary: React.FC = () => {
             >
               <ChevronRight className={`w-5 h-5 text-gray-600 transition-transform duration-300 ${isMapCollapsed ? 'rotate-180' : ''}`} />
             </button>
-            <ItineraryMap
-              destinations={itineraryDays}
+            <MapboxMap
+              destinations={itineraryDays.filter(day => day.destination !== '')}
               className="h-full w-full"
             />
           </div>
@@ -1667,7 +1690,7 @@ const CreateItinerary: React.FC = () => {
               }}
               destination={currentDestinationForHotel}
               selectedHotel={itineraryDays[currentDestinationIndexForHotel]?.hotel || dayHotels.find(h => h.dayIndex === currentDestinationIndexForHotel)?.hotel}
-              onHotelSelect={(hotel) => handleHotelSelect(hotel)}
+              onHotelSelect={(hotel, isManual, description) => handleHotelSelect(hotel, isManual, description)}
             />
           </div>
         )}

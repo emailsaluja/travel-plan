@@ -31,6 +31,7 @@ export interface SaveItineraryData {
         food: string;
         hotel?: string;
         manual_hotel?: string;
+        manual_hotel_desc?: string;
     }>;
     dayAttractions: Array<{
         dayIndex: number;

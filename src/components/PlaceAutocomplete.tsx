@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useGoogleMapsScript } from '../hooks/useGoogleMapsScript';
 import { cleanDestination } from '../utils/stringUtils';
 
 // Add country code mapping
@@ -143,41 +142,26 @@ const COUNTRY_CODES: { [key: string]: string } = {
   'Zimbabwe': 'ZW'
 };
 
-// Add this interface to handle date display
-interface DateDisplayProps {
-  startDate: string;
-  nights: number;
+interface LocationIQResult {
+  place_id: string;
+  display_name: string;
+  lat: string;
+  lon: string;
+  type: string;
 }
-
-const DateDisplay: React.FC<DateDisplayProps> = ({ startDate, nights }) => {
-  // Don't render if no startDate
-  if (!startDate) return null;
-
-  const formatDate = (date: Date) => {
-    return `${date.getDate()} ${date.toLocaleString('default', { month: 'short' })}`;
-  };
-
-  const start = new Date(startDate);
-  const end = new Date(startDate);
-  end.setDate(end.getDate() + nights);
-
-  return (
-    <div className="text-sm text-gray-500 mt-1">
-      {formatDate(start)} - {formatDate(end)}
-    </div>
-  );
-};
 
 interface PlaceAutocompleteProps {
   country: string;
   value: string;
   onChange: (value: string) => void;
-  onPlaceSelect: (place: google.maps.places.PlaceResult) => void;
+  onPlaceSelect: (place: { name: string; geometry?: { location: { lat: number; lng: number } } }) => void;
   placeholder?: string;
   className?: string;
-  startDate: string;  // Add this
-  nights: number;     // Add this
+  startDate: string;
+  nights: number;
 }
+
+const LOCATIONIQ_API_KEY = 'pk.62ccf28ef762d570bcd430490039ee56';
 
 const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
   country,
@@ -189,44 +173,10 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
   startDate,
   nights,
 }) => {
-  const isGoogleMapsLoaded = useGoogleMapsScript();
-  const [predictions, setPredictions] = useState<google.maps.places.AutocompletePrediction[]>([]);
+  const [predictions, setPredictions] = useState<LocationIQResult[]>([]);
   const [showPredictions, setShowPredictions] = useState(false);
-  const autocompleteService = useRef<google.maps.places.AutocompleteService | null>(null);
-  const placesService = useRef<google.maps.places.PlacesService | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const componentMounted = useRef(true);
+  const searchDebounceTimeout = useRef<NodeJS.Timeout>();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [isUserInteracted, setIsUserInteracted] = useState(false);
-
-  // Initialize services when Google Maps is loaded
-  useEffect(() => {
-    componentMounted.current = true;
-
-    const initializeServices = () => {
-      if (!componentMounted.current) return;
-
-      try {
-        if (window.google && !isInitialized) {
-          autocompleteService.current = new window.google.maps.places.AutocompleteService();
-          const dummyElement = document.createElement('div');
-          placesService.current = new window.google.maps.places.PlacesService(dummyElement);
-          setIsInitialized(true);
-          console.log('Google Maps services initialized');
-        }
-      } catch (error) {
-        console.error('Error initializing Google Maps services:', error);
-      }
-    };
-
-    if (isGoogleMapsLoaded) {
-      initializeServices();
-    }
-
-    return () => {
-      componentMounted.current = false;
-    };
-  }, [isGoogleMapsLoaded]);
 
   // Close predictions when clicking outside
   useEffect(() => {
@@ -240,27 +190,14 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  const fetchPredictions = (input: string) => {
-    // Change minimum character check to 2
+  const fetchPredictions = async (input: string) => {
     if (input.length < 2) {
-      console.log('Skipping predictions: Input less than 2 characters');
       setPredictions([]);
       setShowPredictions(false);
       return;
     }
 
-    if (!input || !isInitialized || !autocompleteService.current) {
-      console.log('Skipping predictions:', {
-        input,
-        isInitialized,
-        hasAutocompleteService: !!autocompleteService.current,
-        country
-      });
-      return;
-    }
-
-    if (!country) {
-      console.warn('No country selected');
+    if (!input || !country) {
       return;
     }
 
@@ -270,53 +207,51 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
       return;
     }
 
-    console.log('Fetching predictions for:', {
-      input,
-      country,
-      countryCode,
-      isInitialized,
-      elementFocused: document.activeElement === inputRef.current
-    });
+    try {
+      const response = await fetch(
+        `https://api.locationiq.com/v1/autocomplete?key=${LOCATIONIQ_API_KEY}&q=${encodeURIComponent(input)}&countrycodes=${countryCode}&limit=5&tag=place:city,place:town&dedupe=1`
+      );
 
-    const request = {
-      input,
-      componentRestrictions: { country: countryCode },
-      types: ['(cities)']
-    };
-
-    autocompleteService.current.getPlacePredictions(
-      request,
-      (results, status) => {
-        if (!componentMounted.current) return;
-
-        console.log('Prediction results:', { status, results });
-        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-          setPredictions(results);
-          setShowPredictions(true);
-        } else {
-          setPredictions([]);
-          setShowPredictions(false);
-        }
+      if (!response.ok) {
+        throw new Error('LocationIQ API request failed');
       }
-    );
+
+      const results: LocationIQResult[] = await response.json();
+      setPredictions(results);
+      setShowPredictions(true);
+    } catch (error) {
+      console.error('Error fetching predictions:', error);
+      setPredictions([]);
+      setShowPredictions(false);
+    }
   };
 
-  const handlePlaceSelect = (prediction: google.maps.places.AutocompletePrediction) => {
-    if (!placesService.current) return;
-
-    const request = {
-      placeId: prediction.place_id,
-      fields: ['name', 'geometry', 'formatted_address']
-    };
-
-    placesService.current.getDetails(request, (place, status) => {
-      if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-        const cleanedName = cleanDestination(prediction.description);
-        onChange(cleanedName);
-        onPlaceSelect(place);
-        setShowPredictions(false);
+  const handlePlaceSelect = (prediction: LocationIQResult) => {
+    const cleanedName = cleanDestination(prediction.display_name);
+    onChange(cleanedName);
+    onPlaceSelect({
+      name: cleanedName,
+      geometry: {
+        location: {
+          lat: parseFloat(prediction.lat),
+          lng: parseFloat(prediction.lon)
+        }
       }
     });
+    setShowPredictions(false);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    onChange(newValue);
+
+    if (searchDebounceTimeout.current) {
+      clearTimeout(searchDebounceTimeout.current);
+    }
+
+    searchDebounceTimeout.current = setTimeout(() => {
+      fetchPredictions(newValue);
+    }, 300);
   };
 
   return (
@@ -325,26 +260,16 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
         ref={inputRef}
         type="text"
         value={value}
-        onChange={(e) => {
-          const newValue = e.target.value;
-          onChange(newValue);
-          if (isInitialized && country) {
-            fetchPredictions(newValue);
-          }
-        }}
+        onChange={handleInputChange}
         onClick={(e) => {
           e.stopPropagation();
-          // If there's a value and we're initialized, show predictions again
-          if (value && isInitialized && country) {
+          if (value) {
             fetchPredictions(value);
           }
         }}
         placeholder={placeholder}
         className={`w-full border-none focus:ring-0 bg-transparent ${className}`}
       />
-
-      {/* Only show DateDisplay when both value and startDate exist */}
-      {value && startDate && <DateDisplay startDate={startDate} nights={nights} />}
 
       {showPredictions && predictions.length > 0 && (
         <div
@@ -357,7 +282,7 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
               className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
               onClick={() => handlePlaceSelect(prediction)}
             >
-              {prediction.description}
+              {prediction.display_name}
             </button>
           ))}
         </div>
