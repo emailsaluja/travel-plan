@@ -1,370 +1,174 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Search, Edit2, Trash2, Plus, Star, MapPin, Utensils } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { X, MapPin, Star, Search, Plus, Utensils, Edit2, Trash2, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { cleanDestination } from '../utils/stringUtils';
+import { mapboxPlacesService } from '../services/mapbox-places.service';
 
-interface FoodPlace {
+interface Restaurant {
     id: string;
     name: string;
-    description?: string;
     rating?: number;
     userRatingsTotal?: number;
     photoUrl?: string;
     priceLevel?: number;
-    cuisine?: string;
-    isSelected?: boolean;
-    food_desc?: string;
-    openNow?: boolean;
-    isManuallyAdded?: boolean;
-}
-
-interface PlaceSearchResponse {
-    results: google.maps.places.PlaceResult[];
-    status: google.maps.places.PlacesServiceStatus;
-}
-
-interface PlaceDetailsResponse {
-    details: google.maps.places.PlaceResult | null;
-    status: google.maps.places.PlacesServiceStatus;
-}
-
-interface SearchType {
-    type: 'restaurant';
-    query: string;
+    description: string;
+    isSelected: boolean;
+    isManuallyAdded: boolean;
+    destination: string;
+    place_id?: string;
 }
 
 interface FoodPopupProps {
     isOpen: boolean;
     onClose: () => void;
     destination: string;
-    selectedFoodItems: string[];
-    onFoodSelect: (foodItems: string[], foodDesc?: string) => void;
+    onRestaurantSelect: (restaurant: Restaurant) => void;
+    selectedRestaurant?: string;
 }
 
 const FoodPopup: React.FC<FoodPopupProps> = ({
     isOpen,
     onClose,
     destination,
-    selectedFoodItems,
-    onFoodSelect
+    onRestaurantSelect,
+    selectedRestaurant
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
-    const [editingFood, setEditingFood] = useState<{ name: string; desc: string } | null>(null);
-    const [manualFoodPlaces, setManualFoodPlaces] = useState<FoodPlace[]>([]);
-    const [selectedItems, setSelectedItems] = useState<string[]>([]);
-    const [newFoodName, setNewFoodName] = useState('');
-    const [newFoodDesc, setNewFoodDesc] = useState('');
-    const [isAddingFood, setIsAddingFood] = useState(false);
-    const currentDestination = useRef<string>(destination);
-    const foodDescriptions = useRef<Record<string, string>>({});
+    const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const searchTimeout = useRef<NodeJS.Timeout | null>(null);
 
-    // Reset state when popup opens or destination changes
-    useEffect(() => {
-        if (isOpen) {
-            // Always reset state for a new session
-            setSearchQuery('');
-            setEditingFood(null);
-            setNewFoodName('');
-            setNewFoodDesc('');
-            setIsAddingFood(false);
-
-            // Reset food data if destination changed
-            if (currentDestination.current !== destination) {
-                currentDestination.current = destination;
-                setManualFoodPlaces([]);
-                setSelectedItems([]);
-                foodDescriptions.current = {};
-            }
-
-            try {
-                // Parse existing food descriptions if available
-                const existingDescriptions = selectedFoodItems.length > 0 && selectedFoodItems[0].startsWith('{')
-                    ? JSON.parse(selectedFoodItems[0])
-                    : {};
-
-                // Filter out the JSON string if it exists
-                const actualFoodItems = selectedFoodItems.filter(item => !item.startsWith('{'));
-
-                // Initialize food places for current destination
-                const uniqueFoodItems = Array.from(new Set(actualFoodItems));
-                setSelectedItems(uniqueFoodItems);
-                foodDescriptions.current = existingDescriptions;
-
-                setManualFoodPlaces(uniqueFoodItems.map(item => ({
-                    id: item,
-                    name: item,
-                    food_desc: existingDescriptions[item] || '',
-                    isManuallyAdded: true,
-                    isSelected: true
-                })));
-            } catch (error) {
-                // If there's an error parsing JSON, just use the items as is
-                const uniqueFoodItems = Array.from(new Set(selectedFoodItems));
-                setSelectedItems(uniqueFoodItems);
-                setManualFoodPlaces(uniqueFoodItems.map(item => ({
-                    id: item,
-                    name: item,
-                    food_desc: '',
-                    isManuallyAdded: true,
-                    isSelected: true
-                })));
-            }
+    // Memoized function to get place suggestions
+    const getPlaceSuggestions = useCallback(async (query: string) => {
+        try {
+            setLoading(true);
+            setError(null);
+            const results = await mapboxPlacesService.getPlaceSuggestions(query);
+            setSuggestions(results);
+        } catch (error) {
+            console.error('Error getting suggestions:', error);
+            setError('Failed to load suggestions');
+            setSuggestions([]);
+        } finally {
+            setLoading(false);
         }
-    }, [isOpen, selectedFoodItems, destination]);
+    }, []);
 
+    // Handle search input changes
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const query = e.target.value.toLowerCase();
+        const query = e.target.value;
         setSearchQuery(query);
-    };
 
-    const handleDeleteFood = (foodName: string) => {
-        const newSelectedItems = selectedItems.filter(item => item !== foodName);
-        setSelectedItems(newSelectedItems);
-        setManualFoodPlaces(prevPlaces =>
-            prevPlaces.filter(place => place.name !== foodName)
-        );
-        // Also remove from descriptions
-        delete foodDescriptions.current[foodName];
-    };
-
-    const handleEditFood = (foodName: string, foodDesc: string = '') => {
-        setEditingFood({ name: foodName, desc: foodDesc });
-    };
-
-    const handleSaveEdit = () => {
-        if (!editingFood) return;
-
-        const updatedName = editingFood.name.trim();
-        if (!updatedName) return;
-
-        // Check for duplicates before saving
-        if (updatedName !== editingFood.name &&
-            manualFoodPlaces.some(place => place.name === updatedName)) {
-            return; // Don't allow duplicate names
+        // Clear existing timeout
+        if (searchTimeout.current) {
+            clearTimeout(searchTimeout.current);
         }
 
-        // Update the food descriptions
-        if (editingFood.name in foodDescriptions.current) {
-            delete foodDescriptions.current[editingFood.name];
+        // Set new timeout for debouncing
+        if (query.length > 2) {
+            searchTimeout.current = setTimeout(() => {
+                getPlaceSuggestions(`${query} restaurant ${destination}`);
+            }, 300);
+        } else {
+            setSuggestions([]);
         }
-        foodDescriptions.current[updatedName] = editingFood.desc;
-
-        setManualFoodPlaces(prevPlaces =>
-            prevPlaces.map(place =>
-                place.name === editingFood.name
-                    ? { ...place, name: updatedName, food_desc: editingFood.desc }
-                    : place
-            )
-        );
-
-        // Update selected items if name changed
-        if (updatedName !== editingFood.name) {
-            setSelectedItems(prev =>
-                prev.map(item => item === editingFood.name ? updatedName : item)
-            );
-        }
-
-        setEditingFood(null);
     };
 
-    const handleClose = () => {
-        // Update descriptions from current state
-        manualFoodPlaces.forEach(place => {
-            if (selectedItems.includes(place.name)) {
-                foodDescriptions.current[place.name] = place.food_desc || '';
-            }
-        });
-
-        // Pass back the selected items and their descriptions
-        const foodItems = selectedItems.filter(item =>
-            manualFoodPlaces.some(place => place.name === item)
-        );
-
-        // Add the descriptions as the first item in the array
-        const itemsWithDesc = [
-            JSON.stringify(foodDescriptions.current),
-            ...foodItems
-        ];
-
-        onFoodSelect(itemsWithDesc, JSON.stringify(foodDescriptions.current));
-        onClose();
-    };
-
-    const handleAddFood = (e: React.FormEvent) => {
-        e.preventDefault();
-        const name = newFoodName.trim();
-
-        if (name) {
-            // Check if the food item already exists
-            if (!manualFoodPlaces.some(place => place.name.toLowerCase() === name.toLowerCase())) {
-                const newPlace: FoodPlace = {
-                    id: name,
-                    name: name,
-                    food_desc: newFoodDesc.trim(),
-                    isManuallyAdded: true,
-                    isSelected: true
+    // Handle suggestion selection
+    const handleSuggestionClick = async (suggestion: string) => {
+        try {
+            const placeResult = await mapboxPlacesService.findPlaceFromQuery(suggestion);
+            if (placeResult) {
+                const restaurant: Restaurant = {
+                    id: Date.now().toString(),
+                    name: placeResult.name,
+                    description: placeResult.address || '',
+                    isSelected: true,
+                    isManuallyAdded: false,
+                    destination: destination,
+                    place_id: placeResult.location.join(',')
                 };
-
-                // Add to descriptions
-                foodDescriptions.current[name] = newFoodDesc.trim();
-
-                setManualFoodPlaces(prev => [...prev, newPlace]);
-                setSelectedItems(prev => [...prev, name]);
-                setNewFoodName('');
-                setNewFoodDesc('');
-                setIsAddingFood(false);
+                onRestaurantSelect(restaurant);
+                onClose();
             }
+        } catch (error) {
+            console.error('Error selecting restaurant:', error);
+            setError('Failed to select restaurant');
         }
     };
 
-    const filteredFoodPlaces = manualFoodPlaces.filter(place =>
-        place.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        place.food_desc?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (searchTimeout.current) {
+                clearTimeout(searchTimeout.current);
+            }
+        };
+    }, []);
 
     if (!isOpen) return null;
 
     return (
-        <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${isOpen ? '' : 'hidden'}`}>
-            <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden relative">
-                <div className="flex justify-between items-center p-6 border-b">
-                    <h2 className="text-xl font-semibold">Food & Restaurants</h2>
-                    <button onClick={handleClose} className="text-gray-500 hover:text-gray-700">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+                <div className="p-6 border-b border-gray-100">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-2xl font-semibold">Find Restaurants</h2>
+                        <button
+                            onClick={onClose}
+                            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
 
-                <div className="p-6">
-                    {/* Search */}
-                    <div className="relative mb-6">
-                        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                    <div className="relative">
                         <input
                             type="text"
-                            placeholder="Search food & restaurants..."
                             value={searchQuery}
                             onChange={handleSearchChange}
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
+                            placeholder="Search for restaurants..."
+                            className="w-full px-4 py-3 pl-12 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
                         />
+                        <Search className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
                     </div>
+                </div>
 
-                    {/* Add Food Button */}
-                    <div className="mb-6">
-                        {!isAddingFood ? (
-                            <button
-                                onClick={() => setIsAddingFood(true)}
-                                className="flex items-center gap-2 px-4 py-2 text-[#00C48C] border-2 border-[#00C48C] rounded-lg hover:bg-[#00C48C] hover:text-white transition-colors"
-                            >
-                                <Plus className="w-4 h-4" />
-                                <span>Add New Restaurant</span>
-                            </button>
-                        ) : (
-                            <form onSubmit={handleAddFood} className="space-y-3">
-                                <input
-                                    type="text"
-                                    value={newFoodName}
-                                    onChange={(e) => setNewFoodName(e.target.value)}
-                                    placeholder="Restaurant name"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
-                                    required
-                                />
-                                <textarea
-                                    value={newFoodDesc}
-                                    onChange={(e) => setNewFoodDesc(e.target.value)}
-                                    placeholder="Description/Address"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
-                                    rows={3}
-                                />
-                                <div className="flex justify-end gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setIsAddingFood(false);
-                                            setNewFoodName('');
-                                            setNewFoodDesc('');
-                                        }}
-                                        className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="px-4 py-2 bg-[#00C48C] text-white rounded-lg hover:bg-[#00B380] transition-colors"
-                                    >
-                                        Add Restaurant
-                                    </button>
-                                </div>
-                            </form>
-                        )}
-                    </div>
+                <div className="p-6 max-h-[60vh] overflow-y-auto">
+                    {loading && (
+                        <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#00C48C] border-t-transparent"></div>
+                        </div>
+                    )}
 
-                    {/* Food List */}
-                    <div className="space-y-4 max-h-[400px] overflow-y-auto">
-                        {filteredFoodPlaces.map((place) => (
-                            <div
-                                key={place.id}
-                                className="flex items-start gap-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                            >
-                                <div className="flex-1">
-                                    {editingFood?.name === place.name ? (
-                                        <div className="space-y-3">
-                                            <input
-                                                type="text"
-                                                value={editingFood.name}
-                                                onChange={(e) => setEditingFood({ ...editingFood, name: e.target.value })}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
-                                            />
-                                            <textarea
-                                                value={editingFood.desc}
-                                                onChange={(e) => setEditingFood({ ...editingFood, desc: e.target.value })}
-                                                placeholder="Description/Address"
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
-                                                rows={3}
-                                            />
-                                            <div className="flex justify-end gap-2">
-                                                <button
-                                                    onClick={() => setEditingFood(null)}
-                                                    className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
-                                                >
-                                                    Cancel
-                                                </button>
-                                                <button
-                                                    onClick={handleSaveEdit}
-                                                    className="px-3 py-1 text-sm bg-[#00C48C] text-white rounded-lg hover:bg-[#00B380]"
-                                                >
-                                                    Save
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <h3 className="font-medium text-gray-900">{place.name}</h3>
-                                            {place.food_desc && (
-                                                <p className="text-gray-600 text-sm mt-1">{place.food_desc}</p>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                                {editingFood?.name !== place.name && (
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => handleEditFood(place.name, place.food_desc)}
-                                            className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100"
-                                            title="Edit"
-                                        >
-                                            <Edit2 className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeleteFood(place.name)}
-                                            className="p-2 text-gray-500 hover:text-red-600 rounded-lg hover:bg-gray-100"
-                                            title="Delete"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
+                    {error && (
+                        <div className="text-red-500 text-center py-4">
+                            {error}
+                        </div>
+                    )}
+
+                    {!loading && !error && suggestions.length === 0 && searchQuery.length > 2 && (
+                        <div className="text-gray-500 text-center py-4">
+                            No restaurants found
+                        </div>
+                    )}
+
+                    {!loading && suggestions.length > 0 && (
+                        <div className="space-y-2">
+                            {suggestions.map((suggestion, index) => (
+                                <button
+                                    key={index}
+                                    onClick={() => handleSuggestionClick(suggestion)}
+                                    className="w-full p-4 flex items-center gap-3 hover:bg-gray-50 rounded-xl transition-colors text-left"
+                                >
+                                    <Utensils className="w-5 h-5 text-[#00C48C] flex-shrink-0" />
+                                    <span className="flex-grow">{suggestion}</span>
+                                    <MapPin className="w-5 h-5 text-gray-400" />
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

@@ -3,8 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Calendar, Users, MapPin, Clock, Navigation, Bed, Car, StickyNote, Share2, Heart, ArrowLeft, Edit, Train, ArrowRight, Camera, Plane } from 'lucide-react';
 import { UserItineraryView, UserItineraryViewService } from '../services/user-itinerary-view.service';
 import { UserItineraryService } from '../services/user-itinerary.service';
-import { GoogleMapsService, DistanceInfo } from '../services/google-maps.service';
-import UserItineraryMap from '../components/UserItineraryMap';
+import ViewItineraryMap from '../components/ViewItineraryMap';
 import UserDayByDayView from '../components/UserDayByDayView';
 import { CountryImagesService } from '../services/country-images.service';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,7 +18,6 @@ const ViewUserItinerary: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'dayByDay'>('overview');
   const [isLiked, setIsLiked] = useState(false);
-  const [distanceInfo, setDistanceInfo] = useState<(DistanceInfo | null)[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [countryImage, setCountryImage] = useState<string | null>(null);
 
@@ -65,28 +63,6 @@ const ViewUserItinerary: React.FC = () => {
       fetchItinerary();
     }
   }, [id, isAuthenticated, user]);
-
-  useEffect(() => {
-    const fetchDistanceInfo = async () => {
-      if (!itinerary || itinerary.destinations.length <= 1) return;
-
-      const distances = [];
-      for (let i = 0; i < itinerary.destinations.length - 1; i++) {
-        const origin = cleanDestination(itinerary.destinations[i].destination);
-        const destination = cleanDestination(itinerary.destinations[i + 1].destination);
-        try {
-          const info = await GoogleMapsService.getDistanceAndDuration(origin, destination);
-          distances.push(info);
-        } catch (error) {
-          console.error('Error fetching distance info:', error);
-          distances.push(null);
-        }
-      }
-      setDistanceInfo(distances);
-    };
-
-    fetchDistanceInfo();
-  }, [itinerary]);
 
   useEffect(() => {
     const loadCountryImage = async () => {
@@ -329,14 +305,6 @@ const ViewUserItinerary: React.FC = () => {
                                   <ArrowRight className="w-5 h-5" />
                                   <span>To {cleanDestination(itinerary.destinations[index + 1].destination)}</span>
                                 </div>
-                                {distanceInfo[index] && (
-                                  <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
-                                    <Clock className="w-5 h-5 text-[#ea5681]" />
-                                    <span>{distanceInfo[index]?.duration}</span>
-                                    <span className="mx-2">•</span>
-                                    <span>{distanceInfo[index]?.distance}</span>
-                                  </div>
-                                )}
                                 {dest.transport && (
                                   <div className="mt-2 flex items-center gap-2 text-sm text-gray-600">
                                     {dest.transport.toLowerCase().includes('flight') ? (
@@ -360,7 +328,7 @@ const ViewUserItinerary: React.FC = () => {
                 <div className="w-full lg:w-2/3">
                   <div className="sticky top-8">
                     <div className="h-[700px] rounded-2xl overflow-hidden shadow-sm border border-gray-100">
-                      <UserItineraryMap
+                      <ViewItineraryMap
                         destinations={itinerary.destinations.map(d => ({
                           destination: cleanDestination(d.destination),
                           nights: d.nights
@@ -400,7 +368,7 @@ const ViewUserItinerary: React.FC = () => {
                   <div className="sticky top-8">
                     <div className="bg-white rounded-2xl border border-gray-100">
                       <div className="h-[800px] rounded-xl overflow-hidden">
-                        <UserItineraryMap
+                        <ViewItineraryMap
                           destinations={itinerary.destinations.map(d => ({
                             destination: cleanDestination(d.destination),
                             nights: d.nights
