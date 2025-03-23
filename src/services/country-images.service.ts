@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { CacheService } from './cache.service';
+import fallbackImages from '../data/country-images.json';
 
 interface Country {
     id: string;
@@ -18,6 +19,15 @@ interface GlobalImageCache {
     timestamp: number;
 }
 
+// Type for the fallback images JSON structure
+interface FallbackImages {
+    [key: string]: string[] | string;
+    default: string[];
+}
+
+// Cast the imported JSON to the correct type
+const typedFallbackImages = fallbackImages as FallbackImages;
+
 // Increased cache durations for better performance
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 const GLOBAL_CACHE_KEY = 'all_country_images_v2';
@@ -31,9 +41,8 @@ let globalImagesPromise: Promise<Record<string, string[]>> | null = null;
 
 export const CountryImagesService = {
     async fetchAllCountryImages(): Promise<Record<string, string[]>> {
-        if (isFetchingGlobal) {
-            // If already fetching, wait for that promise
-            return globalImagesPromise || {};
+        if (isFetchingGlobal && globalImagesPromise) {
+            return globalImagesPromise;
         }
 
         // Check global cache first
@@ -51,44 +60,71 @@ export const CountryImagesService = {
                     .select('name,folder_name')
                     .order('name');
 
-                if (countriesError) throw countriesError;
+                if (countriesError) {
+                    console.error('Error fetching countries:', countriesError);
+                    return this.getFallbackImages();
+                }
+
+                if (!countries || countries.length === 0) {
+                    console.warn('No countries found in database');
+                    return this.getFallbackImages();
+                }
 
                 // Fetch all folders in parallel with batching
                 const result: Record<string, string[]> = {};
-                const batchSize = 10;
+                const batchSize = 5; // Reduced batch size for better reliability
 
-                for (let i = 0; i < (countries?.length || 0); i += batchSize) {
-                    const batch = (countries || []).slice(i, i + batchSize);
+                for (let i = 0; i < countries.length; i += batchSize) {
+                    const batch = countries.slice(i, i + batchSize);
                     await Promise.all(batch.map(async (country) => {
                         try {
+                            if (!country.folder_name) {
+                                console.warn(`No folder name for country: ${country.name}`);
+                                result[country.name] = this.getFallbackImagesForCountry(country.name);
+                                return;
+                            }
+
                             const { data: files, error } = await supabase.storage
                                 .from('country-images')
                                 .list(`${country.folder_name}/`);
 
-                            if (error) throw error;
+                            if (error) {
+                                console.error(`Error listing files for ${country.name}:`, error);
+                                result[country.name] = this.getFallbackImagesForCountry(country.name);
+                                return;
+                            }
 
-                            const urls = (files || []).map(file => {
+                            if (!files || files.length === 0) {
+                                console.warn(`No images found for ${country.name}`);
+                                result[country.name] = this.getFallbackImagesForCountry(country.name);
+                                return;
+                            }
+
+                            const urls = files.map(file => {
                                 const { data: { publicUrl } } = supabase.storage
                                     .from('country-images')
                                     .getPublicUrl(`${country.folder_name}/${file.name}`);
                                 return publicUrl;
-                            });
+                            }).filter(url => url); // Filter out any undefined URLs
 
-                            // Update both memory and result
-                            imageCache.set(country.name, {
-                                urls,
-                                timestamp: Date.now()
-                            });
-                            result[country.name] = urls;
+                            if (urls.length === 0) {
+                                result[country.name] = this.getFallbackImagesForCountry(country.name);
+                            } else {
+                                result[country.name] = urls;
+                                imageCache.set(country.name, {
+                                    urls,
+                                    timestamp: Date.now()
+                                });
+                            }
                         } catch (error) {
-                            console.error(`Error fetching images for ${country.name}:`, error);
-                            result[country.name] = [];
+                            console.error(`Error processing images for ${country.name}:`, error);
+                            result[country.name] = this.getFallbackImagesForCountry(country.name);
                         }
                     }));
 
                     // Small delay between batches to prevent rate limiting
-                    if (i + batchSize < (countries?.length || 0)) {
-                        await new Promise(resolve => setTimeout(resolve, 50));
+                    if (i + batchSize < countries.length) {
+                        await new Promise(resolve => setTimeout(resolve, 100)); // Increased delay
                     }
                 }
 
@@ -101,8 +137,8 @@ export const CountryImagesService = {
                 lastGlobalFetch = Date.now();
                 return result;
             } catch (error) {
-                console.error('Error fetching all country images:', error);
-                return {};
+                console.error('Error in fetchAllCountryImages:', error);
+                return this.getFallbackImages();
             } finally {
                 isFetchingGlobal = false;
                 globalImagesPromise = null;
@@ -112,6 +148,23 @@ export const CountryImagesService = {
         return globalImagesPromise;
     },
 
+    getFallbackImages(): Record<string, string[]> {
+        return Object.entries(typedFallbackImages).reduce((acc, [country, urls]) => {
+            if (country !== 'default') {
+                acc[country] = Array.isArray(urls) ? urls : [urls];
+            }
+            return acc;
+        }, {} as Record<string, string[]>);
+    },
+
+    getFallbackImagesForCountry(country: string): string[] {
+        if (country in typedFallbackImages) {
+            const urls = typedFallbackImages[country];
+            return Array.isArray(urls) ? urls : [urls];
+        }
+        return typedFallbackImages.default;
+    },
+
     async getCountryImages(country: string): Promise<string[]> {
         // Check memory cache first
         const cached = imageCache.get(country);
@@ -119,9 +172,14 @@ export const CountryImagesService = {
             return cached.urls;
         }
 
-        // Get from global cache
-        const allImages = await this.fetchAllCountryImages();
-        return allImages[country] || [];
+        try {
+            // Get from global cache
+            const allImages = await this.fetchAllCountryImages();
+            return allImages[country] || this.getFallbackImagesForCountry(country);
+        } catch (error) {
+            console.error(`Error getting images for ${country}:`, error);
+            return this.getFallbackImagesForCountry(country);
+        }
     },
 
     async getAllCountryImages(): Promise<Record<string, string[]>> {
@@ -129,11 +187,19 @@ export const CountryImagesService = {
     },
 
     async getBatchCountryImages(countries: string[]): Promise<Record<string, string[]>> {
-        const allImages = await this.fetchAllCountryImages();
-        return countries.reduce((acc: Record<string, string[]>, country) => {
-            acc[country] = allImages[country] || [];
-            return acc;
-        }, {});
+        try {
+            const allImages = await this.fetchAllCountryImages();
+            return countries.reduce((acc: Record<string, string[]>, country) => {
+                acc[country] = allImages[country] || this.getFallbackImagesForCountry(country);
+                return acc;
+            }, {});
+        } catch (error) {
+            console.error('Error in getBatchCountryImages:', error);
+            return countries.reduce((acc: Record<string, string[]>, country) => {
+                acc[country] = this.getFallbackImagesForCountry(country);
+                return acc;
+            }, {});
+        }
     },
 
     async uploadCountryImage(country: string, file: File): Promise<boolean> {
@@ -182,44 +248,15 @@ export const CountryImagesService = {
 
     async getCountryImage(country: string): Promise<string | null> {
         try {
-            // First get the country folder name
-            const { data: countryData, error: countryError } = await supabase
-                .from('countries')
-                .select('folder_name')
-                .eq('name', country)
-                .single();
-
-            if (countryError || !countryData) {
-                console.error('Error fetching country:', countryError);
+            const images = await this.getCountryImages(country);
+            if (images.length === 0) {
                 return null;
             }
-
-            // Then get images from that folder
-            const { data: files, error } = await supabase.storage
-                .from('country-images')
-                .list(`${countryData.folder_name}/`);
-
-            if (error) {
-                console.error('Error fetching country images:', error);
-                return null;
-            }
-
-            if (!files || files.length === 0) {
-                return null;
-            }
-
-            // Randomly select one image
-            const randomImage = files[Math.floor(Math.random() * files.length)];
-
-            // Get the public URL
-            const { data: { publicUrl } } = supabase.storage
-                .from('country-images')
-                .getPublicUrl(`${countryData.folder_name}/${randomImage.name}`);
-
-            return publicUrl;
+            return images[Math.floor(Math.random() * images.length)];
         } catch (error) {
-            console.error('Error in getCountryImage:', error);
-            return null;
+            console.error(`Error getting single image for ${country}:`, error);
+            const fallbackImages = this.getFallbackImagesForCountry(country);
+            return fallbackImages[0] || null;
         }
     },
 
@@ -245,5 +282,5 @@ export const CountryImagesService = {
             console.error('Error fetching countries:', error);
             return [];
         }
-    },
+    }
 }; 

@@ -321,51 +321,78 @@ const Discover: React.FC = () => {
     // Fetch country images
     useEffect(() => {
         const fetchCountryImages = async () => {
+            if (!itineraries.length) return;
+
             const countries = Object.keys(countryStats);
+            if (!countries.length) return;
 
             try {
-                const images = await CountryImagesService.batchGetCountryImages(countries);
+                console.log('Fetching images for countries:', countries);
+                const images = await CountryImagesService.getAllCountryImages();
                 setCountryImages(images);
 
                 const selected: Record<string, string> = {};
 
                 // Select hero images for countries (prioritize high-quality images)
                 Object.keys(countryStats).forEach(country => {
-                    const countryImageList = images[country] || [];
-                    if (countryImageList.length > 0) {
-                        // For hero images, always use the first (highest quality) image
-                        const imageUrl = new URL(countryImageList[0]);
-                        if (imageUrl.hostname.includes('supabase.co')) {
-                            imageUrl.searchParams.set('quality', '100');
-                            imageUrl.searchParams.set('width', '1920');
+                    try {
+                        const countryImageList = images[country] || [];
+                        if (countryImageList.length > 0) {
+                            // For hero images, always use the first (highest quality) image
+                            const imageUrl = new URL(countryImageList[0]);
+                            if (imageUrl.hostname.includes('supabase.co')) {
+                                imageUrl.searchParams.set('quality', '100');
+                                imageUrl.searchParams.set('width', '1920');
+                            }
+                            selected[country] = imageUrl.toString();
+                        } else {
+                            selected[country] = '/images/empty-state.svg';
                         }
-                        selected[country] = imageUrl.toString();
+                    } catch (error) {
+                        console.error(`Error processing hero image for ${country}:`, error);
+                        selected[country] = '/images/empty-state.svg';
                     }
                 });
 
                 // Select images for itineraries
                 itineraries.forEach(itinerary => {
-                    const countryImageList = images[itinerary.country] || [];
-                    if (countryImageList.length > 0) {
-                        // For itinerary tiles, use smaller images
-                        const imageUrl = new URL(countryImageList[Math.floor(Math.random() * countryImageList.length)]);
-                        if (imageUrl.hostname.includes('supabase.co')) {
-                            imageUrl.searchParams.set('quality', '90');
-                            imageUrl.searchParams.set('width', '800');
+                    try {
+                        const countryImageList = images[itinerary.country] || [];
+                        if (countryImageList.length > 0) {
+                            // For itinerary tiles, use smaller images
+                            const randomIndex = Math.floor(Math.random() * countryImageList.length);
+                            const imageUrl = new URL(countryImageList[randomIndex]);
+                            if (imageUrl.hostname.includes('supabase.co')) {
+                                imageUrl.searchParams.set('quality', '90');
+                                imageUrl.searchParams.set('width', '800');
+                            }
+                            selected[itinerary.id] = imageUrl.toString();
+                        } else {
+                            selected[itinerary.id] = '/images/empty-state.svg';
                         }
-                        selected[itinerary.id] = imageUrl.toString();
+                    } catch (error) {
+                        console.error(`Error processing itinerary image for ${itinerary.id}:`, error);
+                        selected[itinerary.id] = '/images/empty-state.svg';
                     }
                 });
 
+                console.log('Setting selected images:', selected);
                 setSelectedImages(selected);
             } catch (error) {
-                // Handle error silently
+                console.error('Error fetching country images:', error);
+                // Set default images for all countries and itineraries
+                const selected: Record<string, string> = {};
+                Object.keys(countryStats).forEach(country => {
+                    selected[country] = '/images/empty-state.svg';
+                });
+                itineraries.forEach(itinerary => {
+                    selected[itinerary.id] = '/images/empty-state.svg';
+                });
+                setSelectedImages(selected);
             }
         };
 
-        if (Object.keys(countryStats).length > 0) {
-            fetchCountryImages();
-        }
+        fetchCountryImages();
     }, [countryStats, itineraries]);
 
     const loadItineraries = async () => {
