@@ -406,18 +406,19 @@ const UserPublicDashboard = () => {
     }
 
     return (
-        <div className="min-h-screen bg-white">
-            {/* World Map with Profile Overlay */}
-            <div className="w-full relative">
+        <div className="min-h-screen bg-[#FAFAFA]">
+            {/* World Map Section */}
+            <div className="w-full relative h-[70vh] bg-white">
                 <WorldMap
                     visitedCountries={visitedCountries}
                     isEditable={isEditing}
                     onCountryToggle={handleCountryToggle}
                 />
-                <div className="absolute bottom-4 right-4 w-72 bg-white/80 backdrop-blur-md rounded-2xl shadow-lg overflow-hidden">
-                    <div className="p-4">
-                        <div className="flex items-center gap-4 mb-4">
-                            <div className="w-14 h-14 rounded-full bg-white/90 shadow-sm overflow-hidden">
+                {/* Profile Overlay */}
+                <div className="absolute bottom-6 right-6 w-80 bg-white/90 backdrop-blur-xl rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+                    <div className="p-5">
+                        <div className="flex items-center gap-4 mb-5">
+                            <div className="w-16 h-16 rounded-full bg-white shadow-sm overflow-hidden ring-2 ring-white">
                                 <img
                                     src={profile.profile_picture_url || '/images/profile-icon.svg'}
                                     alt={profile.full_name}
@@ -425,31 +426,35 @@ const UserPublicDashboard = () => {
                                 />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <h1 className="text-lg font-medium text-gray-900 truncate mb-1">{profile.full_name}</h1>
-                                <div className="flex items-center gap-3 text-sm text-gray-600">
-                                    <div className="flex items-center gap-1.5">
-                                        <MapPin className="w-4 h-4" />
-                                        <span>{visitedCountries.length}</span>
+                                <h1 className="text-xl font-medium text-gray-900 tracking-tight truncate mb-2">
+                                    {profile.full_name}
+                                </h1>
+                                <div className="flex items-center gap-4 text-sm">
+                                    <div className="flex items-center gap-1.5 text-gray-600">
+                                        <MapPin className="w-4 h-4 text-[#00C48C]" />
+                                        <span className="font-medium">{visitedCountries.length}</span>
+                                        <span className="text-gray-500">countries</span>
                                     </div>
-                                    <div className="flex items-center gap-1.5">
-                                        <Calendar className="w-4 h-4" />
-                                        <span>{itineraries.length}</span>
+                                    <div className="flex items-center gap-1.5 text-gray-600">
+                                        <Calendar className="w-4 h-4 text-[#00C48C]" />
+                                        <span className="font-medium">{itineraries.length}</span>
+                                        <span className="text-gray-500">trips</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-3">
                             <button
                                 onClick={() => setIsCountrySelectOpen(true)}
-                                className="flex-1 py-2 px-3 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+                                className="flex-1 py-2.5 px-4 rounded-xl bg-gray-50 text-gray-700 text-sm font-medium hover:bg-gray-100 transition-colors border border-gray-100"
                             >
                                 Countries
                             </button>
                             <button
                                 onClick={() => setIsEditing(!isEditing)}
-                                className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium transition-colors ${isEditing
-                                        ? 'bg-[#00C48C] text-white hover:bg-[#00B380]'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${isEditing
+                                    ? 'bg-[#00C48C] text-white hover:bg-[#00B380] shadow-lg shadow-[#00C48C]/20'
+                                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-100'
                                     }`}
                             >
                                 {isEditing ? 'Done' : 'Edit Map'}
@@ -459,68 +464,22 @@ const UserPublicDashboard = () => {
                 </div>
             </div>
 
-            {/* Country Selection Modal */}
-            {isCountrySelectOpen && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col">
-                        <div className="p-4 border-b border-gray-200">
-                            <div className="flex items-center justify-between mb-2">
-                                <h2 className="text-lg font-semibold text-gray-900">Select Countries</h2>
-                                <button
-                                    onClick={() => setIsCountrySelectOpen(false)}
-                                    className="text-gray-500 hover:text-gray-700"
-                                >
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
-                            <div className="relative">
-                                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Search countries..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
-                                />
-                            </div>
-                        </div>
-                        <div className="overflow-y-auto flex-1 p-4">
-                            <div className="grid grid-cols-1 gap-2">
-                                {filteredCountries.map((country) => (
-                                    <button
-                                        key={country.code}
-                                        onClick={() => handleCountryToggle(country.code, !country.isVisited)}
-                                        className={`flex items-center justify-between p-2 rounded-md transition-colors ${country.isVisited
-                                            ? 'bg-[#00C48C]/10 text-[#00C48C] hover:bg-[#00C48C]/20'
-                                            : 'hover:bg-gray-100'
-                                            }`}
-                                    >
-                                        <span>{country.name}</span>
-                                        <div className={`w-4 h-4 rounded-full border ${country.isVisited
-                                            ? 'border-[#00C48C] bg-[#00C48C]'
-                                            : 'border-gray-300'
-                                            }`}>
-                                            {country.isVisited && (
-                                                <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                </svg>
-                                            )}
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
+            {/* Content Section */}
+            <div className="max-w-[1400px] mx-auto px-6 py-12">
+                <div className="flex items-center justify-between mb-8">
+                    <h2 className="text-2xl font-semibold text-gray-900">Travel Itineraries</h2>
+                    <div className="text-sm text-gray-500">
+                        Showing {itineraries.length} {itineraries.length === 1 ? 'trip' : 'trips'}
                     </div>
                 </div>
-            )}
-
-            {/* Content */}
-            <div className="max-w-[1400px] mx-auto px-4 py-12">
-                <h2 className="text-2xl font-bold text-[#1e293b] mb-8">Travel Itineraries</h2>
 
                 {itineraries.length === 0 ? (
-                    <div className="text-center py-12 bg-gray-50 rounded-xl">
-                        <p className="text-gray-600">No public itineraries shared yet</p>
+                    <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
+                        <div className="max-w-sm mx-auto">
+                            <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                            <p className="text-gray-600 font-medium">No public itineraries shared yet</p>
+                            <p className="text-sm text-gray-500 mt-2">Travel itineraries will appear here once created</p>
+                        </div>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -528,28 +487,31 @@ const UserPublicDashboard = () => {
                             <Link
                                 key={itinerary.id}
                                 to={`/view-itinerary/${itinerary.id}`}
-                                className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+                                className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all overflow-hidden"
                             >
-                                <div className="relative h-48">
+                                <div className="relative h-52">
                                     <img
                                         src={selectedImages[itinerary.id] || '/images/empty-state.svg'}
                                         alt={itinerary.trip_name}
-                                        className="w-full h-full object-cover"
+                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                     />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
                                 </div>
-                                <div className="p-4">
-                                    <h3 className="font-semibold text-lg mb-2">{itinerary.trip_name}</h3>
-                                    <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
-                                        <div className="flex items-center gap-1">
-                                            <MapPin className="w-4 h-4" />
+                                <div className="p-5">
+                                    <h3 className="font-medium text-lg text-gray-900 mb-3 group-hover:text-[#00C48C] transition-colors">
+                                        {itinerary.trip_name}
+                                    </h3>
+                                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-3">
+                                        <div className="flex items-center gap-1.5">
+                                            <MapPin className="w-4 h-4 text-[#00C48C]" />
                                             <span>{itinerary.country}</span>
                                         </div>
-                                        <div className="flex items-center gap-1">
-                                            <Calendar className="w-4 h-4" />
+                                        <div className="flex items-center gap-1.5">
+                                            <Calendar className="w-4 h-4 text-[#00C48C]" />
                                             <span>{itinerary.duration} days</span>
                                         </div>
-                                        <div className="flex items-center gap-1">
-                                            <Users className="w-4 h-4" />
+                                        <div className="flex items-center gap-1.5">
+                                            <Users className="w-4 h-4 text-[#00C48C]" />
                                             <span>{itinerary.passengers} travelers</span>
                                         </div>
                                     </div>
@@ -562,6 +524,61 @@ const UserPublicDashboard = () => {
                     </div>
                 )}
             </div>
+
+            {/* Country Selection Modal */}
+            {isCountrySelectOpen && (
+                <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col animate-in fade-in duration-200">
+                        <div className="p-5 border-b border-gray-100">
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-xl font-medium text-gray-900">Select Countries</h2>
+                                <button
+                                    onClick={() => setIsCountrySelectOpen(false)}
+                                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="relative">
+                                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Search countries..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                />
+                            </div>
+                        </div>
+                        <div className="overflow-y-auto flex-1 p-5">
+                            <div className="grid grid-cols-1 gap-2">
+                                {filteredCountries.map((country) => (
+                                    <button
+                                        key={country.code}
+                                        onClick={() => handleCountryToggle(country.code, !country.isVisited)}
+                                        className={`flex items-center justify-between p-3 rounded-xl transition-all ${country.isVisited
+                                            ? 'bg-[#00C48C]/5 text-[#00C48C] hover:bg-[#00C48C]/10'
+                                            : 'hover:bg-gray-50'
+                                            }`}
+                                    >
+                                        <span className="font-medium">{country.name}</span>
+                                        <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-all ${country.isVisited
+                                            ? 'bg-[#00C48C] text-white'
+                                            : 'border-2 border-gray-200'
+                                            }`}>
+                                            {country.isVisited && (
+                                                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            )}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

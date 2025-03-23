@@ -49,40 +49,6 @@ const ViewItineraryMap: React.FC<ViewItineraryMapProps> = ({ destinations, class
         }
     }, []);
 
-    // Initialize map
-    useEffect(() => {
-        if (!mapContainer.current || map.current) return;
-
-        mapboxgl.accessToken = 'pk.eyJ1IjoiYW1hbjlpbiIsImEiOiJjbThrdHZrcjQxNXByMmtvZ3d1cGlsYXA4In0.nUn4wFsWrbw2jC6ZMEJNPw';
-
-        map.current = new mapboxgl.Map({
-            container: mapContainer.current,
-            style: 'mapbox://styles/mapbox/streets-v12',
-            center: [12.4964, 41.9028], // Rome, Italy
-            zoom: 5,
-            attributionControl: false
-        });
-
-        // Add navigation controls
-        map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-
-        // Wait for map to load before allowing route updates
-        map.current.on('load', () => {
-            map.current?.resize();
-        });
-
-        // Cleanup
-        return () => {
-            if (map.current) {
-                map.current.remove();
-                map.current = null;
-            }
-            if (updateTimeout.current) {
-                clearTimeout(updateTimeout.current);
-            }
-        };
-    }, []);
-
     // Geocode destinations with caching
     const geocodeDestinations = useCallback(async (destinations: string[]): Promise<Map<string, [number, number]>> => {
         const coordsMap = new Map<string, [number, number]>();
@@ -203,7 +169,7 @@ const ViewItineraryMap: React.FC<ViewItineraryMapProps> = ({ destinations, class
                             'line-cap': 'round'
                         },
                         paint: {
-                            'line-color': '#00C48C',
+                            'line-color': '#EC4899',
                             'line-width': 3,
                             'line-opacity': 0.8
                         }
@@ -262,6 +228,61 @@ const ViewItineraryMap: React.FC<ViewItineraryMapProps> = ({ destinations, class
         }
     }, [destinations, geocodeDestinations, updateRouteLayer]);
 
+    // Initialize map
+    const initializeMap = useCallback(() => {
+        if (!mapContainer.current || map.current) return;
+
+        mapboxgl.accessToken = 'pk.eyJ1IjoiYW1hbjlpbiIsImEiOiJjbThrdHZrcjQxNXByMmtvZ3d1cGlsYXA4In0.nUn4wFsWrbw2jC6ZMEJNPw';
+
+        map.current = new mapboxgl.Map({
+            container: mapContainer.current,
+            style: 'mapbox://styles/mapbox/streets-v12',
+            center: [0, 20],
+            zoom: 1.5,
+            attributionControl: false,
+            dragRotate: false
+        });
+
+        // Add navigation controls
+        map.current.addControl(new mapboxgl.NavigationControl({
+            showCompass: false
+        }), 'top-right');
+
+        // Add resize handler
+        const handleResize = () => {
+            if (map.current) {
+                map.current.resize();
+            }
+        };
+        window.addEventListener('resize', handleResize);
+
+        // Cleanup
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            if (map.current) {
+                map.current.remove();
+                map.current = null;
+            }
+            if (updateTimeout.current) {
+                clearTimeout(updateTimeout.current);
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        initializeMap();
+    }, [initializeMap]);
+
+    // Update map when it's loaded
+    useEffect(() => {
+        if (!map.current) return;
+
+        map.current.on('load', () => {
+            map.current?.resize();
+            updateMap();
+        });
+    }, [updateMap]);
+
     // Update map when destinations change
     useEffect(() => {
         const currentDestinations = JSON.stringify(destinations);
@@ -277,7 +298,7 @@ const ViewItineraryMap: React.FC<ViewItineraryMapProps> = ({ destinations, class
     }, [destinations, updateMap]);
 
     return (
-        <div ref={mapContainer} className={`w-full h-full ${className}`} />
+        <div ref={mapContainer} className={`w-full h-full rounded-xl overflow-hidden border-2 border-gray-200 ${className}`} />
     );
 };
 

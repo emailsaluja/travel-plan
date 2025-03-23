@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, MapPin, Bed, Navigation, Utensils, StickyNote, Sparkles } from 'lucide-react';
+import { Calendar, MapPin, Bed, Navigation, Utensils, StickyNote, Sparkles, Plane, Train, Car, Bus } from 'lucide-react';
 import { getAttractionIcon } from '../data/attraction-types';
 import { cleanDestination } from '../utils/stringUtils';
 
@@ -42,8 +42,6 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
   dayHotels,
   dayNotes
 }) => {
-  console.log('UserDayByDayView props:', { startDate, destinations, dayAttractions, dayHotels });
-
   const generateDayByDaySchedule = () => {
     const schedule = [];
     let currentDate = new Date(startDate);
@@ -51,32 +49,18 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
     let nightsSpent = 0;
     let dayIndex = 0;
 
-    console.log('Initial dayAttractions:', dayAttractions);
-    console.log('Initial destinations:', destinations);
-
     while (currentDestIndex < destinations.length) {
       const currentDest = destinations[currentDestIndex];
-      console.log(`Processing day ${dayIndex} for ${currentDest.destination}`);
 
-      // Find attractions for this day
-      const dayAttractionData = dayAttractions.find(da => {
-        console.log('Comparing:', { dayAttractionDayIndex: da.dayIndex, currentDayIndex: dayIndex });
-        return da.dayIndex === dayIndex;
-      });
-
+      const dayAttractionData = dayAttractions.find(da => da.dayIndex === dayIndex);
       const dayHotelData = dayHotels.find(dh => dh.dayIndex === dayIndex);
-      console.log('Found dayAttractionData:', dayAttractionData);
 
-      // Get attractions from the destination's discover field if no day attractions are found
       let attractions: string[] = [];
       if (dayAttractionData && Array.isArray(dayAttractionData.attractions)) {
-        console.log('Using day-specific attractions:', dayAttractionData.attractions);
         attractions = dayAttractionData.attractions;
       } else if (currentDest.discover) {
-        console.log('Using destination discover field:', currentDest.discover);
         attractions = currentDest.discover.split(', ').filter(Boolean);
       }
-      console.log('Final attractions array:', attractions);
 
       schedule.push({
         date: new Date(currentDate),
@@ -87,7 +71,7 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
         transport: currentDest.transport,
         notes: currentDest.notes,
         attractions: attractions,
-        food: currentDest.food
+        food: currentDest.food?.split(',').filter(item => item.trim()) || []
       });
 
       currentDate.setDate(currentDate.getDate() + 1);
@@ -100,7 +84,6 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
       }
     }
 
-    console.log('Generated schedule:', schedule);
     return schedule;
   };
 
@@ -113,16 +96,13 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
   };
 
   const renderNotesWithLinks = (notes: string): React.ReactNode => {
-    // URL regex pattern
     const urlPattern = /(https?:\/\/[^\s]+)/g;
-
-    if (!notes) return 'No notes';
+    if (!notes) return null;
 
     const parts = notes.split(urlPattern);
-    const matches = notes.match(urlPattern) || [];
+    const matches = Array.from(notes.matchAll(urlPattern)).map(match => match[0]);
 
     return parts.map((part: string, index: number): React.ReactNode => {
-      // If this part matches our URL pattern, render it as a link
       if (matches.includes(part)) {
         return (
           <a
@@ -136,111 +116,213 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
           </a>
         );
       }
-      // Otherwise render as regular text
       return <span key={index}>{part}</span>;
     });
+  };
+
+  const getTransportIcon = (transport: string) => {
+    const lowerTransport = transport.toLowerCase();
+    if (lowerTransport.includes('fly') || lowerTransport.includes('plane') || lowerTransport.includes('air')) {
+      return Plane;
+    } else if (lowerTransport.includes('train')) {
+      return Train;
+    } else if (lowerTransport.includes('bus')) {
+      return Bus;
+    }
+    return Car;
   };
 
   const schedule = generateDayByDaySchedule();
 
   return (
-    <div className="space-y-4">
-      {schedule.map((day, index) => {
-        const dayNote = dayNotes.find(n => n.dayIndex === index);
-        const foodItems = day.food?.split(',').filter(item => item.trim()) || [];
+    <div className="max-w-5xl mx-auto">
+      <div className="relative">
+        {/* Timeline line */}
+        <div className="absolute left-[39px] top-0 bottom-0 w-0.5 bg-gradient-to-b from-[#00C48C] to-[#00B8A9]" />
 
-        return (
-          <div key={index} className="bg-white rounded-lg border p-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-gray-500" />
-                  <span className="font-medium">Day {index + 1}</span>
-                </div>
-                <span className="text-gray-500">{formatDate(day.date)}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-gray-500" />
-                <span className="text-gray-600">{cleanDestination(day.destination)}</span>
-              </div>
-            </div>
+        {/* Days */}
+        <div className="space-y-8">
+          {schedule.map((day, index) => {
+            const dayNote = dayNotes.find(n => n.dayIndex === index);
+            const nextDay = index < schedule.length - 1 ? schedule[index + 1] : null;
+            const isLastDayInDestination = nextDay && day.destination !== nextDay.destination;
 
-            <div className="grid grid-cols-2 gap-4">
-              {/* Places to Visit */}
-              {day.attractions && day.attractions.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-1">
-                    <Sparkles className="w-4 h-4 text-[#EC4899]" />
-                    Places to Visit
-                  </h4>
-                  <div className="space-y-1">
-                    {day.attractions.map((attraction, attrIndex) => {
-                      if (!attraction) return null;
-                      try {
-                        const attractionType = getAttractionIcon(attraction);
-                        const IconComponent = attractionType.icon;
-                        return (
-                          <div
-                            key={attrIndex}
-                            className="flex items-center gap-2"
-                          >
-                            <IconComponent className={`w-4 h-4 ${attractionType.color}`} />
-                            <span className="text-sm font-medium text-gray-700">{attraction}</span>
+            return (
+              <React.Fragment key={index}>
+                <div className="relative">
+                  {/* Timeline dot */}
+                  <div className="absolute left-[31px] w-4 h-4 rounded-full bg-white border-2 border-[#00C48C] z-10" />
+
+                  {/* Day card */}
+                  <div className="ml-20 bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow border-2 border-gray-200">
+                    {/* Header */}
+                    <div className="p-6 border-b border-gray-200 bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full border border-gray-200 shadow-sm">
+                              <Calendar className="w-4 h-4 text-[#6366F1]" />
+                              <span className="text-sm font-semibold text-gray-900">Day {index + 1}</span>
+                              <span className="text-sm text-gray-500">·</span>
+                              <span className="text-sm font-medium text-gray-700">{formatDate(day.date)}</span>
+                            </div>
                           </div>
-                        );
-                      } catch (error) {
-                        console.error('Error rendering attraction:', error);
-                        return null;
-                      }
-                    })}
+                          <div className="flex items-center gap-3">
+                            <MapPin className="w-6 h-6 text-[#00C48C]" />
+                            <h3 className="text-xl font-semibold text-gray-900">
+                              {cleanDestination(day.destination)}
+                            </h3>
+                            {(day.isArrivalDay || day.isDepartureDay) && (
+                              <div className="flex items-center gap-2">
+                                {day.isArrivalDay && (
+                                  <span className="px-3 py-1 text-sm font-medium text-[#00C48C] bg-[#00C48C]/10 rounded-full border border-[#00C48C]/20">
+                                    Arrival
+                                  </span>
+                                )}
+                                {day.isDepartureDay && (
+                                  <span className="px-3 py-1 text-sm font-medium text-[#F43F5E] bg-[#F43F5E]/10 rounded-full border border-[#F43F5E]/20">
+                                    Departure
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Left column */}
+                        <div className="space-y-8">
+                          {/* Attractions */}
+                          {day.attractions.length > 0 && (
+                            <div>
+                              <h4 className="flex items-center gap-2 font-medium text-gray-900 mb-4">
+                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#00B8A9]/10">
+                                  <Sparkles className="w-4 h-4 text-[#00B8A9]" />
+                                </div>
+                                Places to Visit
+                              </h4>
+                              <div className="space-y-3">
+                                {day.attractions.map((attraction, idx) => {
+                                  if (!attraction) return null;
+                                  try {
+                                    const attractionType = getAttractionIcon(attraction);
+                                    const IconComponent = attractionType.icon;
+                                    return (
+                                      <div
+                                        key={idx}
+                                        className="flex items-center gap-3 p-4 rounded-xl bg-white border-2 border-gray-100 hover:border-gray-200 transition-colors shadow-sm"
+                                      >
+                                        <div className={`flex items-center justify-center w-8 h-8 rounded-full ${attractionType.color.replace('text-', 'bg-')}/10`}>
+                                          <IconComponent className={`w-4 h-4 ${attractionType.color}`} />
+                                        </div>
+                                        <span className="text-gray-700 font-medium">{attraction}</span>
+                                      </div>
+                                    );
+                                  } catch (error) {
+                                    console.error('Error rendering attraction:', error);
+                                    return null;
+                                  }
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Food spots */}
+                          {day.food.length > 0 && (
+                            <div>
+                              <h4 className="flex items-center gap-2 font-medium text-gray-900 mb-4">
+                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#8B5CF6]/10">
+                                  <Utensils className="w-4 h-4 text-[#8B5CF6]" />
+                                </div>
+                                Food Spots
+                              </h4>
+                              <div className="space-y-3">
+                                {day.food.map((food, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="flex items-center gap-3 p-4 rounded-xl bg-white border-2 border-gray-100 hover:border-gray-200 transition-colors shadow-sm"
+                                  >
+                                    <span className="text-gray-700 font-medium">{food}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Right column */}
+                        <div className="space-y-8">
+                          {/* Hotel */}
+                          {day.sleeping && (
+                            <div>
+                              <h4 className="flex items-center gap-2 font-medium text-gray-900 mb-4">
+                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#F59E0B]/10">
+                                  <Bed className="w-4 h-4 text-[#F59E0B]" />
+                                </div>
+                                Hotel
+                              </h4>
+                              <div className="p-4 rounded-xl bg-white border-2 border-gray-100 hover:border-gray-200 transition-colors shadow-sm">
+                                <p className="text-gray-700 font-medium">{day.sleeping}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Notes */}
+                          {dayNote?.notes && (
+                            <div>
+                              <h4 className="flex items-center gap-2 font-medium text-gray-900 mb-4">
+                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#3B82F6]/10">
+                                  <StickyNote className="w-4 h-4 text-[#3B82F6]" />
+                                </div>
+                                Notes
+                              </h4>
+                              <div className="p-4 rounded-xl bg-white border-2 border-gray-100 hover:border-gray-200 transition-colors shadow-sm">
+                                <div className="text-gray-700 font-medium break-words">
+                                  {renderNotesWithLinks(dayNote.notes)}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              )}
 
-              <div>
-                {/* Food Spots */}
-                {foodItems.length > 0 && (
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-500 mb-1 flex items-center gap-1">
-                      <Utensils className="w-4 h-4 text-[#8B5CF6]" />
-                      Food Spots
-                    </h4>
-                    <div className="space-y-1">
-                      {foodItems.map((food, idx) => (
-                        <div key={idx} className="text-sm text-gray-700">{food}</div>
-                      ))}
+                {/* Transportation Details */}
+                {isLastDayInDestination && nextDay && (
+                  <div className="relative ml-20 mt-4 mb-8">
+                    <div className="flex items-center gap-4 py-4 px-6 bg-gradient-to-r from-[#6366F1]/5 to-[#818CF8]/5 rounded-xl border-2 border-[#6366F1]/20 shadow-sm hover:shadow-md transition-all hover:border-[#6366F1]/30">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#6366F1] text-white shadow-md shadow-[#6366F1]/20">
+                          <Navigation className="w-4 h-4" />
+                        </div>
+                        <span className="text-[#4F46E5] font-semibold">Travel to {cleanDestination(nextDay.destination)}</span>
+                      </div>
+                      <div className="h-6 w-px bg-[#6366F1]/20" />
+                      <div className="flex items-center gap-3">
+                        {(() => {
+                          const TransportIcon = getTransportIcon(day.transport);
+                          return (
+                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#6366F1] text-white shadow-md shadow-[#6366F1]/20">
+                              <TransportIcon className="w-4 h-4" />
+                            </div>
+                          );
+                        })()}
+                        <span className="text-[#4338CA] font-semibold">{day.transport}</span>
+                      </div>
                     </div>
                   </div>
                 )}
-
-                {/* Hotel */}
-                {day.sleeping && (
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-1 flex items-center gap-1">
-                      <Bed className="w-4 h-4 text-[#F59E0B]" />
-                      Hotel
-                    </h4>
-                    <p className="text-gray-700 text-sm">{day.sleeping}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Notes - Full Width */}
-            {dayNote?.notes && (
-              <div className="mt-4">
-                <h4 className="text-sm font-medium text-gray-500 mb-1 flex items-center gap-1">
-                  <StickyNote className="w-4 h-4 text-[#3B82F6]" />
-                  Notes
-                </h4>
-                <div className="text-sm text-gray-700 break-words overflow-hidden">
-                  {renderNotesWithLinks(dayNote.notes)}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 };

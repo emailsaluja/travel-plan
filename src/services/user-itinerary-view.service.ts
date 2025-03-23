@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 
 export interface UserItineraryView {
   id: string;
+  user_id: string;
   trip_name: string;
   country: string;
   start_date: string;
@@ -16,15 +17,25 @@ export interface UserItineraryView {
     notes: string;
     food: string;
   }[];
-  day_attractions: {
+  discover_descriptions?: {
+    [destination: string]: {
+      [place: string]: string;
+    };
+  };
+  food_descriptions?: {
+    [destination: string]: {
+      [place: string]: string;
+    };
+  };
+  day_attractions?: {
     day_index: number;
-    attractions: string[];
+    attractions: string;
   }[];
-  day_hotels: {
+  day_hotels?: {
     day_index: number;
     hotel: string;
   }[];
-  day_notes: {
+  day_notes?: {
     day_index: number;
     notes: string;
   }[];
