@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Calendar, Bed, Compass, Plus, StickyNote, MapPin, Sparkles, Edit, Utensils, Car, Plane, Train, BusIcon } from 'lucide-react';
 import DayDiscoverPopup from './DayDiscoverPopup';
 import HotelSearchPopup from './HotelSearchPopup';
@@ -102,6 +102,9 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
     destination: string;
     food: string;
   } | null>(null);
+  const [isLoadingAttractions, setIsLoadingAttractions] = useState(false);
+  const [hasLoadedInitialAttractions, setHasLoadedInitialAttractions] = useState(false);
+  const previousAttractionsRef = useRef<string>('');
 
   const formatDate = (date: Date) => {
     const formattedDate = new Intl.DateTimeFormat('en-US', {
@@ -116,8 +119,8 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
     return `${weekday} ${day} ${month} ${year}`;
   };
 
-  const generateExpandedDays = () => {
-    let expandedDays: ExpandedDay[] = [];
+  const expandedDays = useMemo(() => {
+    let days: ExpandedDay[] = [];
     let dayIndex = 0;
     let currentDate = new Date(tripStartDate);
     let totalNights = 0;
@@ -131,7 +134,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
 
       for (let i = 0; i < nights; i++) {
         if (dayIndex < totalNights) {
-          expandedDays.push({
+          days.push({
             ...destination,
             dayIndex,
             isFirstDay: i === 0,
@@ -145,63 +148,103 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
       }
     });
 
-    return expandedDays;
-  };
+    return days;
+  }, [tripStartDate, destinations]);
 
-  const expandedDays = generateExpandedDays();
+  // Memoize the attractions loading function to prevent unnecessary recreations
+  const loadAttractionsFromDatabase = useCallback(async () => {
+    if (!itineraryId || isLoadingAttractions) return;
 
-  // Add effect to load attractions from database
-  useEffect(() => {
-    const loadAttractionsFromDatabase = async () => {
-      if (!itineraryId) return;
+    // Check if we already have the same attractions loaded
+    const currentAttractions = JSON.stringify(dayAttractions);
+    if (currentAttractions === previousAttractionsRef.current) {
+      return;
+    }
 
-      try {
-        const { data, error } = await supabase
-          .from('user_itinerary_day_attractions')
-          .select('day_index, attractions')
-          .eq('itinerary_id', itineraryId);
+    setIsLoadingAttractions(true);
+    try {
+      const { data, error } = await supabase
+        .from('user_itinerary_day_attractions')
+        .select('day_index, attractions')
+        .eq('itinerary_id', itineraryId);
 
-        if (error) {
-          console.error('Error loading attractions:', error);
-          return;
-        }
-
-        // Create a map of all day attractions
-        const attractionsMap = new Map();
-        data.forEach(item => {
-          if (item.day_index !== undefined && Array.isArray(item.attractions)) {
-            attractionsMap.set(item.day_index, item.attractions);
-          }
-        });
-
-        // Update each day's attractions, preserving existing ones if they exist
-        expandedDays.forEach(day => {
-          const existingAttractions = dayAttractions.find(da => da.dayIndex === day.dayIndex);
-          const dbAttractions = attractionsMap.get(day.dayIndex);
-
-          if (dbAttractions) {
-            // If we have database attractions, use those
-            onDayAttractionsUpdate(day.dayIndex, dbAttractions);
-          } else if (!existingAttractions) {
-            // If no database attractions and no existing attractions, initialize from destinations
-            const destinationData = destinations.find(d => d.destination === day.destination);
-            const destinationAttractions = [
-              ...(destinationData?.discover?.split(',').filter(Boolean) || []),
-              ...(destinationData?.manual_discover?.split(',').filter(Boolean) || [])
-            ].map(attraction => attraction.trim());
-
-            if (destinationAttractions.length > 0) {
-              onDayAttractionsUpdate(day.dayIndex, destinationAttractions);
-            }
-          }
-        });
-      } catch (error) {
-        console.error('Failed to load attractions:', error);
+      if (error) {
+        console.error('Error loading attractions:', error);
+        return;
       }
-    };
 
-    loadAttractionsFromDatabase();
-  }, [itineraryId, onDayAttractionsUpdate, destinations, dayAttractions, expandedDays]);
+      // Create a map of all day attractions
+      const attractionsMap = new Map();
+      data.forEach(item => {
+        if (item.day_index !== undefined && Array.isArray(item.attractions)) {
+          attractionsMap.set(item.day_index, item.attractions);
+        }
+      });
+
+      // Create a batch of updates to minimize state changes
+      const updates: { dayIndex: number; attractions: string[] }[] = [];
+
+      // Update each day's attractions, preserving existing ones if they exist
+      expandedDays.forEach(day => {
+        const existingAttractions = dayAttractions.find(da => da.dayIndex === day.dayIndex);
+        const dbAttractions = attractionsMap.get(day.dayIndex);
+
+        // Only update if we have database attractions and they're different from existing ones
+        if (dbAttractions && (!existingAttractions ||
+          JSON.stringify(dbAttractions) !== JSON.stringify(existingAttractions.selectedAttractions))) {
+          updates.push({ dayIndex: day.dayIndex, attractions: dbAttractions });
+        } else if (!existingAttractions && !dbAttractions) {
+          // If no database attractions and no existing attractions, initialize from destinations
+          const destinationData = destinations.find(d => d.destination === day.destination);
+          const destinationAttractions = [
+            ...(destinationData?.discover?.split(',').filter(Boolean) || []),
+            ...(destinationData?.manual_discover?.split(',').filter(Boolean) || [])
+          ].map(attraction => attraction.trim());
+
+          if (destinationAttractions.length > 0) {
+            updates.push({ dayIndex: day.dayIndex, attractions: destinationAttractions });
+          }
+        }
+      });
+
+      // Only update if there are actual changes
+      if (updates.length > 0) {
+        // Batch update all attractions at once
+        updates.forEach(update => {
+          onDayAttractionsUpdate(update.dayIndex, update.attractions);
+        });
+      }
+
+      // Store the current state for future comparison
+      previousAttractionsRef.current = JSON.stringify(dayAttractions);
+      setHasLoadedInitialAttractions(true);
+    } catch (error) {
+      console.error('Failed to load attractions:', error);
+    } finally {
+      setIsLoadingAttractions(false);
+    }
+  }, [itineraryId, expandedDays, destinations, dayAttractions, onDayAttractionsUpdate, isLoadingAttractions]);
+
+  // Effect to load attractions only when necessary
+  useEffect(() => {
+    const shouldLoadAttractions = itineraryId &&
+      (!hasLoadedInitialAttractions ||
+        JSON.stringify(dayAttractions) !== previousAttractionsRef.current);
+
+    if (shouldLoadAttractions) {
+      const timeoutId = setTimeout(() => {
+        loadAttractionsFromDatabase();
+      }, 300); // Add a small debounce
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [itineraryId, loadAttractionsFromDatabase, hasLoadedInitialAttractions, dayAttractions]);
+
+  // Reset state when itineraryId changes
+  useEffect(() => {
+    setHasLoadedInitialAttractions(false);
+    previousAttractionsRef.current = '';
+  }, [itineraryId]);
 
   const handleDiscoverClick = (day: ExpandedDay, index: number) => {
     const destinationData = destinations.find(d => d.destination === day.destination);

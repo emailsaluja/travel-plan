@@ -101,7 +101,7 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
           ...hotel,
           priceLevel: hotel.price_level,
           isManuallyAdded: hotel.is_manually_added,
-          isSelected: hotel.is_selected
+          isSelected: hotel.name === selectedHotel
         }));
 
         setManualHotels(uiHotels);
@@ -113,7 +113,7 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
     if (isOpen && destination) {
       loadManualHotels();
     }
-  }, [destination, isOpen]);
+  }, [destination, isOpen, selectedHotel]);
 
   const fetchHotelDetails = async (placeId: string) => {
     try {
@@ -144,6 +144,34 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
       console.error('Error fetching hotel details:', error);
       throw error;
     }
+  };
+
+  const processHotelsData = (results: google.maps.places.PlaceResult[]) => {
+    const sortedHotels = results.sort((a, b) => {
+      const scoreA = (a.rating || 0) * Math.log(a.user_ratings_total || 1);
+      const scoreB = (b.rating || 0) * Math.log(b.user_ratings_total || 1);
+      return scoreB - scoreA;
+    });
+
+    console.log(`Found ${sortedHotels.length} unique hotels for ${destination}`);
+
+    // Convert to our Hotel format
+    const hotelsData: Hotel[] = sortedHotels.map(place => ({
+      id: place.place_id || '',
+      place_id: place.place_id || '',
+      name: place.name || '',
+      rating: place.rating,
+      userRatingsTotal: place.user_ratings_total,
+      photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 }),
+      priceLevel: place.price_level,
+      description: place.formatted_address || place.vicinity || '',
+      isSelected: selectedHotel === place.name,
+      isManuallyAdded: false,
+      destination: destination
+    }));
+
+    setHotels(hotelsData);
+    setLoading(false);
   };
 
   const searchHotels = useCallback(async () => {
@@ -231,42 +259,14 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
     }
   }, [destination, placesService, selectedHotel]);
 
-  const processHotelsData = (results: google.maps.places.PlaceResult[]) => {
-    const sortedHotels = results.sort((a, b) => {
-      const scoreA = (a.rating || 0) * Math.log(a.user_ratings_total || 1);
-      const scoreB = (b.rating || 0) * Math.log(b.user_ratings_total || 1);
-      return scoreB - scoreA;
-    });
-
-    console.log(`Found ${sortedHotels.length} unique hotels for ${destination}`);
-
-    // Convert to our Hotel format
-    const hotelsData: Hotel[] = sortedHotels.map(place => ({
-      id: place.place_id || '',
-      place_id: place.place_id || '',
-      name: place.name || '',
-      rating: place.rating,
-      userRatingsTotal: place.user_ratings_total,
-      photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 }),
-      priceLevel: place.price_level,
-      description: place.formatted_address || place.vicinity || '',
-      isSelected: selectedHotel === place.name,
-      isManuallyAdded: false,
-      destination: destination
-    }));
-
-    setHotels(hotelsData);
-    setLoading(false);
-  };
-
   const handleHotelSelect = async (hotel: Hotel) => {
     try {
       if (hotel.place_id) {
         const placeDetails = await fetchHotelDetails(hotel.place_id);
-        // Update the hotel with additional details if needed
-        onHotelSelect(hotel.name, hotel.isManuallyAdded, hotel.description);
-        onClose();
       }
+      // Update the hotel with additional details if needed
+      onHotelSelect(hotel.name, hotel.isManuallyAdded, hotel.description);
+      onClose();
     } catch (error) {
       console.error('Error selecting hotel:', error);
     }
@@ -436,6 +436,23 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
     }
   }, [isOpen, searchHotels]);
 
+  // Update hotel selection state when selectedHotel prop changes
+  useEffect(() => {
+    if (isOpen) {
+      // Update manual hotels selection state
+      setManualHotels(prev => prev.map(hotel => ({
+        ...hotel,
+        isSelected: hotel.name === selectedHotel
+      })));
+
+      // Update hotels selection state
+      setHotels(prev => prev.map(hotel => ({
+        ...hotel,
+        isSelected: hotel.name === selectedHotel
+      })));
+    }
+  }, [isOpen, selectedHotel]);
+
   const formatDate = (date?: Date) => {
     if (!date) return '';
     return new Intl.DateTimeFormat('en-US', { month: 'long' }).format(date);
@@ -470,42 +487,90 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
           {/* Content */}
           <div className="max-h-[60vh] overflow-y-auto p-6">
             <div className="space-y-6">
-              {/* Stay at List */}
-              <div className="grid gap-4">
-                {manualHotels.map((hotel) => (
-                  <div
-                    key={hotel.id}
-                    className={`group relative rounded-lg border p-4 transition-all hover:shadow-md ${(selectedHotel === hotel.name || hotel.isSelected)
-                      ? 'border-[#F59E0B] bg-[#F59E0B]/5'
-                      : 'border-gray-200 hover:border-[#F59E0B]'
-                      }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h4 className="font-['Inter_var'] font-[600] text-[#1E293B]">{hotel.name}</h4>
-                        <p className="mt-1 text-sm text-gray-500">{hotel.description}</p>
+              {/* Manual Hotels List */}
+              {manualHotels.length > 0 && (
+                <div className="grid gap-4">
+                  <h3 className="text-sm font-semibold text-gray-500">Your Hotels</h3>
+                  {manualHotels.map((hotel) => (
+                    <div
+                      key={hotel.id}
+                      className={`group relative rounded-lg border p-4 transition-all hover:shadow-md ${selectedHotel === hotel.name
+                        ? 'border-[#F59E0B] bg-[#F59E0B]/5'
+                        : 'border-gray-200 hover:border-[#F59E0B]'
+                        }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-['Inter_var'] font-[600] text-[#1E293B]">{hotel.name}</h4>
+                          <p className="mt-1 text-sm text-gray-500">{hotel.description}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleEditHotel(hotel)}
+                            className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteHotel(hotel.id)}
+                            className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleHotelSelect(hotel)}
+                            className={`rounded-full p-2 ${selectedHotel === hotel.name
+                              ? 'bg-[#F59E0B] text-white'
+                              : 'text-[#F59E0B] hover:bg-[#F59E0B]/10'
+                              }`}
+                          >
+                            {selectedHotel === hotel.name ? (
+                              <Check className="h-5 w-5" />
+                            ) : (
+                              <Plus className="h-5 w-5" />
+                            )}
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleEditHotel(hotel)}
-                          className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteHotel(hotel.id)}
-                          className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Search Results List */}
+              {hotels.length > 0 && (
+                <div className="grid gap-4">
+                  <h3 className="text-sm font-semibold text-gray-500">Available Hotels</h3>
+                  {hotels.map((hotel) => (
+                    <div
+                      key={hotel.id}
+                      className={`group relative rounded-lg border p-4 transition-all hover:shadow-md ${selectedHotel === hotel.name
+                        ? 'border-[#F59E0B] bg-[#F59E0B]/5'
+                        : 'border-gray-200 hover:border-[#F59E0B]'
+                        }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-['Inter_var'] font-[600] text-[#1E293B]">{hotel.name}</h4>
+                          <p className="mt-1 text-sm text-gray-500">{hotel.description}</p>
+                          {hotel.rating && (
+                            <div className="mt-1 flex items-center gap-1">
+                              <Star className="h-4 w-4 text-yellow-400" />
+                              <span className="text-sm text-gray-600">{hotel.rating}</span>
+                              {hotel.userRatingsTotal && (
+                                <span className="text-sm text-gray-400">({hotel.userRatingsTotal})</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         <button
                           onClick={() => handleHotelSelect(hotel)}
-                          className={`rounded-full p-2 ${(selectedHotel === hotel.name || hotel.isSelected)
+                          className={`rounded-full p-2 ${selectedHotel === hotel.name
                             ? 'bg-[#F59E0B] text-white'
                             : 'text-[#F59E0B] hover:bg-[#F59E0B]/10'
                             }`}
                         >
-                          {(selectedHotel === hotel.name || hotel.isSelected) ? (
+                          {selectedHotel === hotel.name ? (
                             <Check className="h-5 w-5" />
                           ) : (
                             <Plus className="h-5 w-5" />
@@ -513,9 +578,9 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
                         </button>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
 
               {/* Add Hotel Form */}
               <form onSubmit={handleManualSubmit} className="space-y-4 pt-4 border-t border-gray-100">

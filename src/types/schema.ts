@@ -41,6 +41,7 @@ export interface UserItineraryDestination {
     manual_hotel: string;
     manual_hotel_desc: string;
     manual_discover: string;
+    manual_discover_desc: string;
     order_index: number;
 }
 

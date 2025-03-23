@@ -3,44 +3,45 @@ export interface DistanceInfo {
   duration: string;
 }
 
-class GoogleMapsServiceClass {
-  private static instance: GoogleMapsServiceClass;
-  private placesService: google.maps.places.PlacesService | null = null;
-  private autocompleteService: google.maps.places.AutocompleteService | null = null;
-  private dummyMap: google.maps.Map | null = null;
+export class GoogleMapsService {
+  private static placesService: google.maps.places.PlacesService | null = null;
+  private static autocompleteService: google.maps.places.AutocompleteService | null = null;
+  private static mapDiv: HTMLDivElement | null = null;
 
-  private constructor() { }
-
-  public static getInstance(): GoogleMapsServiceClass {
-    if (!GoogleMapsServiceClass.instance) {
-      GoogleMapsServiceClass.instance = new GoogleMapsServiceClass();
-    }
-    return GoogleMapsServiceClass.instance;
-  }
-
-  public initializeServices(): void {
-    if (window.google && !this.placesService) {
-      // Create a dummy map element (required by Places API)
-      const mapDiv = document.createElement('div');
-      this.dummyMap = new google.maps.Map(mapDiv);
-      this.placesService = new google.maps.places.PlacesService(this.dummyMap);
-      this.autocompleteService = new google.maps.places.AutocompleteService();
-      console.log('Google Maps services initialized');
-    }
-  }
-
-  public getPlacesService(): google.maps.places.PlacesService {
+  public static getPlacesService(): google.maps.places.PlacesService {
     if (!this.placesService) {
-      this.initializeServices();
+      if (!this.mapDiv) {
+        this.mapDiv = document.createElement('div');
+        // Use a basic div without MapBox - Google Places API only needs a DOM element
+        const map = new google.maps.Map(this.mapDiv, {
+          center: { lat: 0, lng: 0 },
+          zoom: 1,
+          disableDefaultUI: true,
+          mapTypeId: google.maps.MapTypeId.ROADMAP
+        });
+        this.placesService = new google.maps.places.PlacesService(map);
+      } else {
+        this.placesService = new google.maps.places.PlacesService(this.mapDiv);
+      }
     }
-    return this.placesService!;
+    return this.placesService;
   }
 
-  public getAutocompleteService(): google.maps.places.AutocompleteService {
+  public static getAutocompleteService(): google.maps.places.AutocompleteService {
     if (!this.autocompleteService) {
-      this.initializeServices();
+      this.autocompleteService = new google.maps.places.AutocompleteService();
     }
-    return this.autocompleteService!;
+    return this.autocompleteService;
+  }
+
+  // Clean up method
+  public static cleanup() {
+    this.placesService = null;
+    this.autocompleteService = null;
+    if (this.mapDiv) {
+      this.mapDiv.remove();
+      this.mapDiv = null;
+    }
   }
 
   async getDistanceAndDuration(origin: string, destination: string): Promise<DistanceInfo> {
@@ -79,6 +80,4 @@ class GoogleMapsServiceClass {
       );
     });
   }
-}
-
-export const GoogleMapsService = GoogleMapsServiceClass.getInstance(); 
+} 

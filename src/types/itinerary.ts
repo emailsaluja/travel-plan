@@ -26,6 +26,7 @@ export interface SaveItineraryData {
         nights: number;
         discover: string;
         manual_discover: string;
+        manual_discover_desc: string;
         transport: string;
         notes: string;
         food: string;

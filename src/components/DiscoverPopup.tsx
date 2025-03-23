@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, MapPin, Star, Search, Plus, Edit2, Trash2, Check, Compass } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { cleanDestination } from '../utils/stringUtils';
@@ -33,11 +33,14 @@ interface DiscoverPopupProps {
   isOpen: boolean;
   onClose: () => void;
   destination: string;
-  onAttractionsSelect: (attractions: string[], manualAttractions: string[]) => void;
+  onAttractionsSelect: (attractions: string[], manualAttractions: string[], description?: string) => void;
   selectedAttractions?: string[];
 }
 
 type TabType = 'search' | 'manual' | 'tours';
+
+// Add a cache for destination coordinates
+const destinationCache = new Map<string, google.maps.LatLng>();
 
 const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
   isOpen,
@@ -46,7 +49,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
   selectedAttractions = [],
   onAttractionsSelect,
 }) => {
-  const [activeTab, setActiveTab] = useState<TabType>('search');
+  const [activeTab, setActiveTab] = useState<TabType>('manual');
   const [attractions, setAttractions] = useState<Attraction[]>([]);
   const [manualAttractions, setManualAttractions] = useState<Attraction[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,220 +65,160 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
   // Manual attraction form state
   const [manualAttraction, setManualAttraction] = useState({
     name: '',
-    description: '',
-    rating: ''
+    description: ''
   });
   const [editingAttraction, setEditingAttraction] = useState<Attraction | null>(null);
 
   const [tours, setTours] = useState<Tour[]>([]);
 
-  // First useEffect to load Google Places results
-  useEffect(() => {
-    const clearAllState = () => {
-      setGooglePlacesLoaded(false);
-      setAttractions([]);
-      setManualAttractions([]);
-      attractionsRef.current = [];
-      setSearchQuery('');
-      setSearchResults([]);
-      setShowSearchResults(false);
-      setActiveTab('search');
-      setManualAttraction({
-        name: '',
-        description: '',
-        rating: ''
-      });
-      setEditingAttraction(null);
-      setLoading(false);
-    };
+  // Memoized function to get destination coordinates
+  const getDestinationCoordinates = useCallback(async (dest: string): Promise<google.maps.LatLng | null> => {
+    // Check cache first
+    if (destinationCache.has(dest)) {
+      return destinationCache.get(dest)!;
+    }
 
-    if (isOpen && destination && window.google) {
-      clearAllState();
-      setLoading(true);
-
-      // Use the shared Places Service
+    return new Promise((resolve) => {
       const placesService = GoogleMapsService.getPlacesService();
-
-      // First, find the location of the destination
-      const destinationRequest = {
-        query: destination,
+      const request = {
+        query: dest,
         fields: ['geometry']
       };
 
-      placesService.findPlaceFromQuery(destinationRequest, (results, status) => {
+      placesService.findPlaceFromQuery(request, (results, status) => {
         if (status === google.maps.places.PlacesServiceStatus.OK && results && results[0]) {
           const location = results[0].geometry?.location;
-
           if (location) {
-            // Now search for attractions near this location
-            const attractionsRequest = {
-              location: location,
-              radius: 50000, // 50km radius
-              rankBy: google.maps.places.RankBy.PROMINENCE // Use PROMINENCE with radius
-            };
-
-            // Perform multiple searches for different types of attractions
-            Promise.all([
-              // Major Tourist Attractions
-              new Promise((resolve) => {
-                placesService.nearbySearch(
-                  { ...attractionsRequest, type: 'tourist_attraction' },
-                  (results, status) => resolve({ results, status })
-                );
-              }),
-              // Historical & Cultural Sites
-              new Promise((resolve) => {
-                placesService.nearbySearch(
-                  { ...attractionsRequest, type: 'museum' },
-                  (results, status) => resolve({ results, status })
-                );
-              }),
-              // Religious Sites
-              new Promise((resolve) => {
-                placesService.nearbySearch(
-                  { ...attractionsRequest, type: 'place_of_worship' },
-                  (results, status) => resolve({ results, status })
-                );
-              }),
-              // Parks and Nature
-              new Promise((resolve) => {
-                placesService.nearbySearch(
-                  { ...attractionsRequest, type: 'park' },
-                  (results, status) => resolve({ results, status })
-                );
-              }),
-              // Landmarks
-              new Promise((resolve) => {
-                placesService.nearbySearch(
-                  { ...attractionsRequest, type: 'landmark' },
-                  (results, status) => resolve({ results, status })
-                );
-              }),
-              // Amusement Parks
-              new Promise((resolve) => {
-                placesService.nearbySearch(
-                  { ...attractionsRequest, type: 'amusement_park' },
-                  (results, status) => resolve({ results, status })
-                );
-              }),
-              // Art Galleries
-              new Promise((resolve) => {
-                placesService.nearbySearch(
-                  { ...attractionsRequest, type: 'art_gallery' },
-                  (results, status) => resolve({ results, status })
-                );
-              }),
-              // Famous View Points
-              new Promise((resolve) => {
-                placesService.textSearch({
-                  location: location,
-                  radius: 50000,
-                  query: `best viewpoints in ${cleanDestination(destination)}`
-                }, (results, status) => resolve({ results, status }));
-              }),
-              // Historical Sites
-              new Promise((resolve) => {
-                placesService.textSearch({
-                  location: location,
-                  radius: 50000,
-                  query: `historical sites in ${cleanDestination(destination)}`
-                }, (results, status) => resolve({ results, status }));
-              }),
-              // Must Visit Places
-              new Promise((resolve) => {
-                placesService.textSearch({
-                  location: location,
-                  radius: 50000,
-                  query: `must visit places in ${cleanDestination(destination)}`
-                }, (results, status) => resolve({ results, status }));
-              })
-            ]).then((responses) => {
-              const allPlaces = new Map();
-
-              responses.forEach((response: any) => {
-                if (response.status === google.maps.places.PlacesServiceStatus.OK && response.results) {
-                  response.results.forEach((place: google.maps.places.PlaceResult) => {
-                    // Only include places with ratings above 3.5 or no rating (new places)
-                    if (!place.rating || place.rating >= 3.5) {
-                      if (!allPlaces.has(place.place_id)) {
-                        allPlaces.set(place.place_id, place);
-                      } else {
-                        // If place already exists, update it if the new one has better rating or more reviews
-                        const existingPlace = allPlaces.get(place.place_id);
-                        if ((place.rating || 0) > (existingPlace.rating || 0) ||
-                          (place.user_ratings_total || 0) > (existingPlace.user_ratings_total || 0)) {
-                          allPlaces.set(place.place_id, place);
-                        }
-                      }
-                    }
-                  });
-                }
-              });
-
-              const places = Array.from(allPlaces.values());
-
-              // Sort places by rating and number of reviews
-              places.sort((a, b) => {
-                const ratingA = a.rating || 0;
-                const ratingB = b.rating || 0;
-                const reviewsA = a.user_ratings_total || 0;
-                const reviewsB = b.user_ratings_total || 0;
-
-                // Prioritize highly rated places with significant number of reviews
-                const scoreA = ratingA * Math.log(reviewsA + 1);
-                const scoreB = ratingB * Math.log(reviewsB + 1);
-
-                return scoreB - scoreA;
-              });
-
-              // Convert places to our Attraction format
-              const attractionsData: Attraction[] = places.map(place => ({
-                id: place.place_id || '',
-                name: place.name || '',
-                rating: place.rating,
-                userRatingsTotal: place.user_ratings_total,
-                photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 }),
-                isSelected: false,
-                description: place.vicinity || place.formatted_address,
-                isManuallyAdded: false
-              }));
-
-              // Mark selected attractions
-              selectedAttractions.forEach(selectedName => {
-                const match = attractionsData.find(a =>
-                  a.name.toLowerCase() === selectedName.toLowerCase() ||
-                  selectedName.toLowerCase().includes(a.name.toLowerCase()) ||
-                  a.name.toLowerCase().includes(selectedName.toLowerCase())
-                );
-                if (match) {
-                  match.isSelected = true;
-                }
-              });
-
-              // Update attractions with selected state
-              setAttractions(attractionsData);
-              attractionsRef.current = attractionsData; // Store in ref for stable reference
-              setGooglePlacesLoaded(true);
-              setLoading(false);
-            });
+            destinationCache.set(dest, location);
+            resolve(location);
+          } else {
+            resolve(null);
           }
+        } else {
+          resolve(null);
         }
       });
-    }
+    });
+  }, []);
 
-    // Cleanup function
-    return () => {
-      if (!isOpen) {
-        clearAllState();
+  // Optimized useEffect for loading attractions
+  useEffect(() => {
+    const loadAttractions = async () => {
+      if (!isOpen || !destination || !window.google) return;
+
+      setLoading(true);
+      const location = await getDestinationCoordinates(destination);
+
+      if (!location) {
+        setLoading(false);
+        return;
+      }
+
+      const placesService = GoogleMapsService.getPlacesService();
+      const attractionsRequest = {
+        location: location,
+        radius: 50000,
+        rankBy: google.maps.places.RankBy.PROMINENCE
+      };
+
+      // Combine similar type searches to reduce API calls
+      const searchTypes = [
+        { type: 'tourist_attraction', query: null },
+        { type: 'museum', query: null },
+        { type: 'place_of_worship', query: null },
+        { type: 'park', query: null },
+        { type: 'landmark', query: null },
+        { type: 'amusement_park', query: null },
+        { type: 'art_gallery', query: null },
+        { query: `best attractions in ${cleanDestination(destination)}`, type: null }
+      ];
+
+      try {
+        const results = await Promise.all(
+          searchTypes.map(({ type, query }) => {
+            return new Promise((resolve) => {
+              if (type) {
+                placesService.nearbySearch(
+                  { ...attractionsRequest, type },
+                  (results, status) => resolve({ results: results || [], status })
+                );
+              } else if (query) {
+                placesService.textSearch(
+                  { ...attractionsRequest, query },
+                  (results, status) => resolve({ results: results || [], status })
+                );
+              }
+            });
+          })
+        );
+
+        const allPlaces = new Map();
+        results.forEach((response: any) => {
+          if (response.status === google.maps.places.PlacesServiceStatus.OK) {
+            response.results.forEach((place: google.maps.places.PlaceResult) => {
+              if (!place.rating || place.rating >= 3.5) {
+                if (!allPlaces.has(place.place_id)) {
+                  allPlaces.set(place.place_id, place);
+                } else {
+                  const existingPlace = allPlaces.get(place.place_id);
+                  if ((place.rating || 0) > (existingPlace.rating || 0) ||
+                    (place.user_ratings_total || 0) > (existingPlace.user_ratings_total || 0)) {
+                    allPlaces.set(place.place_id, place);
+                  }
+                }
+              }
+            });
+          }
+        });
+
+        const places = Array.from(allPlaces.values());
+        const attractionsData = places.map(place => ({
+          id: place.place_id || '',
+          name: place.name || '',
+          rating: place.rating,
+          userRatingsTotal: place.user_ratings_total,
+          photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400, maxHeight: 300 }),
+          isSelected: false,
+          description: place.vicinity || place.formatted_address,
+          isManuallyAdded: false
+        }));
+
+        // Mark selected attractions
+        selectedAttractions.forEach(selectedName => {
+          const match = attractionsData.find(a =>
+            a.name.toLowerCase() === selectedName.toLowerCase() ||
+            selectedName.toLowerCase().includes(a.name.toLowerCase()) ||
+            a.name.toLowerCase().includes(selectedName.toLowerCase())
+          );
+          if (match) {
+            match.isSelected = true;
+          }
+        });
+
+        setAttractions(attractionsData);
+        attractionsRef.current = attractionsData;
+        setGooglePlacesLoaded(true);
+      } catch (error) {
+        console.error('Error loading attractions:', error);
+      } finally {
+        setLoading(false);
       }
     };
-  }, [isOpen, destination, selectedAttractions]);
+
+    loadAttractions();
+  }, [isOpen, destination, selectedAttractions, getDestinationCoordinates]);
+
+  // Cleanup function
+  useEffect(() => {
+    return () => {
+      // Clear the cache when component unmounts
+      destinationCache.clear();
+    };
+  }, []);
 
   // Second useEffect to load manual attractions after Google Places are loaded
   useEffect(() => {
     const loadManualAttractions = async () => {
-      if (!googlePlacesLoaded) return;
-
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
@@ -290,19 +233,8 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
 
         if (error) throw error;
 
-        // Get all selected attractions that aren't in Google Places
-        const regularAttractionNames = attractionsRef.current.map(a => a.name.toLowerCase());
-
-        // Filter out any attractions that exist in Google Places
+        // Convert to UI format
         const dbUiAttractions: Attraction[] = (dbAttractions || [])
-          .filter(attraction => {
-            const lowerName = attraction.name.toLowerCase();
-            return !regularAttractionNames.some(regularName =>
-              regularName === lowerName ||
-              lowerName.includes(regularName) ||
-              regularName.includes(lowerName)
-            );
-          })
           .map(attraction => ({
             ...attraction,
             photoUrl: attraction.photo_url,
@@ -321,7 +253,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
     if (isOpen && destination) {
       loadManualAttractions();
     }
-  }, [destination, isOpen, selectedAttractions, googlePlacesLoaded]);
+  }, [destination, isOpen, selectedAttractions]);
 
   // Clear search results when closing popup
   useEffect(() => {
@@ -483,7 +415,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
             setManualAttractions(prev => [uiAttraction, ...prev]);
 
             // Update selected attractions
-            onAttractionsSelect([uiAttraction.name, ...selectedAttractions], []);
+            onAttractionsSelect([uiAttraction.name, ...selectedAttractions], [], uiAttraction.description);
           } catch (error) {
             console.error('Error saving attraction:', error);
           }
@@ -515,7 +447,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
       .map(a => a.name);
 
     // Call the parent's onAttractionsSelect with both lists
-    onAttractionsSelect(selectedAttractions, selectedManualAttractions);
+    onAttractionsSelect(selectedAttractions, selectedManualAttractions, selectedAttractions.includes(attraction.name) ? attraction.description : undefined);
   };
 
   const handleManualAttractionToggle = (attraction: Attraction) => {
@@ -537,7 +469,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
       .map(a => a.name);
 
     // Call the parent's onAttractionsSelect with both lists
-    onAttractionsSelect(selectedAttractions, selectedManualAttractions);
+    onAttractionsSelect(selectedAttractions, selectedManualAttractions, selectedAttractions.includes(attraction.name) ? attraction.description : undefined);
   };
 
   // Sort attractions with selected ones at the top
@@ -568,7 +500,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
       const attraction = manualAttractions.find(a => a.id === attractionId);
       if (attraction && selectedAttractions.includes(attraction.name)) {
         const newSelected = selectedAttractions.filter(name => name !== attraction.name);
-        onAttractionsSelect(newSelected, []);
+        onAttractionsSelect(newSelected, [], selectedAttractions.includes(attraction.name) ? attraction.description : undefined);
       }
     } catch (error) {
       console.error('Error deleting attraction:', error);
@@ -614,7 +546,6 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
         id: editingAttraction ? editingAttraction.id : `manual-${Date.now()}`,
         name: manualAttraction.name.trim(),
         description: manualAttraction.description,
-        rating: parseFloat(manualAttraction.rating) || undefined,
         photo_url: undefined,
         user_ratings_total: undefined,
         is_manually_added: true,
@@ -685,8 +616,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
       // Reset form
       setManualAttraction({
         name: '',
-        description: '',
-        rating: ''
+        description: ''
       });
       setEditingAttraction(null);
 
@@ -700,8 +630,8 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
         .filter(a => a.isSelected)
         .map(a => a.name), manualAttraction.name];
 
-      // Call the parent's onAttractionsSelect with both lists
-      onAttractionsSelect(selectedAttractions, selectedManualAttractions);
+      // Call the parent's onAttractionsSelect with both lists and description
+      onAttractionsSelect(selectedAttractions, selectedManualAttractions, manualAttraction.description);
     } catch (error) {
       console.error('Error saving attraction:', error);
     }
@@ -711,8 +641,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
     setEditingAttraction(attraction);
     setManualAttraction({
       name: attraction.name,
-      description: attraction.description || '',
-      rating: attraction.rating?.toString() || ''
+      description: attraction.description || ''
     });
     setActiveTab('manual');
   };
@@ -917,22 +846,14 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onClose} />
-      <div className="relative w-full max-w-3xl bg-white rounded-xl shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="w-full max-w-2xl rounded-lg bg-white shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#00B8A9]/10 flex items-center justify-center">
-              <Compass className="w-5 h-5 text-[#00B8A9]" />
-            </div>
-            <h2 className="text-lg font-[600] font-['Poppins',sans-serif] text-[#1E293B]">
-              Discover {cleanDestination(destination)}
-            </h2>
-          </div>
+          <h2 className="font-['Inter_var'] text-xl font-[600] text-[#1E293B]">Add Attractions</h2>
           <button
             onClick={onClose}
-            className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
           >
             <X className="h-5 w-5" />
           </button>
@@ -942,22 +863,13 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
         <div className="border-b border-gray-200">
           <div className="flex gap-8 px-6">
             <button
-              onClick={() => setActiveTab('search')}
-              className={`py-4 px-2 font-['Inter_var'] font-[600] border-b-2 -mb-[1px] transition-colors ${activeTab === 'search'
-                ? 'text-[#00B8A9] border-[#00B8A9]'
-                : 'text-gray-500 border-transparent hover:text-[#00B8A9]'
-                }`}
-            >
-              Search Attractions
-            </button>
-            <button
               onClick={() => setActiveTab('manual')}
               className={`py-4 px-2 font-['Inter_var'] font-[600] border-b-2 -mb-[1px] transition-colors ${activeTab === 'manual'
                 ? 'text-[#00B8A9] border-[#00B8A9]'
                 : 'text-gray-500 border-transparent hover:text-[#00B8A9]'
                 }`}
             >
-              Add Custom Attraction
+              Attractions List
             </button>
             <button
               onClick={() => setActiveTab('tours')}
@@ -973,119 +885,45 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
 
         {/* Content */}
         <div className="max-h-[60vh] overflow-y-auto p-6">
-          {activeTab === 'search' ? (
+          {activeTab === 'manual' ? (
             <div className="space-y-6">
-              {/* Attractions List */}
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#00B8A9] border-t-transparent"></div>
-                </div>
-              ) : (
-                <div className="grid gap-4">
-                  {sortedAttractions.map((attraction) => (
-                    <div
-                      key={attraction.id}
-                      className={`group relative rounded-lg border p-4 transition-all hover:shadow-md ${attraction.isSelected
-                        ? 'border-[#00B8A9] bg-[#00B8A9]/5'
-                        : 'border-gray-200 hover:border-[#00B8A9]'
-                        }`}
-                    >
-                      <div className="flex items-start gap-4">
-                        {attraction.photoUrl && (
-                          <img
-                            src={attraction.photoUrl}
-                            alt={attraction.name}
-                            className="h-20 w-20 rounded-lg object-cover"
-                          />
-                        )}
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h3 className="font-['Inter_var'] font-[600] text-[#1E293B]">
-                                {attraction.name}
-                              </h3>
-                              <p className="mt-1 text-sm text-gray-500">
-                                {attraction.description}
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => handleAttractionToggle(attraction)}
-                              className={`rounded-full p-2 ${attraction.isSelected
-                                ? 'bg-[#00B8A9] text-white'
-                                : 'text-[#00B8A9] hover:bg-[#00B8A9]/10'
-                                }`}
-                            >
-                              {attraction.isSelected ? (
-                                <Check className="h-5 w-5" />
-                              ) : (
-                                <Plus className="h-5 w-5" />
-                              )}
-                            </button>
-                          </div>
-                          {attraction.rating && (
-                            <div className="mt-2 flex items-center gap-2">
-                              <div className="flex items-center">
-                                {[...Array(Math.floor(attraction.rating))].map((_, i) => (
-                                  <Star key={i} className="h-4 w-4 fill-[#00B8A9] text-[#00B8A9]" />
-                                ))}
-                                {attraction.rating % 1 !== 0 && (
-                                  <Star className="h-4 w-4 fill-[#00B8A9]/50 text-[#00B8A9]" />
-                                )}
-                              </div>
-                              <span className="text-sm text-gray-500">
-                                ({attraction.userRatingsTotal?.toLocaleString()} reviews)
-                              </span>
-                            </div>
+              {/* Manual Attractions List */}
+              <div className="grid gap-4">
+                {manualAttractions.map((attraction) => (
+                  <div
+                    key={attraction.id}
+                    className={`group relative rounded-lg border p-4 transition-all hover:shadow-md ${selectedAttractions.includes(attraction.name)
+                      ? 'border-[#00B8A9] bg-[#00B8A9]/5'
+                      : 'border-gray-200 hover:border-[#00B8A9]'
+                      }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <MapPin className={`h-5 w-5 ${selectedAttractions.includes(attraction.name) ? 'text-[#00B8A9]' : 'text-gray-400'}`} />
+                        <div>
+                          <div className="font-['Inter_var'] font-[600] text-[#1E293B]">{attraction.name}</div>
+                          {attraction.description && (
+                            <div className="text-sm text-gray-500">{attraction.description}</div>
                           )}
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : activeTab === 'manual' ? (
-            <div className="space-y-6">
-              {/* Manual Attractions List */}
-              <div className="mb-8">
-                <h3 className="mb-4 font-['Inter_var'] font-[600] text-[#1E293B]">Your Custom Attractions</h3>
-                <div className="grid gap-4">
-                  {manualAttractions.map((attraction) => (
-                    <div
-                      key={attraction.id}
-                      className={`group relative rounded-lg border p-4 transition-all hover:shadow-md ${selectedAttractions.includes(attraction.name)
-                        ? 'border-[#00B8A9] bg-[#00B8A9]/5'
-                        : 'border-gray-200 hover:border-[#00B8A9]'
-                        }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <MapPin className={`h-5 w-5 ${selectedAttractions.includes(attraction.name) ? 'text-[#00B8A9]' : 'text-gray-400'}`} />
-                          <div>
-                            <div className="font-['Inter_var'] font-[600] text-[#1E293B]">{attraction.name}</div>
-                            {attraction.description && (
-                              <div className="text-sm text-gray-500">{attraction.description}</div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleEditAttraction(attraction)}
-                            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteAttraction(attraction.id)}
-                            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleEditAttraction(attraction)}
+                          className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAttraction(attraction.id)}
+                          className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
 
               {/* Search Input */}
@@ -1145,18 +983,6 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
                     rows={3}
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Rating</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="5"
-                    step="0.1"
-                    value={manualAttraction.rating}
-                    onChange={(e) => setManualAttraction({ ...manualAttraction, rating: e.target.value })}
-                    className="mt-1 block w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#00B8A9] focus:outline-none focus:ring-1 focus:ring-[#00B8A9]"
-                  />
-                </div>
                 <div className="flex justify-end">
                   <button
                     type="submit"
@@ -1167,7 +993,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
                 </div>
               </form>
             </div>
-          ) : (
+          ) : activeTab === 'tours' ? (
             <div className="space-y-6">
               <div className="grid gap-6">
                 {tours.map((tour) => (
@@ -1230,7 +1056,7 @@ const DiscoverPopup: React.FC<DiscoverPopupProps> = ({
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

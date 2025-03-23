@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './MapboxMap.css';
+import { mapboxCacheService } from '../services/mapbox-cache.service';
 
 interface Destination {
     destination: string;
@@ -13,10 +14,7 @@ interface MapboxMapProps {
     className?: string;
 }
 
-// Cache for geocoding results
-const geocodingCache: { [key: string]: [number, number] } = {};
-
-const MapboxMap: React.FC<MapboxMapProps> = React.memo(({ destinations, className = '' }) => {
+const MapboxMap: React.FC<MapboxMapProps> = ({ destinations, className = '' }) => {
     const mapContainer = useRef<HTMLDivElement>(null);
     const map = useRef<mapboxgl.Map | null>(null);
     const markers = useRef<mapboxgl.Marker[]>([]);
@@ -25,7 +23,7 @@ const MapboxMap: React.FC<MapboxMapProps> = React.memo(({ destinations, classNam
     const previousDestinations = useRef<string>('');
     const updateTimeout = useRef<NodeJS.Timeout | null>(null);
 
-    // Function to clean up route layers and sources
+    // Clean up route layers and sources
     const cleanupRoutes = useCallback(() => {
         if (!map.current) return;
 
@@ -85,50 +83,132 @@ const MapboxMap: React.FC<MapboxMapProps> = React.memo(({ destinations, classNam
         };
     }, []);
 
-    // Memoize geocoding function with cache
-    const geocodeDestination = useCallback(async (destination: string): Promise<[number, number] | null> => {
-        // Check cache first
-        if (geocodingCache[destination]) {
-            return geocodingCache[destination];
+    // Memoize geocoding function with cache and batch processing
+    const geocodeDestinations = useCallback(async (destinations: string[]): Promise<Map<string, [number, number]>> => {
+        const coordsMap = new Map<string, [number, number]>();
+        const uncachedDestinations: string[] = [];
+
+        // First check cache for all destinations
+        for (const dest of destinations) {
+            const cachedCoords = await mapboxCacheService.getGeocodingResult(dest);
+            if (cachedCoords) {
+                coordsMap.set(dest, cachedCoords);
+            } else {
+                uncachedDestinations.push(dest);
+            }
         }
 
-        try {
-            const response = await fetch(
-                `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(destination)}.json?access_token=${mapboxgl.accessToken}`
-            );
-            const data = await response.json();
-            if (data.features && data.features[0]) {
-                const [lng, lat] = data.features[0].center;
-                // Cache the result
-                geocodingCache[destination] = [lng, lat];
-                return [lng, lat];
+        // If there are uncached destinations, fetch them in batches
+        if (uncachedDestinations.length > 0) {
+            const batchSize = 5; // Process 5 destinations at a time
+            for (let i = 0; i < uncachedDestinations.length; i += batchSize) {
+                const batch = uncachedDestinations.slice(i, i + batchSize);
+                const promises = batch.map(async (dest) => {
+                    try {
+                        const response = await fetch(
+                            `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(dest)}.json?access_token=${mapboxgl.accessToken}`
+                        );
+                        const data = await response.json();
+                        if (data.features && data.features[0]) {
+                            const [lng, lat] = data.features[0].center;
+                            const coords: [number, number] = [lng, lat];
+                            await mapboxCacheService.saveGeocodingResult(dest, coords);
+                            return { dest, coords };
+                        }
+                        return null;
+                    } catch (error) {
+                        console.error(`Error geocoding ${dest}:`, error);
+                        return null;
+                    }
+                });
+
+                const results = await Promise.all(promises);
+                results.forEach(result => {
+                    if (result) {
+                        coordsMap.set(result.dest, result.coords);
+                    }
+                });
+
+                // Add a small delay between batches to avoid rate limiting
+                if (i + batchSize < uncachedDestinations.length) {
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
             }
-            return null;
-        } catch (error) {
-            console.error(`Error geocoding ${destination}:`, error);
-            return null;
         }
+
+        return coordsMap;
     }, []);
 
-    // Memoize route fetching function with route cache
-    const routeCache = useRef<{ [key: string]: any }>({});
-    const getRoute = useCallback(async (start: [number, number], end: [number, number]) => {
-        const cacheKey = `${start.join(',')}-${end.join(',')}`;
+    // Memoize route fetching with batching
+    const getRoutes = useCallback(async (coordPairs: Array<{ start: [number, number]; end: [number, number] }>) => {
+        const routes = new Map<string, any>();
+        const uncachedPairs: typeof coordPairs = [];
 
-        // Check cache first
-        if (routeCache.current[cacheKey]) {
-            return routeCache.current[cacheKey];
+        // First check cache for all routes
+        for (const pair of coordPairs) {
+            const key = `${pair.start.join(',')}-${pair.end.join(',')}`;
+            const cachedRoute = await mapboxCacheService.getRouteGeometry(pair.start, pair.end);
+            if (cachedRoute) {
+                routes.set(key, cachedRoute);
+            } else {
+                uncachedPairs.push(pair);
+            }
         }
 
+        // If there are uncached routes, fetch them in batches
+        if (uncachedPairs.length > 0) {
+            const batchSize = 3; // Process 3 routes at a time
+            for (let i = 0; i < uncachedPairs.length; i += batchSize) {
+                const batch = uncachedPairs.slice(i, i + batchSize);
+                const promises = batch.map(async ({ start, end }) => {
+                    try {
+                        const response = await fetch(
+                            `https://api.mapbox.com/directions/v5/mapbox/driving/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`
+                        );
+                        const data = await response.json();
+                        if (data.routes && data.routes[0]) {
+                            const geometry = data.routes[0].geometry;
+                            const key = `${start.join(',')}-${end.join(',')}`;
+                            await mapboxCacheService.saveRouteGeometry(start, end, geometry);
+                            routes.set(key, geometry);
+                        }
+                    } catch (error) {
+                        console.error('Error fetching route:', error);
+                    }
+                });
+
+                await Promise.all(promises);
+
+                // Add a small delay between batches to avoid rate limiting
+                if (i + batchSize < uncachedPairs.length) {
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+            }
+        }
+
+        return routes;
+    }, []);
+
+    // Get route with cache
+    const getRoute = useCallback(async (start: [number, number], end: [number, number]) => {
         try {
+            // Try to get from cache first
+            const cachedRoute = await mapboxCacheService.getRouteGeometry(start, end);
+            if (cachedRoute) {
+                return cachedRoute;
+            }
+
+            // If not in cache, fetch from Mapbox API
             const response = await fetch(
                 `https://api.mapbox.com/directions/v5/mapbox/driving/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`
             );
             const data = await response.json();
             if (data.routes && data.routes[0]) {
-                // Cache the result
-                routeCache.current[cacheKey] = data.routes[0].geometry;
-                return data.routes[0].geometry;
+                const geometry = data.routes[0].geometry;
+
+                // Save to cache
+                await mapboxCacheService.saveRouteGeometry(start, end, geometry);
+                return geometry;
             }
             return null;
         } catch (error) {
@@ -217,7 +297,8 @@ const MapboxMap: React.FC<MapboxMapProps> = React.memo(({ destinations, classNam
                 const dest = memoizedDestinations[i];
                 if (!dest.destination) continue;
 
-                const coords = await geocodeDestination(dest.destination);
+                const coordsMap = await geocodeDestinations([dest.destination]);
+                const coords = coordsMap.get(dest.destination);
                 if (coords) {
                     const [lng, lat] = coords;
                     coordinates.current.push(coords);
@@ -276,11 +357,11 @@ const MapboxMap: React.FC<MapboxMapProps> = React.memo(({ destinations, classNam
                 clearTimeout(updateTimeout.current);
             }
         };
-    }, [memoizedDestinations, geocodeDestination, updateRouteLayer]);
+    }, [memoizedDestinations, geocodeDestinations, updateRouteLayer]);
 
     return (
         <div ref={mapContainer} className={`mapbox-container ${className}`} />
     );
-});
+};
 
 export default MapboxMap; 

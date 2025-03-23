@@ -74,6 +74,7 @@ interface ItineraryDay {
   nights: number;
   discover: string;
   manual_discover: string;
+  manual_discover_desc: string;
   transport: string;
   notes: string;
   food: string;
@@ -247,6 +248,7 @@ const CreateItinerary: React.FC = () => {
               nights: dest.nights,
               discover: dest.discover || '',
               manual_discover: dest.manual_discover || '',
+              manual_discover_desc: dest.manual_discover_desc || '',
               transport: dest.transport || '',
               notes: dest.notes || '',
               food: dest.food || '',
@@ -355,6 +357,7 @@ const CreateItinerary: React.FC = () => {
       nights: 1,
       discover: '',
       manual_discover: '',
+      manual_discover_desc: '',
       transport: '',
       notes: '',
       food: '',
@@ -475,6 +478,7 @@ const CreateItinerary: React.FC = () => {
           nights: day.nights,
           discover: day.discover || '',
           manual_discover: day.manual_discover || '',
+          manual_discover_desc: day.manual_discover_desc || '',
           transport: day.transport || '',
           notes: day.notes || '',
           food: foodString,
@@ -551,6 +555,7 @@ const CreateItinerary: React.FC = () => {
       nights: 1,
       discover: '',
       manual_discover: '',
+      manual_discover_desc: '',
       transport: '',
       notes: '',
       food: '',
@@ -603,12 +608,15 @@ const CreateItinerary: React.FC = () => {
     setCountrySearch('');
   };
 
-  const handleDiscoverSelect = (index: number, attractions: string[], manualAttractions: string[]) => {
+  const handleDiscoverSelect = (index: number, attractions: string[], manualAttractions: string[], description?: string) => {
     const updatedDays = [...itineraryDays];
-    updatedDays[index].discover = attractions.join(', ');
-    updatedDays[index].manual_discover = manualAttractions.join(', ');
+    updatedDays[index] = {
+      ...updatedDays[index],
+      discover: attractions.join(', '),
+      manual_discover: manualAttractions.join(', '),
+      manual_discover_desc: description || ''
+    };
     setItineraryDays(updatedDays);
-    setShouldUpdateDayAttractions(true);
   };
 
   const handleDestinationsUpdate = (updatedDestinations: typeof itineraryDays) => {
@@ -798,6 +806,7 @@ const CreateItinerary: React.FC = () => {
     if (currentDestinationIndexForHotel >= 0) {
       // Update the specific destination's hotel
       const updatedDestinations = [...itineraryDays];
+      const updatedHotels = [...dayHotels];
 
       if (activeTab === 'destinations') {
         // Update the destination's hotel fields
@@ -816,13 +825,13 @@ const CreateItinerary: React.FC = () => {
         const endDayIndex = startDayIndex + (itineraryDays[currentDestinationIndexForHotel].nights || 0);
 
         // Update day hotels for this destination's days
-        const updatedHotels = dayHotels.filter(h =>
+        const filteredHotels = updatedHotels.filter(h =>
           h.dayIndex < startDayIndex || h.dayIndex >= endDayIndex
         );
 
         // Add new hotel entries for each day in this destination
         for (let dayIndex = startDayIndex; dayIndex < endDayIndex; dayIndex++) {
-          updatedHotels.push({
+          filteredHotels.push({
             dayIndex,
             hotel,
             isManual
@@ -830,11 +839,10 @@ const CreateItinerary: React.FC = () => {
         }
 
         // Sort hotels by day index
-        updatedHotels.sort((a, b) => a.dayIndex - b.dayIndex);
-        setDayHotels(updatedHotels);
+        filteredHotels.sort((a, b) => a.dayIndex - b.dayIndex);
+        setDayHotels(filteredHotels);
       } else {
         // Day by Day view - update only the selected day
-        const updatedHotels = [...dayHotels];
         const hotelIndex = updatedHotels.findIndex(h => h.dayIndex === currentDestinationIndexForHotel);
 
         if (hotelIndex !== -1) {
@@ -849,10 +857,9 @@ const CreateItinerary: React.FC = () => {
             hotel,
             isManual
           });
-          // Sort hotels by day index
-          updatedHotels.sort((a, b) => a.dayIndex - b.dayIndex);
         }
-
+        // Sort hotels by day index
+        updatedHotels.sort((a, b) => a.dayIndex - b.dayIndex);
         setDayHotels(updatedHotels);
 
         // Find which destination this day belongs to and update it
@@ -1268,7 +1275,7 @@ const CreateItinerary: React.FC = () => {
             onClick={() => {
               setItineraryDays([
                 ...itineraryDays,
-                { destination: '', nights: 1, discover: '', manual_discover: '', transport: '', notes: '', food: '', hotel: '', manual_hotel: '', manual_hotel_desc: '' }
+                { destination: '', nights: 1, discover: '', manual_discover: '', manual_discover_desc: '', transport: '', notes: '', food: '', hotel: '', manual_hotel: '', manual_hotel_desc: '' }
               ]);
             }}
             className="flex items-center gap-2 px-4 py-2 text-sm text-[#0f3e4a] hover:text-[#00C48C] transition-colors font-['Inter_var'] font-[600]"
@@ -1745,8 +1752,8 @@ const CreateItinerary: React.FC = () => {
                 ...itineraryDays[activeDestinationIndex].discover.split(',').filter(Boolean),
                 ...itineraryDays[activeDestinationIndex].manual_discover?.split(',').filter(Boolean) || []
               ]}
-              onAttractionsSelect={(attractions, manualAttractions) =>
-                handleDiscoverSelect(activeDestinationIndex, attractions, manualAttractions)
+              onAttractionsSelect={(attractions, manualAttractions, description) =>
+                handleDiscoverSelect(activeDestinationIndex, attractions, manualAttractions, description)
               }
             />
           </div>

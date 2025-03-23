@@ -1,29 +1,30 @@
 import { supabase } from '../lib/supabase';
 
-interface CachedPlaceResult {
-    place_id: string;
-    data: any;
+interface CachedGeocodingResult {
+    location: string;
+    coordinates: [number, number];
     timestamp: number;
 }
 
-interface CachedPredictionResult {
-    query: string;
-    data: any;
+interface CachedRouteResult {
+    start: string;
+    end: string;
+    geometry: any;
     timestamp: number;
 }
 
 const CACHE_DURATION = 168 * 60 * 60 * 1000; // 7 days in milliseconds
 
-class PlacesCacheService {
-    private static instance: PlacesCacheService;
+class MapboxCacheService {
+    private static instance: MapboxCacheService;
 
     private constructor() { }
 
-    public static getInstance(): PlacesCacheService {
-        if (!PlacesCacheService.instance) {
-            PlacesCacheService.instance = new PlacesCacheService();
+    public static getInstance(): MapboxCacheService {
+        if (!MapboxCacheService.instance) {
+            MapboxCacheService.instance = new MapboxCacheService();
         }
-        return PlacesCacheService.instance;
+        return MapboxCacheService.instance;
     }
 
     private async getFromCache(table: string, key: string): Promise<any | null> {
@@ -32,7 +33,7 @@ class PlacesCacheService {
                 .from(table)
                 .select('*')
                 .eq('key', key)
-                .single();
+                .maybeSingle();
 
             if (error) {
                 console.error('Cache read error:', error);
@@ -57,9 +58,12 @@ class PlacesCacheService {
 
     private async saveToCache(table: string, key: string, data: any): Promise<void> {
         try {
+            // Delete any existing entry first to avoid conflicts
+            await this.deleteFromCache(table, key);
+
             const { error } = await supabase
                 .from(table)
-                .upsert({
+                .insert({
                     key,
                     data,
                     timestamp: Date.now()
@@ -84,31 +88,25 @@ class PlacesCacheService {
         }
     }
 
-    public async getPlaceDetails(placeId: string): Promise<any | null> {
-        return this.getFromCache('places_cache', placeId);
+    public async getGeocodingResult(location: string): Promise<[number, number] | null> {
+        const result = await this.getFromCache('mapbox_geocoding_cache', location);
+        return result ? result.coordinates : null;
     }
 
-    public async savePlaceDetails(placeId: string, details: any): Promise<void> {
-        await this.saveToCache('places_cache', placeId, details);
+    public async saveGeocodingResult(location: string, coordinates: [number, number]): Promise<void> {
+        await this.saveToCache('mapbox_geocoding_cache', location, { coordinates });
     }
 
-    public async getPlacePredictions(query: string): Promise<any | null> {
-        return this.getFromCache('predictions_cache', query);
+    public async getRouteGeometry(start: [number, number], end: [number, number]): Promise<any | null> {
+        const key = `${start.join(',')}-${end.join(',')}`;
+        const result = await this.getFromCache('mapbox_routes_cache', key);
+        return result ? result.geometry : null;
     }
 
-    public async savePlacePredictions(query: string, predictions: any): Promise<void> {
-        await this.saveToCache('predictions_cache', query, predictions);
-    }
-
-    public async getNearbyPlaces(location: string, type: string): Promise<any | null> {
-        const key = `${location}-${type}`;
-        return this.getFromCache('nearby_places_cache', key);
-    }
-
-    public async saveNearbyPlaces(location: string, type: string, places: any): Promise<void> {
-        const key = `${location}-${type}`;
-        await this.saveToCache('nearby_places_cache', key, places);
+    public async saveRouteGeometry(start: [number, number], end: [number, number], geometry: any): Promise<void> {
+        const key = `${start.join(',')}-${end.join(',')}`;
+        await this.saveToCache('mapbox_routes_cache', key, { geometry });
     }
 }
 
-export const placesCacheService = PlacesCacheService.getInstance(); 
+export const mapboxCacheService = MapboxCacheService.getInstance(); 

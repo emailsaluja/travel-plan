@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -63,6 +63,11 @@ interface UserSettings {
   instagram_url?: string;
 }
 
+interface LikesState {
+  counts: Record<string, number>;
+  userLikes: Set<string>;
+}
+
 const Dashboard = () => {
   const { userEmail, signOut } = useAuth();
   const [userId, setUserId] = useState<string | null>(null);
@@ -107,6 +112,24 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [isUsernameSet, setIsUsernameSet] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const dataCache = useRef<{
+    itineraries: Itinerary[];
+    likedTrips: Itinerary[];
+    userSettings: UserSettingsType | null;
+    lastFetch: number;
+  }>({
+    itineraries: [],
+    likedTrips: [],
+    userSettings: null,
+    lastFetch: 0
+  });
+
+  // Update likes data state with proper typing
+  const [likesData, setLikesData] = useState<LikesState>({
+    counts: {},
+    userLikes: new Set<string>()
+  });
 
   const stats = {
     followers: 0,
@@ -114,31 +137,84 @@ const Dashboard = () => {
     countries: 9
   };
 
-  useEffect(() => {
-    loadItineraries();
-  }, []);
+  // Memoize the data loading function
+  const loadAllData = useCallback(async (forceRefresh = false) => {
+    // If data is less than 1 minute old and no force refresh, use cached data
+    const now = Date.now();
+    if (!forceRefresh &&
+      dataCache.current.lastFetch > 0 &&
+      now - dataCache.current.lastFetch < 60000) {
+      setItineraries(dataCache.current.itineraries);
+      setLikedTrips(dataCache.current.likedTrips);
+      if (dataCache.current.userSettings) {
+        setSettings(dataCache.current.userSettings);
+      }
+      return;
+    }
 
-  // Add effect to get user ID
-  useEffect(() => {
-    const getUserId = async () => {
+    setLoading(true);
+    try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUserId(user.id);
-      }
-    };
-    getUserId();
-  }, []);
 
-  // Update loadUserSettings to check if username exists
-  useEffect(() => {
-    const loadUserSettings = async () => {
-      if (!userId) return;
+        // Fetch all data in parallel including likes
+        const [
+          { data: userItineraries },
+          { data: likedItinerariesData },
+          userSettings,
+          { counts, userLikes, error: likesError }
+        ] = await Promise.all([
+          UserItineraryService.getUserItineraries(),
+          UserItineraryService.getLikedItineraries(),
+          UserSettingsService.getUserSettings(user.id),
+          LikesService.getAllLikesData()
+        ]);
 
-      try {
-        const userSettings = await UserSettingsService.getUserSettings(userId);
+        // Update likes data state
+        if (!likesError && counts && userLikes) {
+          setLikesData({
+            counts: counts as Record<string, number>,
+            userLikes: userLikes as Set<string>
+          });
+        }
+
+        if (userItineraries?.length) {
+          // Process itineraries with likes
+          const itinerariesWithLikes = userItineraries.map(itinerary => ({
+            ...itinerary,
+            likesCount: counts?.[itinerary.id] || 0
+          }));
+
+          // Sort by date
+          const sortedItineraries = itinerariesWithLikes.sort((a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+
+          setItineraries(sortedItineraries);
+          dataCache.current.itineraries = sortedItineraries;
+        }
+
+        // Process liked trips
+        if (likedItinerariesData) {
+          const processedLikedTrips = likedItinerariesData.map((item: any) => ({
+            id: item.id,
+            trip_name: item.trip_name,
+            country: item.country,
+            start_date: item.start_date,
+            duration: item.duration,
+            passengers: item.passengers,
+            created_at: item.created_at,
+            destinations: item.destinations,
+            likesCount: counts?.[item.id] || 0
+          }));
+          setLikedTrips(processedLikedTrips);
+          dataCache.current.likedTrips = processedLikedTrips;
+        }
+
+        // Process user settings
         if (userSettings) {
           setSettings(userSettings);
-          // If username exists and is not the default, mark it as set
           setIsUsernameSet(!!userSettings.username && userSettings.username !== '@user');
           if (userSettings.profile_picture_url) {
             setProfilePicturePreview(userSettings.profile_picture_url);
@@ -146,14 +222,81 @@ const Dashboard = () => {
           if (userSettings.hero_banner_url) {
             setHeroBannerPreview(userSettings.hero_banner_url);
           }
+          dataCache.current.userSettings = userSettings;
         }
-      } catch (error) {
-        console.error('Error loading user settings:', error);
-      }
-    };
 
-    loadUserSettings();
-  }, [userId]);
+        // Update cache timestamp
+        dataCache.current.lastFetch = now;
+      }
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
+      setIsDataLoaded(true);
+    }
+  }, []);
+
+  // Initial data load
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
+
+  // Replace existing loadItineraries function
+  const loadItineraries = () => loadAllData(true);
+
+  // Replace existing loadLikedTrips function
+  const loadLikedTrips = () => loadAllData(true);
+
+  // Optimize handleViewChange to avoid unnecessary data fetches
+  const handleViewChange = (newView: 'trips' | 'countries' | 'upcoming' | 'past' | 'liked') => {
+    setView(newView);
+    setSelectedCountry(null);
+
+    // Update URL hash
+    if (newView === 'liked') {
+      window.location.hash = 'liked';
+    } else if (window.location.hash === '#liked') {
+      window.location.hash = '';
+    }
+  };
+
+  // Optimize handleUnlike with proper typing
+  const handleUnlike = async (id: string) => {
+    try {
+      await LikesService.unlikeItinerary(id);
+
+      // Update local state immediately
+      setLikedTrips(prev => prev.filter(trip => trip.id !== id));
+
+      // Update likes data with proper typing
+      setLikesData(prev => {
+        const newUserLikes = new Set(Array.from(prev.userLikes));
+        newUserLikes.delete(id);
+
+        return {
+          counts: {
+            ...prev.counts,
+            [id]: Math.max(0, (prev.counts[id] || 1) - 1)
+          },
+          userLikes: newUserLikes
+        };
+      });
+
+      // Update cache
+      dataCache.current.likedTrips = dataCache.current.likedTrips.filter(trip => trip.id !== id);
+
+      // Refresh likes data in background
+      const { counts, userLikes } = await LikesService.getAllLikesData();
+      if (counts && userLikes) {
+        setLikesData({
+          counts: counts as Record<string, number>,
+          userLikes: userLikes as Set<string>
+        });
+      }
+    } catch (error) {
+      console.error('Error unliking itinerary:', error);
+    }
+  };
 
   // Group itineraries by country
   const countryStats = React.useMemo(() => {
@@ -171,46 +314,24 @@ const Dashboard = () => {
   // Fetch country images
   useEffect(() => {
     const fetchCountryImages = async () => {
-      const countries = Object.keys(countryStats);
-      const images: Record<string, string[]> = {};
-
-      for (const country of countries) {
-        try {
-          const imageUrls = await CountryImagesService.getCountryImages(country);
-          if (imageUrls && imageUrls.length > 0) {
-            images[country] = imageUrls;
-          }
-        } catch (error) {
-          console.error(`Error fetching images for ${country}:`, error);
-        }
+      try {
+        // Fetch all country images in one call
+        const allImages = await CountryImagesService.getAllCountryImages();
+        setCountryImages(allImages);
+      } catch (error) {
+        console.error('Error fetching country images:', error);
       }
-
-      setCountryImages(images);
-
-      // Assign random images for each itinerary
-      const selected: Record<string, string> = {};
-      itineraries.forEach(itinerary => {
-        const countryImageList = images[itinerary.country] || [];
-        if (countryImageList.length > 0) {
-          const randomIndex = Math.floor(Math.random() * countryImageList.length);
-          selected[itinerary.id] = countryImageList[randomIndex];
-        }
-      });
-
-      // Also assign random images for country view
-      Object.keys(countryStats).forEach(country => {
-        const countryImageList = images[country] || [];
-        if (countryImageList.length > 0) {
-          const randomIndex = Math.floor(Math.random() * countryImageList.length);
-          selected[country] = countryImageList[randomIndex];
-        }
-      });
-
-      setSelectedImages(selected);
     };
 
     fetchCountryImages();
-  }, [countryStats, itineraries]);
+  }, []);
+
+  const getRandomImageForCountry = (country: string): string => {
+    const images = countryImages[country] || [];
+    if (images.length === 0) return '/default-country-image.jpg';
+    const randomIndex = Math.floor(Math.random() * images.length);
+    return images[randomIndex];
+  };
 
   const handleCountryClick = (country: string) => {
     setSelectedCountry(country);
@@ -233,48 +354,6 @@ const Dashboard = () => {
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
-
-  const handleViewChange = (newView: 'trips' | 'countries' | 'upcoming' | 'past' | 'liked') => {
-    setView(newView);
-    setSelectedCountry(null);
-
-    // Update URL hash when changing to liked view
-    if (newView === 'liked') {
-      window.location.hash = 'liked';
-    } else {
-      // Remove hash for other views
-      if (window.location.hash === '#liked') {
-        window.location.hash = '';
-      }
-    }
-  };
-
-  const loadItineraries = async () => {
-    try {
-      const { data: userItineraries } = await UserItineraryService.getUserItineraries();
-
-      // Fetch likes count for each itinerary
-      const itinerariesWithLikes = await Promise.all(
-        (userItineraries || []).map(async (itinerary) => {
-          const { count } = await LikesService.getLikesCount(itinerary.id);
-          return { ...itinerary, likesCount: count };
-        })
-      );
-
-      // Sort itineraries by created_at date in descending order (newest first)
-      const sortedItineraries = itinerariesWithLikes.sort((a, b) => {
-        const dateA = new Date(a.created_at);
-        const dateB = new Date(b.created_at);
-        return dateB.getTime() - dateA.getTime();
-      });
-
-      setItineraries(sortedItineraries || []);
-    } catch (error) {
-      console.error('Error loading itineraries:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -458,32 +537,6 @@ const Dashboard = () => {
 
   const pastTrips = getPastTrips();
 
-  // Add function to load liked trips
-  const loadLikedTrips = async () => {
-    try {
-      const { data } = await UserItineraryService.getLikedItineraries();
-      const likedItineraries = data?.map((item: any) => ({
-        id: item.id,
-        trip_name: item.trip_name,
-        country: item.country,
-        start_date: item.start_date,
-        duration: item.duration,
-        passengers: item.passengers,
-        created_at: item.created_at,
-        destinations: item.destinations,
-        likesCount: item.likes_count
-      }));
-      setLikedTrips(likedItineraries || []);
-    } catch (error) {
-      console.error('Error loading liked trips:', error);
-    }
-  };
-
-  // Load liked trips when component mounts
-  useEffect(() => {
-    loadLikedTrips();
-  }, []);
-
   const handleCopyTrip = async (id: string) => {
     try {
       await UserItineraryService.copyItinerary(id);
@@ -492,15 +545,6 @@ const Dashboard = () => {
       await loadItineraries(); // Refresh the trips list
     } catch (error) {
       console.error('Error copying itinerary:', error);
-    }
-  };
-
-  const handleUnlike = async (id: string) => {
-    try {
-      await LikesService.unlikeItinerary(id);
-      await loadLikedTrips(); // Refresh liked trips
-    } catch (error) {
-      console.error('Error unliking itinerary:', error);
     }
   };
 
@@ -740,7 +784,7 @@ const Dashboard = () => {
                   >
                     <div className="relative h-48 overflow-hidden">
                       <img
-                        src={selectedImages[country] || '/images/default-country.jpg'}
+                        src={getRandomImageForCountry(country)}
                         alt={`${country} landscape`}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
@@ -766,7 +810,7 @@ const Dashboard = () => {
                     >
                       <div className="relative h-48">
                         <img
-                          src={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                          src={getRandomImageForCountry(itinerary.country)}
                           alt={itinerary.trip_name}
                           className="w-full h-full object-cover"
                         />
@@ -803,7 +847,7 @@ const Dashboard = () => {
                           <span>{formatStartTime(itinerary.start_date)}</span>
                           <div className="flex items-center gap-1">
                             <Heart className="w-4 h-4 text-rose-500" fill="currentColor" />
-                            <span>{itinerary.likesCount || 0}</span>
+                            <span>{likesData.counts[itinerary.id] || 0}</span>
                           </div>
                         </div>
                       </div>
@@ -853,7 +897,7 @@ const Dashboard = () => {
                           description={`${itinerary.duration} days in ${itinerary.destinations
                             .map(d => cleanDestination(d.destination))
                             .join(', ')}`}
-                          imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                          imageUrl={getRandomImageForCountry(itinerary.country)}
                           duration={itinerary.duration}
                           cities={itinerary.destinations.map(d => cleanDestination(d.destination))}
                           createdAt={itinerary.created_at}
@@ -864,7 +908,7 @@ const Dashboard = () => {
                           <span>{formatStartTime(itinerary.start_date)}</span>
                           <div className="flex items-center gap-1">
                             <Heart className="w-4 h-4 text-rose-500" fill="currentColor" />
-                            <span>{itinerary.likesCount || 0}</span>
+                            <span>{likesData.counts[itinerary.id] || 0}</span>
                           </div>
                         </div>
                       </div>
