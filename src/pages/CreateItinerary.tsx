@@ -1034,24 +1034,24 @@ const CreateItinerary: React.FC = () => {
                     </div>
                     <div>
                       <PlaceAutocomplete
-                        value={day.tempDestination || day.destination.split(',')[0]}
+                        value={day.tempDestination !== undefined ? day.tempDestination : day.destination.split(',')[0]}
                         onChange={(value) => {
-                          // Only update the UI value, don't update the actual destination yet
                           const updatedDays = [...itineraryDays];
                           updatedDays[index] = {
                             ...updatedDays[index],
-                            tempDestination: value // This is just for display
+                            tempDestination: value,
+                            // If value is empty, also clear the actual destination
+                            ...(value === '' && { destination: '' })
                           };
                           setItineraryDays(updatedDays);
                         }}
                         country={tripSummary.country}
                         onPlaceSelect={(place) => {
-                          // Update the actual destination only when a place is selected
                           const updatedDays = [...itineraryDays];
                           updatedDays[index] = {
                             ...updatedDays[index],
                             destination: place.name || '',
-                            tempDestination: undefined // Clear the temporary value
+                            tempDestination: undefined
                           };
                           setItineraryDays(updatedDays);
                         }}

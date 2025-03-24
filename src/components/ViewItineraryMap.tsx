@@ -71,8 +71,9 @@ const ViewItineraryMap: React.FC<ViewItineraryMapProps> = ({ destinations, class
                 const batch = uncachedDestinations.slice(i, i + batchSize);
                 const promises = batch.map(async (dest) => {
                     try {
+                        // Add country context for better accuracy
                         const response = await fetch(
-                            `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(dest)}.json?access_token=${mapboxgl.accessToken}`
+                            `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(dest)}.json?country=nz&types=place&access_token=${mapboxgl.accessToken}`
                         );
                         const data = await response.json();
                         if (data.features && data.features[0]) {

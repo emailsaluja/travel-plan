@@ -23,6 +23,19 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ destinations, className = '' }) =
     const previousDestinations = useRef<string>('');
     const updateTimeout = useRef<NodeJS.Timeout | null>(null);
 
+    // Clear cache for New Zealand locations on mount
+    useEffect(() => {
+        const clearNZCache = async () => {
+            const nzLocations = destinations
+                .filter(d => d.destination)
+                .map(d => d.destination);
+            if (nzLocations.length > 0) {
+                await mapboxCacheService.clearGeocodingCache(nzLocations);
+            }
+        };
+        clearNZCache();
+    }, [destinations]);
+
     // Clean up route layers and sources
     const cleanupRoutes = useCallback(() => {
         if (!map.current) return;
@@ -100,13 +113,14 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ destinations, className = '' }) =
 
         // If there are uncached destinations, fetch them in batches
         if (uncachedDestinations.length > 0) {
-            const batchSize = 5; // Process 5 destinations at a time
+            const batchSize = 5;
             for (let i = 0; i < uncachedDestinations.length; i += batchSize) {
                 const batch = uncachedDestinations.slice(i, i + batchSize);
                 const promises = batch.map(async (dest) => {
                     try {
+                        // Add country context for better accuracy
                         const response = await fetch(
-                            `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(dest)}.json?access_token=${mapboxgl.accessToken}`
+                            `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(dest)}.json?country=nz&types=place&access_token=${mapboxgl.accessToken}`
                         );
                         const data = await response.json();
                         if (data.features && data.features[0]) {

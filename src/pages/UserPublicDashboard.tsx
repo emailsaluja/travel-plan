@@ -4,7 +4,7 @@ import { MapPin, Calendar, Clock, Users, Search, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CountryImagesService } from '../services/country-images.service';
 import { cleanDestination } from '../utils/stringUtils';
-import WorldMap from '../components/WorldMap';
+import StaticWorldMap from '../components/StaticWorldMap';
 
 // Add country code mapping
 const COUNTRY_CODES: { [key: string]: string } = {
@@ -407,14 +407,12 @@ const UserPublicDashboard = () => {
 
     return (
         <div className="min-h-screen bg-[#FAFAFA]">
-            {/* World Map Section */}
-            <div className="w-full relative h-[70vh] bg-white">
-                <WorldMap
+            {/* Map Section */}
+            <div className="w-full relative h-[50vh] bg-white">
+                <StaticWorldMap
                     visitedCountries={visitedCountries}
-                    isEditable={isEditing}
-                    onCountryToggle={handleCountryToggle}
                 />
-                {/* Profile Overlay */}
+                {/* Profile Card */}
                 <div className="absolute bottom-6 right-6 w-80 bg-white/90 backdrop-blur-xl rounded-2xl shadow-lg overflow-hidden border border-gray-100">
                     <div className="p-5">
                         <div className="flex items-center gap-4 mb-5">

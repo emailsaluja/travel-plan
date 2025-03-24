@@ -107,6 +107,16 @@ class MapboxCacheService {
         const key = `${start.join(',')}-${end.join(',')}`;
         await this.saveToCache('mapbox_routes_cache', key, { geometry });
     }
+
+    public async clearGeocodingCache(locations: string[]): Promise<void> {
+        try {
+            for (const location of locations) {
+                await this.deleteFromCache('mapbox_geocoding_cache', location);
+            }
+        } catch (error) {
+            console.error('Error clearing geocoding cache:', error);
+        }
+    }
 }
 
 export const mapboxCacheService = MapboxCacheService.getInstance(); 
