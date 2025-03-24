@@ -1,29 +1,15 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, MapPin, Star, Search, Plus, Building2, Edit2, Trash2, Check } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import React, { useState, useEffect } from 'react';
+import { X, Check, Trash2, Plus } from 'lucide-react';
 import { cleanDestination } from '../utils/stringUtils';
-import { mapboxPlacesService } from '../services/mapbox-places.service';
-
-interface Hotel {
-  id: string;
-  name: string;
-  rating?: number;
-  userRatingsTotal?: number;
-  photoUrl?: string;
-  priceLevel?: number;
-  description: string;
-  isSelected: boolean;
-  isManuallyAdded: boolean;
-  destination: string;
-  place_id?: string;
-}
 
 interface HotelSearchPopupProps {
   isOpen: boolean;
   onClose: () => void;
   destination: string;
-  onHotelSelect: (hotel: Hotel) => void;
+  onHotelSelect: (hotel: string, isManual?: boolean, description?: string) => void;
   selectedHotel?: string;
+  manualHotel?: string;
+  manualHotelDesc?: string;
 }
 
 const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
@@ -31,144 +17,148 @@ const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
   onClose,
   destination,
   onHotelSelect,
-  selectedHotel
+  selectedHotel,
+  manualHotel,
+  manualHotelDesc
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
+  // State for manual hotel entry
+  const [manualHotelName, setManualHotelName] = useState('');
+  const [manualHotelDescription, setManualHotelDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  // Memoized function to get place suggestions
-  const getPlaceSuggestions = useCallback(async (query: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const results = await mapboxPlacesService.getPlaceSuggestions(query);
-      setSuggestions(results);
-    } catch (error) {
-      console.error('Error getting suggestions:', error);
-      setError('Failed to load suggestions');
-      setSuggestions([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Handle search input changes
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-
-    // Clear existing timeout
-    if (searchTimeout.current) {
-      clearTimeout(searchTimeout.current);
-    }
-
-    // Set new timeout for debouncing
-    if (query.length > 2) {
-      searchTimeout.current = setTimeout(() => {
-        getPlaceSuggestions(`${query} hotel ${destination}`);
-      }, 300);
-    } else {
-      setSuggestions([]);
-    }
-  };
-
-  // Handle suggestion selection
-  const handleSuggestionClick = async (suggestion: string) => {
-    try {
-      const placeResult = await mapboxPlacesService.findPlaceFromQuery(suggestion);
-      if (placeResult) {
-        const hotel: Hotel = {
-          id: Date.now().toString(),
-          name: placeResult.name,
-          description: placeResult.address || '',
-          isSelected: true,
-          isManuallyAdded: false,
-          destination: destination,
-          place_id: placeResult.location.join(',')
-        };
-        onHotelSelect(hotel);
-        onClose();
-      }
-    } catch (error) {
-      console.error('Error selecting hotel:', error);
-      setError('Failed to select hotel');
-    }
-  };
-
-  // Cleanup on unmount
+  // Initialize with existing hotel data if available
   useEffect(() => {
-    return () => {
-      if (searchTimeout.current) {
-        clearTimeout(searchTimeout.current);
-      }
-    };
-  }, []);
+    // Reset states first
+    setManualHotelName('');
+    setManualHotelDescription('');
+
+    // First try to use the manual hotel name
+    if (manualHotel) {
+      setManualHotelName(manualHotel);
+    }
+    // If no manual hotel name, use the selected hotel name
+    else if (selectedHotel) {
+      setManualHotelName(selectedHotel);
+    }
+
+    // Set the description if available
+    if (manualHotelDesc) {
+      setManualHotelDescription(manualHotelDesc);
+    }
+
+    // Log values for debugging
+    console.log('Hotel popup values:', { manualHotel, selectedHotel, manualHotelDesc });
+  }, [isOpen, manualHotel, selectedHotel, manualHotelDesc]);
+
+  // Handle manual hotel submission
+  const handleManualHotelSubmit = () => {
+    if (manualHotelName.trim()) {
+      onHotelSelect(manualHotelName.trim(), true, manualHotelDescription.trim());
+      onClose();
+    } else {
+      setError('Hotel name is required');
+    }
+  };
+
+  // Handle delete hotel
+  const handleDeleteHotel = () => {
+    // Also clear the local state to ensure UI reflects the deletion immediately
+    setManualHotelName('');
+    setManualHotelDescription('');
+
+    // Call the parent component's handler with empty values
+    onHotelSelect('', true, '');
+    onClose();
+  };
 
   if (!isOpen) return null;
 
+  // Determine if we have any existing hotel data
+  const hasExistingHotel = Boolean(manualHotel || selectedHotel);
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-        <div className="p-6 border-b border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-semibold">Find Hotels</h2>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+      <div className="bg-white rounded-xl w-full max-w-md max-h-[90vh] overflow-hidden relative">
+        {/* Close button at the top of popup */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-2 bg-white rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors z-10"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        <div className="p-6">
+          <div className="mb-6">
+            <h2 className="text-[#165964] text-2xl font-bold pr-8">
+              Sleeping in {cleanDestination(destination)}
+            </h2>
+            <div className="text-gray-500 text-sm">
+              {hasExistingHotel ? 'Edit hotel details' : 'Add your hotel information'}
+            </div>
           </div>
 
-          <div className="relative">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={handleSearchChange}
-              placeholder="Search for hotels..."
-              className="w-full px-4 py-3 pl-12 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
-            />
-            <Search className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Hotel Name*
+              </label>
+              <input
+                type="text"
+                value={manualHotelName}
+                onChange={(e) => setManualHotelName(e.target.value)}
+                placeholder="Enter hotel name"
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFBA49] focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Hotel Description
+              </label>
+              <textarea
+                value={manualHotelDescription}
+                onChange={(e) => setManualHotelDescription(e.target.value)}
+                placeholder="Enter hotel description, address, or additional details"
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFBA49] focus:border-transparent h-32 resize-none"
+              />
+            </div>
+
+            {error && (
+              <div className="text-red-500 text-sm">
+                {error}
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="p-6 max-h-[60vh] overflow-y-auto">
-          {loading && (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#00C48C] border-t-transparent"></div>
-            </div>
-          )}
-
-          {error && (
-            <div className="text-red-500 text-center py-4">
-              {error}
-            </div>
-          )}
-
-          {!loading && !error && suggestions.length === 0 && searchQuery.length > 2 && (
-            <div className="text-gray-500 text-center py-4">
-              No hotels found
-            </div>
-          )}
-
-          {!loading && suggestions.length > 0 && (
-            <div className="space-y-2">
-              {suggestions.map((suggestion, index) => (
+        <div className="border-t border-gray-100 pt-4 pb-4 px-6">
+          <div className="flex justify-between gap-4">
+            {!hasExistingHotel ? (
+              <button
+                onClick={handleManualHotelSubmit}
+                className="w-full py-3 bg-[#FFBA49] text-white rounded-full flex items-center justify-center gap-2 font-semibold hover:bg-[#F0B042] transition-colors"
+              >
+                <Plus className="w-5 h-5" />
+                Add custom
+              </button>
+            ) : (
+              <>
                 <button
-                  key={index}
-                  onClick={() => handleSuggestionClick(suggestion)}
-                  className="w-full p-4 flex items-center gap-3 hover:bg-gray-50 rounded-xl transition-colors text-left"
+                  onClick={handleManualHotelSubmit}
+                  className="flex-1 py-3 bg-[#FFBA49] text-white rounded-full flex items-center justify-center gap-2 font-semibold hover:bg-[#F0B042] transition-colors"
                 >
-                  <Building2 className="w-5 h-5 text-[#00C48C] flex-shrink-0" />
-                  <span className="flex-grow">{suggestion}</span>
-                  <MapPin className="w-5 h-5 text-gray-400" />
+                  <Check className="w-5 h-5" />
+                  Save
                 </button>
-              ))}
-            </div>
-          )}
+                <button
+                  onClick={handleDeleteHotel}
+                  className="py-3 px-5 bg-red-500 text-white rounded-full flex items-center gap-2 hover:bg-red-600 transition-colors"
+                >
+                  <Trash2 className="w-5 h-5" />
+                  Delete
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -817,14 +817,28 @@ const CreateItinerary: React.FC = () => {
       const updatedDestinations = [...itineraryDays];
       const updatedHotels = [...dayHotels];
 
+      // Check if this is a deletion operation
+      const isDeleting = hotel === '' && isManual === true;
+
       if (activeTab === 'destinations') {
         // Update the destination's hotel fields
-        updatedDestinations[currentDestinationIndexForHotel] = {
-          ...updatedDestinations[currentDestinationIndexForHotel],
-          hotel: isManual ? '' : hotel,
-          manual_hotel: isManual ? hotel : '',
-          manual_hotel_desc: isManual ? description || '' : ''
-        };
+        if (isDeleting) {
+          // When deleting, clear all hotel-related fields
+          updatedDestinations[currentDestinationIndexForHotel] = {
+            ...updatedDestinations[currentDestinationIndexForHotel],
+            hotel: '',
+            manual_hotel: '',
+            manual_hotel_desc: ''
+          };
+        } else {
+          // Normal update operation
+          updatedDestinations[currentDestinationIndexForHotel] = {
+            ...updatedDestinations[currentDestinationIndexForHotel],
+            hotel: isManual ? '' : hotel,
+            manual_hotel: isManual ? hotel : '',
+            manual_hotel_desc: isManual ? description || '' : ''
+          };
+        }
 
         // Calculate the start and end day indices for the selected destination
         let startDayIndex = 0;
@@ -833,18 +847,20 @@ const CreateItinerary: React.FC = () => {
         }
         const endDayIndex = startDayIndex + (itineraryDays[currentDestinationIndexForHotel].nights || 0);
 
-        // Update day hotels for this destination's days
+        // Remove all hotel entries for this destination's days
         const filteredHotels = updatedHotels.filter(h =>
           h.dayIndex < startDayIndex || h.dayIndex >= endDayIndex
         );
 
-        // Add new hotel entries for each day in this destination
-        for (let dayIndex = startDayIndex; dayIndex < endDayIndex; dayIndex++) {
-          filteredHotels.push({
-            dayIndex,
-            hotel,
-            isManual
-          });
+        // Add new hotel entries for each day in this destination (only if not deleting)
+        if (!isDeleting) {
+          for (let dayIndex = startDayIndex; dayIndex < endDayIndex; dayIndex++) {
+            filteredHotels.push({
+              dayIndex,
+              hotel,
+              isManual
+            });
+          }
         }
 
         // Sort hotels by day index
@@ -852,39 +868,63 @@ const CreateItinerary: React.FC = () => {
         setDayHotels(filteredHotels);
       } else {
         // Day by Day view - update only the selected day
-        const hotelIndex = updatedHotels.findIndex(h => h.dayIndex === currentDestinationIndexForHotel);
+        if (isDeleting) {
+          // Remove the hotel entry for this day
+          const filteredHotels = updatedHotels.filter(h => h.dayIndex !== currentDestinationIndexForHotel);
+          setDayHotels(filteredHotels);
 
-        if (hotelIndex !== -1) {
-          updatedHotels[hotelIndex] = {
-            dayIndex: currentDestinationIndexForHotel,
-            hotel,
-            isManual
-          };
-        } else {
-          updatedHotels.push({
-            dayIndex: currentDestinationIndexForHotel,
-            hotel,
-            isManual
-          });
-        }
-        // Sort hotels by day index
-        updatedHotels.sort((a, b) => a.dayIndex - b.dayIndex);
-        setDayHotels(updatedHotels);
-
-        // Find which destination this day belongs to and update it
-        let currentDayCount = 0;
-        for (let i = 0; i < itineraryDays.length; i++) {
-          const nextDayCount = currentDayCount + itineraryDays[i].nights;
-          if (currentDestinationIndexForHotel >= currentDayCount && currentDestinationIndexForHotel < nextDayCount) {
-            updatedDestinations[i] = {
-              ...updatedDestinations[i],
-              hotel: isManual ? '' : hotel,
-              manual_hotel: isManual ? hotel : '',
-              manual_hotel_desc: isManual ? description || '' : ''
-            };
-            break;
+          // Find which destination this day belongs to and clear its hotel data too
+          let currentDayCount = 0;
+          for (let i = 0; i < itineraryDays.length; i++) {
+            const nextDayCount = currentDayCount + itineraryDays[i].nights;
+            if (currentDestinationIndexForHotel >= currentDayCount && currentDestinationIndexForHotel < nextDayCount) {
+              updatedDestinations[i] = {
+                ...updatedDestinations[i],
+                hotel: '',
+                manual_hotel: '',
+                manual_hotel_desc: ''
+              };
+              break;
+            }
+            currentDayCount = nextDayCount;
           }
-          currentDayCount = nextDayCount;
+        } else {
+          // Normal update operation
+          const hotelIndex = updatedHotels.findIndex(h => h.dayIndex === currentDestinationIndexForHotel);
+
+          if (hotelIndex !== -1) {
+            updatedHotels[hotelIndex] = {
+              dayIndex: currentDestinationIndexForHotel,
+              hotel,
+              isManual
+            };
+          } else {
+            updatedHotels.push({
+              dayIndex: currentDestinationIndexForHotel,
+              hotel,
+              isManual
+            });
+          }
+
+          // Sort hotels by day index
+          updatedHotels.sort((a, b) => a.dayIndex - b.dayIndex);
+          setDayHotels(updatedHotels);
+
+          // Find which destination this day belongs to and update it
+          let dayCount = 0;
+          for (let i = 0; i < itineraryDays.length; i++) {
+            const nextDayCount = dayCount + itineraryDays[i].nights;
+            if (currentDestinationIndexForHotel >= dayCount && currentDestinationIndexForHotel < nextDayCount) {
+              updatedDestinations[i] = {
+                ...updatedDestinations[i],
+                hotel: isManual ? '' : hotel,
+                manual_hotel: isManual ? hotel : '',
+                manual_hotel_desc: isManual ? description || '' : ''
+              };
+              break;
+            }
+            dayCount = nextDayCount;
+          }
         }
       }
 
@@ -1085,7 +1125,7 @@ const CreateItinerary: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  {(day.hotel || day.manual_hotel || dayHotels.find(h => h.dayIndex === index)?.hotel) ? (
+                  {(day.hotel || day.manual_hotel) ? (
                     <div className="text-xs group relative flex items-center justify-start flex-col">
                       <button
                         onClick={() => {
@@ -1096,7 +1136,7 @@ const CreateItinerary: React.FC = () => {
                         className="font-['Inter_var'] font-[600] text-sm text-[#0f3e4a] hover:text-[#00C48C] transition-colors"
                       >
                         <span className="max-w-[140px] truncate block">
-                          {day.manual_hotel || day.hotel || dayHotels.find(h => h.dayIndex === index)?.hotel}
+                          {day.manual_hotel || day.hotel}
                         </span>
                       </button>
                       <div className="text-[10px] text-[#0f3e4a]">To be booked</div>
@@ -1718,7 +1758,9 @@ const CreateItinerary: React.FC = () => {
                 setCurrentDestinationForHotel('');
               }}
               destination={currentDestinationForHotel}
-              selectedHotel={itineraryDays[currentDestinationIndexForHotel]?.hotel || dayHotels.find(h => h.dayIndex === currentDestinationIndexForHotel)?.hotel}
+              selectedHotel={itineraryDays[currentDestinationIndexForHotel]?.hotel || ''}
+              manualHotel={itineraryDays[currentDestinationIndexForHotel]?.manual_hotel || ''}
+              manualHotelDesc={itineraryDays[currentDestinationIndexForHotel]?.manual_hotel_desc || ''}
               onHotelSelect={(hotel, isManual, description) => handleHotelSelect(hotel, isManual, description)}
             />
           </div>
