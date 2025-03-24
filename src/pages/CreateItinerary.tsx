@@ -46,6 +46,7 @@ import TripSummaryEdit from '../components/TripSummaryEdit';
 import { ItineraryService } from '../services/itinerary.service';
 import { UserItineraryService } from '../services/user-itinerary.service';
 import HotelSearchPopup from '../components/HotelSearchPopup';
+import DayHotelSearchPopup from '../components/DayHotelSearchPopup';
 import TransportPopup from '../components/TransportPopup';
 import FoodPopup from '../components/FoodPopup';
 import TopNavigation from '../components/TopNavigation';
@@ -195,9 +196,11 @@ const CreateItinerary: React.FC = () => {
   const [shouldUpdateDayAttractions, setShouldUpdateDayAttractions] = useState(false);
   const [showTripSummaryEdit, setShowTripSummaryEdit] = useState(false);
   const [isHotelSearchOpen, setIsHotelSearchOpen] = useState(false);
+  const [isDayHotelSearchOpen, setIsDayHotelSearchOpen] = useState(false);
   const [currentDestinationForHotel, setCurrentDestinationForHotel] = useState<string>('');
   const [currentDestinationIndexForHotel, setCurrentDestinationIndexForHotel] = useState<number>(-1);
   const [dayHotels, setDayHotels] = useState<DayHotel[]>([]);
+  const [dayHotelDesc, setDayHotelDesc] = useState<string>('');
   const [showTransportPopup, setShowTransportPopup] = useState(false);
   const [currentDestinationForTransport, setCurrentDestinationForTransport] = useState<{
     from: string;
@@ -210,6 +213,8 @@ const CreateItinerary: React.FC = () => {
   const [dayFoods, setDayFoods] = useState<DayFood[]>([]);
   const [showTripSummary, setShowTripSummary] = useState(false);
   const [isMapCollapsed, setIsMapCollapsed] = useState(false);
+  const [currentDestinationForFood, setCurrentDestinationForFood] = useState('');
+  const [currentDestinationIndexForFood, setCurrentDestinationIndexForFood] = useState<number | null>(null);
 
   // Add available tags constant
   const AVAILABLE_TAGS = [
@@ -228,6 +233,9 @@ const CreateItinerary: React.FC = () => {
     { id: 'museum', label: 'Museum' },
     { id: 'history', label: 'History' }
   ];
+
+  // Add a state variable to track if we've already synced hotel descriptions
+  const [hasSyncedHotelDescriptions, setHasSyncedHotelDescriptions] = useState(false);
 
   useEffect(() => {
     const loadExistingItinerary = async () => {
@@ -267,15 +275,62 @@ const CreateItinerary: React.FC = () => {
             console.log('Setting destinations with hotels:', destinationsWithHotels);
             setItineraryDays(destinationsWithHotels);
 
-            // Set day hotels separately
-            if (data.day_hotels) {
-              console.log('Setting day hotels:', data.day_hotels);
-              const hotels = data.day_hotels.map((dh: any) => ({
-                dayIndex: dh.day_index,
-                hotel: dh.hotel,
-                isManual: dh.is_manual
-              }));
-              setDayHotels(hotels);
+            // Improved hotel data loading
+            // First fetch the complete hotel data including descriptions from the database
+            try {
+              const { data: completeHotelData, error: hotelError } = await supabase
+                .from('user_itinerary_day_hotels')
+                .select('day_index, hotel, hotel_desc')
+                .eq('itinerary_id', itineraryId);
+
+              if (hotelError) {
+                console.error('Error fetching complete hotel data:', hotelError);
+              } else if (completeHotelData && completeHotelData.length > 0) {
+                console.log('Fetched complete hotel data:', completeHotelData);
+
+                // Process the hotel data for our local state
+                const processedHotels = completeHotelData.map((dh: any) => ({
+                  dayIndex: dh.day_index,
+                  hotel: dh.hotel || '',
+                  isManual: false // Set a default value since the column doesn't exist in DB
+                }));
+
+                setDayHotels(processedHotels);
+
+                // Create a map for hotel descriptions for easy lookup later
+                const hotelDescMap = new Map<number, string>();
+                completeHotelData.forEach((item: any) => {
+                  if (item.day_index !== undefined && item.hotel_desc) {
+                    hotelDescMap.set(item.day_index, item.hotel_desc);
+                  }
+                });
+                console.log('Hotel description map created with', hotelDescMap.size, 'entries');
+              } else if (data.day_hotels && data.day_hotels.length > 0) {
+                // Fallback to legacy format for backward compatibility
+                console.log('Using legacy day_hotels format:', data.day_hotels);
+
+                const legacyHotels = data.day_hotels.map((dh: any) => ({
+                  dayIndex: dh.day_index,
+                  hotel: dh.hotel || '',
+                  isManual: false // Default since we don't have this info
+                }));
+
+                setDayHotels(legacyHotels);
+              } else {
+                console.log('No hotel data found, initializing with empty array');
+                setDayHotels([]);
+              }
+            } catch (hotelLoadError) {
+              console.error('Failed to load hotel data:', hotelLoadError);
+              // Initialize with basic data if available
+              if (data.day_hotels) {
+                const backupHotels = data.day_hotels.map((dh: any) => ({
+                  dayIndex: dh.day_index,
+                  hotel: dh.hotel || '',
+                  isManual: false
+                }));
+                setDayHotels(backupHotels);
+              }
             }
 
             // Initialize dayFoods from destinations data
@@ -476,11 +531,8 @@ const CreateItinerary: React.FC = () => {
         // Convert food items to string
         const foodString = Array.from(foodItems).join(', ');
 
-        // Find the hotel for this destination
-        const hotelForDestination = dayHotels.find(h => h.dayIndex === startDayIndex);
-        const isManualHotel = hotelForDestination?.isManual;
-        const hotelName = hotelForDestination?.hotel || '';
-
+        // For destinations, we use the destination's hotel data directly
+        // NOT derived from dayHotels which might have day-specific overrides
         return {
           destination: day.destination,
           nights: day.nights,
@@ -490,8 +542,8 @@ const CreateItinerary: React.FC = () => {
           transport: day.transport || '',
           notes: day.notes || '',
           food: foodString,
-          hotel: isManualHotel ? '' : hotelName,
-          manual_hotel: isManualHotel ? hotelName : '',
+          hotel: day.hotel || '',
+          manual_hotel: day.manual_hotel || '',
           manual_hotel_desc: day.manual_hotel_desc || ''
         };
       });
@@ -515,8 +567,8 @@ const CreateItinerary: React.FC = () => {
         })),
         dayHotels: dayHotels.map(dh => ({
           day_index: dh.dayIndex,
-          hotel: dh.hotel,
-          is_manual: dh.isManual
+          hotel: dh.hotel
+          // Removed is_manual as it doesn't exist in the database
         })),
         dayNotes: dayNotes.map(dn => ({
           day_index: dn.dayIndex,
@@ -524,6 +576,8 @@ const CreateItinerary: React.FC = () => {
         }))
       };
 
+      // Simply call the service method to handle the save/update
+      // The UserItineraryService will handle all database operations
       if (itineraryId) {
         await UserItineraryService.updateItinerary(itineraryId, saveData);
       } else {
@@ -536,6 +590,30 @@ const CreateItinerary: React.FC = () => {
       setError('Failed to save itinerary. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Helper function to get hotel description for a specific day
+  const getHotelDescForDay = async (dayIndex: number): Promise<string | null> => {
+    if (!itineraryId) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from('user_itinerary_day_hotels')
+        .select('hotel_desc')
+        .eq('itinerary_id', itineraryId)
+        .eq('day_index', dayIndex)
+        .single();
+
+      if (error) {
+        console.error(`Error fetching hotel description for day ${dayIndex}:`, error);
+        return null;
+      }
+
+      return data?.hotel_desc || null;
+    } catch (error) {
+      console.error(`Failed to fetch hotel description for day ${dayIndex}:`, error);
+      return null;
     }
   };
 
@@ -821,6 +899,8 @@ const CreateItinerary: React.FC = () => {
       const isDeleting = hotel === '' && isManual === true;
 
       if (activeTab === 'destinations') {
+        console.log('Updating hotel from Destinations tab');
+
         // Update the destination's hotel fields
         if (isDeleting) {
           // When deleting, clear all hotel-related fields
@@ -852,22 +932,96 @@ const CreateItinerary: React.FC = () => {
           h.dayIndex < startDayIndex || h.dayIndex >= endDayIndex
         );
 
-        // Add new hotel entries for each day in this destination (only if not deleting)
-        if (!isDeleting) {
+        // If we're updating the database, prepare a bulk operation
+        if (itineraryId && !isDeleting) {
+          // Prepare bulk operation data
+          const hotelBulkUpserts: {
+            itinerary_id: string;
+            day_index: number;
+            hotel: string;
+            hotel_desc: string;
+            created_at: Date;
+          }[] = [];
+
           for (let dayIndex = startDayIndex; dayIndex < endDayIndex; dayIndex++) {
+            // Add each day to the local state
             filteredHotels.push({
               dayIndex,
               hotel,
-              isManual
+              isManual: isManual || false
+            });
+
+            // Add each day to the bulk upsert data
+            hotelBulkUpserts.push({
+              itinerary_id: itineraryId,
+              day_index: dayIndex,
+              hotel,
+              hotel_desc: description || '',
+              created_at: new Date()
             });
           }
+
+          // Sort hotels by day index
+          filteredHotels.sort((a, b) => a.dayIndex - b.dayIndex);
+
+          // Perform the bulk upsert
+          (async () => {
+            try {
+              console.log(`Bulk upserting ${hotelBulkUpserts.length} hotels from Destinations tab`);
+              const { error } = await supabase
+                .from('user_itinerary_day_hotels')
+                .upsert(hotelBulkUpserts, {
+                  onConflict: 'itinerary_id,day_index',
+                  ignoreDuplicates: false
+                });
+
+              if (error) {
+                console.error('Error bulk upserting hotels from Destinations tab:', error);
+              } else {
+                console.log('Successfully updated hotels from Destinations tab');
+              }
+            } catch (error) {
+              console.error('Failed to update hotels from Destinations tab:', error);
+            }
+          })();
+        } else if (itineraryId && isDeleting) {
+          // If deleting, perform a bulk delete for all affected days
+          (async () => {
+            try {
+              console.log(`Deleting hotels for days ${startDayIndex} to ${endDayIndex - 1}`);
+
+              // Create an array of day indices to delete
+              const dayIndices = Array.from(
+                { length: endDayIndex - startDayIndex },
+                (_, i) => startDayIndex + i
+              );
+
+              // Since we can't use 'in' with Supabase JS client directly,
+              // we need to delete each day individually, but we can parallelize them
+              await Promise.all(
+                dayIndices.map(dayIndex =>
+                  supabase
+                    .from('user_itinerary_day_hotels')
+                    .delete()
+                    .eq('itinerary_id', itineraryId)
+                    .eq('day_index', dayIndex)
+                )
+              );
+
+              console.log('Successfully deleted hotels from Destinations tab');
+            } catch (error) {
+              console.error('Failed to delete hotels from Destinations tab:', error);
+            }
+          })();
         }
 
-        // Sort hotels by day index
-        filteredHotels.sort((a, b) => a.dayIndex - b.dayIndex);
         setDayHotels(filteredHotels);
+
+        // Reset the synchronization flag when editing from the Destinations tab
+        // This ensures future changes from Destinations tab will be propagated to Day by Day
+        setHasSyncedHotelDescriptions(false);
       } else {
-        // Day by Day view - update only the selected day
+        // Day by Day view operations remain unchanged
         if (isDeleting) {
           // Remove the hotel entry for this day
           const filteredHotels = updatedHotels.filter(h => h.dayIndex !== currentDestinationIndexForHotel);
@@ -930,6 +1084,29 @@ const CreateItinerary: React.FC = () => {
 
       setItineraryDays(updatedDestinations);
       setIsHotelSearchOpen(false);
+    }
+  };
+
+  // Add a helper function to delete hotel entries from the database
+  const deleteHotelFromDatabase = async (dayIndex: number) => {
+    if (!itineraryId) return;
+
+    console.log(`Deleting hotel for day ${dayIndex}`);
+
+    try {
+      const { error } = await supabase
+        .from('user_itinerary_day_hotels')
+        .delete()
+        .eq('itinerary_id', itineraryId)
+        .eq('day_index', dayIndex);
+
+      if (error) {
+        console.error('Error deleting hotel from database:', error);
+      } else {
+        console.log(`Successfully deleted hotel for day ${dayIndex}`);
+      }
+    } catch (error) {
+      console.error('Failed to delete hotel:', error);
     }
   };
 
@@ -1378,6 +1555,204 @@ const CreateItinerary: React.FC = () => {
     setDayNotes(updatedNotes);
   };
 
+  // This function replaces the individual saveHotelToDatabase calls
+  const handleDayHotelSelect = (hotel: string, dayIndex: number, description?: string) => {
+    console.log(`Handling day hotel select for day ${dayIndex}:`, { hotel, description });
+
+    // Update the specific day's hotel in local state
+    const updatedHotels = [...dayHotels];
+
+    // Check if this is a deletion operation
+    const isDeleting = hotel === '';
+
+    if (isDeleting) {
+      // Remove the hotel entry for this day only
+      const filteredHotels = updatedHotels.filter(h => h.dayIndex !== dayIndex);
+      setDayHotels(filteredHotels);
+    } else {
+      // Find if we already have a hotel for this day
+      const existingHotelIndex = updatedHotels.findIndex(h => h.dayIndex === dayIndex);
+
+      if (existingHotelIndex >= 0) {
+        // Update existing entry for this day only
+        updatedHotels[existingHotelIndex] = {
+          ...updatedHotels[existingHotelIndex],
+          hotel,
+          isManual: true
+        };
+      } else {
+        // Add new entry for this day only
+        updatedHotels.push({
+          dayIndex,
+          hotel,
+          isManual: true
+        });
+      }
+
+      // Sort hotels by day index
+      updatedHotels.sort((a, b) => a.dayIndex - b.dayIndex);
+      setDayHotels(updatedHotels);
+    }
+
+    // Update the description state (used in the UI)
+    setDayHotelDesc(description || '');
+
+    // If we have an itineraryId, update the hotel in the database in a single operation
+    if (itineraryId) {
+      (async () => {
+        try {
+          console.log(`Saving hotel data for day ${dayIndex} to database`);
+
+          if (isDeleting) {
+            // Delete the hotel entry
+            const { error: deleteError } = await supabase
+              .from('user_itinerary_day_hotels')
+              .delete()
+              .eq('itinerary_id', itineraryId)
+              .eq('day_index', dayIndex);
+
+            if (deleteError) {
+              console.error(`Error deleting hotel for day ${dayIndex}:`, deleteError);
+            } else {
+              console.log(`Successfully deleted hotel for day ${dayIndex}`);
+            }
+          } else {
+            // Upsert the hotel entry with the description
+            const { error: upsertError } = await supabase
+              .from('user_itinerary_day_hotels')
+              .upsert({
+                itinerary_id: itineraryId,
+                day_index: dayIndex,
+                hotel,
+                hotel_desc: description || '',
+                created_at: new Date()
+              }, {
+                onConflict: 'itinerary_id,day_index',
+                ignoreDuplicates: false
+              });
+
+            if (upsertError) {
+              console.error(`Error updating hotel for day ${dayIndex}:`, upsertError);
+            } else {
+              console.log(`Successfully saved hotel data for day ${dayIndex}`);
+            }
+          }
+        } catch (error) {
+          console.error(`Error handling hotel data for day ${dayIndex}:`, error);
+        }
+      })();
+    }
+  };
+
+  // Modified syncHotelDescriptions function to efficiently update hotels
+  const syncHotelDescriptions = () => {
+    if (!itineraryId) {
+      console.log('Skipping hotel description sync (not saved yet)');
+      return;
+    }
+
+    console.log('Syncing hotel descriptions from destinations to days');
+
+    // For each destination, get its hotel description and update days in local state
+    let currentDayIndex = 0;
+    const updatedHotels = [...dayHotels];
+    const hotelBulkUpserts: {
+      itinerary_id: string;
+      day_index: number;
+      hotel: string;
+      hotel_desc: string;
+      created_at: Date;
+    }[] = [];
+
+    itineraryDays.forEach((dest, destIndex) => {
+      const hotelDesc = dest.manual_hotel_desc || '';
+      const hotelName = dest.manual_hotel || dest.hotel || '';
+
+      if (!hotelName) {
+        currentDayIndex += dest.nights;
+        return;
+      }
+
+      // Update each day in this destination
+      for (let i = 0; i < dest.nights; i++) {
+        const dayIndex = currentDayIndex + i;
+
+        // Check if this day already has a custom hotel entry
+        const existingHotelIndex = updatedHotels.findIndex(h => h.dayIndex === dayIndex);
+        const existingDayHotel = existingHotelIndex >= 0 ? updatedHotels[existingHotelIndex] : null;
+
+        // Only update if:
+        // 1. This day doesn't already have a custom entry, or
+        // 2. We're forcing a sync from the Destinations tab
+        if (!existingDayHotel || !hasSyncedHotelDescriptions) {
+          if (existingHotelIndex >= 0) {
+            // Update existing entry
+            updatedHotels[existingHotelIndex] = {
+              ...updatedHotels[existingHotelIndex],
+              hotel: hotelName,
+              isManual: false
+            };
+          } else {
+            // Add new entry
+            updatedHotels.push({
+              dayIndex,
+              hotel: hotelName,
+              isManual: false
+            });
+          }
+
+          // Add to bulk upsert array
+          hotelBulkUpserts.push({
+            itinerary_id: itineraryId,
+            day_index: dayIndex,
+            hotel: hotelName,
+            hotel_desc: hotelDesc,
+            created_at: new Date()
+          });
+        }
+      }
+
+      currentDayIndex += dest.nights;
+    });
+
+    // Sort by day index
+    updatedHotels.sort((a, b) => a.dayIndex - b.dayIndex);
+    setDayHotels(updatedHotels);
+
+    // Perform bulk database update if we have anything to update
+    if (hotelBulkUpserts.length > 0) {
+      (async () => {
+        try {
+          console.log(`Bulk upserting ${hotelBulkUpserts.length} hotels`);
+          const { error } = await supabase
+            .from('user_itinerary_day_hotels')
+            .upsert(hotelBulkUpserts, {
+              onConflict: 'itinerary_id,day_index',
+              ignoreDuplicates: false
+            });
+
+          if (error) {
+            console.error('Error bulk upserting hotels:', error);
+          } else {
+            console.log('Successfully synced hotel descriptions to database');
+          }
+        } catch (error) {
+          console.error('Failed to sync hotels:', error);
+        }
+      })();
+    }
+
+    // Mark that we've done the sync
+    setHasSyncedHotelDescriptions(true);
+  };
+
+  // Update the useEffect to use the new flag
+  useEffect(() => {
+    if (itineraryId && activeTab === 'day-by-day' && itineraryDays.length > 0) {
+      syncHotelDescriptions();
+    }
+  }, [itineraryId, activeTab, itineraryDays]);
+
   if (!showSummaryPopup) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -1663,9 +2038,73 @@ const CreateItinerary: React.FC = () => {
                           dayNotes={dayNotes}
                           onDayNotesUpdate={handleDayNotesUpdate}
                           onHotelClick={(destination, dayIndex) => {
-                            setCurrentDestinationForHotel(cleanDestination(destination));
-                            setCurrentDestinationIndexForHotel(dayIndex);
-                            setIsHotelSearchOpen(true);
+                            console.log(`Hotel click for day ${dayIndex}, destination: ${destination}`);
+
+                            // First, reset the hotel description before fetching new data
+                            setDayHotelDesc('');
+
+                            // Find which destination this day belongs to as a fallback
+                            let currentDayCount = 0;
+                            let destinationIndex = -1;
+
+                            for (let i = 0; i < itineraryDays.length; i++) {
+                              const nextDayCount = currentDayCount + itineraryDays[i].nights;
+                              if (dayIndex >= currentDayCount && dayIndex < nextDayCount) {
+                                destinationIndex = i;
+                                break;
+                              }
+                              currentDayCount = nextDayCount;
+                            }
+
+                            // Get the destination hotel data as fallback
+                            const destinationHotel = destinationIndex >= 0 ? itineraryDays[destinationIndex] : null;
+                            const destinationHotelDesc = destinationHotel?.manual_hotel_desc || '';
+
+                            // Check if we already have day-specific hotel data
+                            const existingDayHotel = dayHotels.find(h => h.dayIndex === dayIndex);
+                            console.log(`Existing day hotel for day ${dayIndex}:`, existingDayHotel);
+
+                            // If we have an itineraryId, fetch the hotel description from the database
+                            if (itineraryId) {
+                              (async () => {
+                                try {
+                                  // Always fetch the fresh data from the database to ensure we have the latest
+                                  console.log(`Fetching hotel description for day ${dayIndex}`);
+                                  const { data, error } = await supabase
+                                    .from('user_itinerary_day_hotels')
+                                    .select('hotel_desc')
+                                    .eq('itinerary_id', itineraryId)
+                                    .eq('day_index', dayIndex)
+                                    .single();
+
+                                  if (error) {
+                                    console.error(`Error fetching hotel description for day ${dayIndex}:`, error);
+                                    // Fall back to destination hotel description
+                                    setDayHotelDesc(destinationHotelDesc);
+                                  } else if (data && data.hotel_desc) {
+                                    console.log(`Found hotel description for day ${dayIndex}:`, data.hotel_desc);
+                                    setDayHotelDesc(data.hotel_desc);
+                                  } else {
+                                    console.log(`No hotel description found for day ${dayIndex}, using destination fallback`);
+                                    setDayHotelDesc(destinationHotelDesc);
+                                  }
+                                } catch (error) {
+                                  console.error(`Failed to fetch hotel description for day ${dayIndex}:`, error);
+                                  setDayHotelDesc(destinationHotelDesc);
+                                } finally {
+                                  // Set the current destination and day index for the popup after data is fetched
+                                  setCurrentDestinationForHotel(cleanDestination(destination));
+                                  setCurrentDestinationIndexForHotel(dayIndex);
+                                  setIsDayHotelSearchOpen(true);
+                                }
+                              })();
+                            } else {
+                              // If no itineraryId, just use destination hotel description
+                              setDayHotelDesc(destinationHotelDesc);
+                              setCurrentDestinationForHotel(cleanDestination(destination));
+                              setCurrentDestinationIndexForHotel(dayIndex);
+                              setIsDayHotelSearchOpen(true);
+                            }
                           }}
                           onFoodClick={handleDayFoodSelect}
                           dayFoods={dayFoods}
@@ -1740,10 +2179,13 @@ const CreateItinerary: React.FC = () => {
                 setShowTransportPopup(false);
                 setCurrentDestinationForTransport(null);
               }}
-              fromDestination={currentDestinationForTransport.from}
-              toDestination={currentDestinationForTransport.to}
-              onTransportSelect={(transportDetails) => {
-                handleTransportSelect(currentDestinationForTransport.index, transportDetails);
+              destination={`From ${currentDestinationForTransport.from} to ${currentDestinationForTransport.to}`}
+              onTransportSelect={(transport) => {
+                if (currentDestinationForTransport && currentDestinationForTransport.index >= 0) {
+                  // Convert Transport object to string or process as needed
+                  const transportDetails = typeof transport === 'string' ? transport : transport.toString();
+                  handleTransportSelect(currentDestinationForTransport.index, transportDetails);
+                }
               }}
             />
           </div>
@@ -1766,62 +2208,23 @@ const CreateItinerary: React.FC = () => {
           </div>
         )}
 
-        {showFoodPopup && activeDestinationIndexForFood !== null && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <FoodPopup
-              isOpen={showFoodPopup}
-              onClose={() => {
-                setShowFoodPopup(false);
-                setActiveDestinationIndexForFood(null);
-              }}
-              destination={cleanDestination(itineraryDays[activeDestinationIndexForFood]?.destination || '')}
-              selectedFoodItems={(() => {
-                if (activeDestinationIndexForFood === null) return [];
-
-                // Calculate start day index for the active destination
-                let startDayIndex = 0;
-                for (let i = 0; i < activeDestinationIndexForFood; i++) {
-                  startDayIndex += itineraryDays[i].nights;
-                }
-
-                // Get all food items for this destination's days
-                const foodItems = new Set<string>();
-                for (let i = 0; i < itineraryDays[activeDestinationIndexForFood].nights; i++) {
-                  const dayFood = dayFoods.find(df => df.dayIndex === startDayIndex + i);
-                  if (dayFood && dayFood.foodItems) {
-                    dayFood.foodItems.forEach(item => foodItems.add(item));
-                  }
-                }
-                return Array.from(foodItems);
-              })()}
-              onFoodSelect={(foodItems) => {
-                if (activeDestinationIndexForFood !== null) {
-                  handleFoodSelect(activeDestinationIndexForFood, foodItems);
-                }
-              }}
-            />
-          </div>
-        )}
-
+        {/* Discover popup - temporary commented out as we need to revisit this */}
+        {/*
         {showDiscoverPopup && activeDestinationIndex !== null && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <DiscoverPopup
-              isOpen={showDiscoverPopup}
+              destination={cleanDestination(itineraryDays[activeDestinationIndex].destination)}
               onClose={() => {
                 setShowDiscoverPopup(false);
                 setActiveDestinationIndex(null);
               }}
-              destination={cleanDestination(itineraryDays[activeDestinationIndex].destination)}
-              selectedAttractions={[
-                ...itineraryDays[activeDestinationIndex].discover.split(',').filter(Boolean),
-                ...itineraryDays[activeDestinationIndex].manual_discover?.split(',').filter(Boolean) || []
-              ]}
-              onAttractionsSelect={(attractions, manualAttractions, description) =>
-                handleDiscoverSelect(activeDestinationIndex, attractions, manualAttractions, description)
-              }
+              onSelect={(place) => {
+                // Implementation will be revisited
+              }}
             />
           </div>
         )}
+        */}
 
         {showTripSummaryEdit && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -1829,6 +2232,25 @@ const CreateItinerary: React.FC = () => {
               tripSummary={tripSummary}
               onClose={() => setShowTripSummaryEdit(false)}
               onUpdate={handleTripSummaryUpdate}
+            />
+          </div>
+        )}
+
+        {isDayHotelSearchOpen && currentDestinationForHotel && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <DayHotelSearchPopup
+              isOpen={isDayHotelSearchOpen}
+              onClose={() => {
+                setIsDayHotelSearchOpen(false);
+                setCurrentDestinationForHotel('');
+                setCurrentDestinationIndexForHotel(-1);
+                setDayHotelDesc('');
+              }}
+              destination={currentDestinationForHotel}
+              dayIndex={currentDestinationIndexForHotel}
+              selectedHotel={dayHotels.find(h => h.dayIndex === currentDestinationIndexForHotel)?.hotel || ''}
+              hotelDesc={dayHotelDesc}
+              onHotelSelect={handleDayHotelSelect}
             />
           </div>
         )}
