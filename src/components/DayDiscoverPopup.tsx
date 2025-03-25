@@ -2,13 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { X, MapPin, Star, Compass, Check } from 'lucide-react';
 import { cleanDestination } from '../utils/stringUtils';
 
+interface Attraction {
+  name: string;
+  description: string;
+}
+
 interface DayDiscoverPopupProps {
   isOpen: boolean;
   onClose: () => void;
   date: string;
   destination: string;
   selectedAttractions: string[];
-  allDestinationAttractions: string[];
+  allDestinationAttractions: Attraction[];
   onAttractionsUpdate: (attractions: string[]) => void;
 }
 
@@ -30,16 +35,16 @@ const DayDiscoverPopup: React.FC<DayDiscoverPopupProps> = ({
     }
   }, [isOpen, selectedAttractions]);
 
-  const handleAttractionToggle = (attraction: string) => {
-    const updatedAttractions = localAttractions.includes(attraction)
-      ? localAttractions.filter(a => a !== attraction)
-      : [...localAttractions, attraction];
+  const handleAttractionToggle = (attractionName: string) => {
+    const updatedAttractions = localAttractions.includes(attractionName)
+      ? localAttractions.filter(a => a !== attractionName)
+      : [...localAttractions, attractionName];
 
     setLocalAttractions(updatedAttractions);
   };
 
   const handleSelectAll = () => {
-    setLocalAttractions(allDestinationAttractions);
+    setLocalAttractions(allDestinationAttractions.map(a => a.name));
   };
 
   const handleDeselectAll = () => {
@@ -105,25 +110,32 @@ const DayDiscoverPopup: React.FC<DayDiscoverPopupProps> = ({
             <div className="grid gap-4">
               {allDestinationAttractions.map((attraction) => (
                 <div
-                  key={attraction}
-                  className={`group relative rounded-lg border p-4 transition-all hover:shadow-md ${localAttractions.includes(attraction)
-                    ? 'border-[#00B8A9] bg-[#00B8A9]/5'
-                    : 'border-gray-200 hover:border-[#00B8A9]'
+                  key={attraction.name}
+                  className={`group relative rounded-lg border p-4 transition-all hover:shadow-md ${localAttractions.includes(attraction.name)
+                      ? 'border-[#00B8A9] bg-[#00B8A9]/5'
+                      : 'border-gray-200 hover:border-[#00B8A9]'
                     }`}
                 >
                   <button
-                    onClick={() => handleAttractionToggle(attraction)}
+                    onClick={() => handleAttractionToggle(attraction.name)}
                     className="w-full text-left"
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <MapPin className={`h-5 w-5 ${localAttractions.includes(attraction) ? 'text-[#00B8A9]' : 'text-gray-400'
-                          }`} />
-                        <span className="font-['Inter_var'] font-[600] text-[#1E293B]">
-                          {attraction}
-                        </span>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-3">
+                          <MapPin className={`h-5 w-5 ${localAttractions.includes(attraction.name) ? 'text-[#00B8A9]' : 'text-gray-400'
+                            }`} />
+                          <span className="font-['Inter_var'] font-[600] text-[#1E293B]">
+                            {attraction.name}
+                          </span>
+                        </div>
+                        {attraction.description && (
+                          <p className="ml-8 text-sm text-gray-500">
+                            {attraction.description}
+                          </p>
+                        )}
                       </div>
-                      {localAttractions.includes(attraction) ? (
+                      {localAttractions.includes(attraction.name) ? (
                         <Check className="h-5 w-5 text-[#00B8A9]" />
                       ) : (
                         <div className="h-2 w-2 rounded-full bg-gray-300" />

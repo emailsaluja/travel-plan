@@ -739,9 +739,11 @@ const CreateItinerary: React.FC = () => {
     setItineraryDays(updatedDestinations);
   };
 
-  // Update handleDayAttractionsUpdate to preserve state
+  // Update handleDayAttractionsUpdate to preserve state and update destination
   const handleDayAttractionsUpdate = (dayIndex: number, attractions: string[]) => {
     console.log('Updating attractions for day:', dayIndex, attractions); // Debug log
+
+    // First update the dayAttractions state
     setDayAttractions(prev => {
       const existingDayIndex = prev.findIndex(da => da.dayIndex === dayIndex);
       let newState;
@@ -761,6 +763,30 @@ const CreateItinerary: React.FC = () => {
       console.log('New day attractions state:', newState); // Debug log
       return newState;
     });
+
+    // Then find and update the corresponding destination
+    let currentDayCount = 0;
+    const updatedDays = [...itineraryDays];
+
+    for (let i = 0; i < updatedDays.length; i++) {
+      const dest = updatedDays[i];
+      const destEndIndex = currentDayCount + dest.nights;
+
+      // Check if this dayIndex falls within this destination's range
+      if (dayIndex >= currentDayCount && dayIndex < destEndIndex) {
+        // Update the destination's manual_discover field
+        updatedDays[i] = {
+          ...dest,
+          manual_discover: attractions.join(', ')
+        };
+        break;
+      }
+
+      currentDayCount = destEndIndex;
+    }
+
+    // Update the itineraryDays state
+    setItineraryDays(updatedDays);
   };
 
   // Update handleNightsChange to trigger recalculation

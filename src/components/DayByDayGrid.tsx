@@ -14,6 +14,11 @@ interface DayHotel {
   isManual?: boolean;
 }
 
+interface Attraction {
+  name: string;
+  description: string;
+}
+
 interface DayByDayGridProps {
   tripStartDate: string;
   destinations: Array<{
@@ -25,6 +30,7 @@ interface DayByDayGridProps {
     hotel?: string;
     food: string;
     manual_discover?: string;
+    manual_discover_desc?: string;
   }>;
   onDestinationsUpdate: (destinations: any[]) => void;
   dayAttractions: Array<{
@@ -66,6 +72,14 @@ interface DayNote {
   notes: string;
 }
 
+interface SelectedDay {
+  date: string;
+  destination: string;
+  discover: string;
+  dayIndex: number;
+  allAttractions: Attraction[];
+}
+
 const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   tripStartDate,
   destinations,
@@ -86,13 +100,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   const [showDiscoverPopup, setShowDiscoverPopup] = useState(false);
   const [showNotesPopup, setShowNotesPopup] = useState(false);
   const [showFoodPopup, setShowFoodPopup] = useState(false);
-  const [selectedDay, setSelectedDay] = useState<{
-    date: string;
-    destination: string;
-    discover: string;
-    dayIndex: number;
-    allAttractions: string[];
-  } | null>(null);
+  const [selectedDay, setSelectedDay] = useState<SelectedDay | null>(null);
   const [selectedDayForNotes, setSelectedDayForNotes] = useState<{
     dayIndex: number;
     notes: string;
@@ -248,11 +256,23 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
 
   const handleDiscoverClick = (day: ExpandedDay, index: number) => {
     const destinationData = destinations.find(d => d.destination === day.destination);
-    // Clean destination attractions
-    const destinationAttractions = [
-      ...(destinationData?.discover?.split(',').filter(Boolean) || []),
-      ...(destinationData?.manual_discover?.split(',').filter(Boolean) || [])
-    ].map(attraction => attraction.trim());
+
+    console.log('Destination data:', destinationData); // Debug log
+
+    // Get the manual attractions and descriptions
+    const manualAttractions = destinationData?.manual_discover?.split(',').filter(Boolean) || [];
+    const manualDescriptions = destinationData?.manual_discover_desc?.split(',').filter(Boolean) || [];
+
+    console.log('Manual attractions:', manualAttractions); // Debug log
+    console.log('Manual descriptions:', manualDescriptions); // Debug log
+
+    // Create an array of attraction objects with names and descriptions
+    const allAttractions = manualAttractions.map((name, index) => ({
+      name: name.trim(),
+      description: (manualDescriptions[index] || '').trim()
+    }));
+
+    console.log('All attractions:', allAttractions); // Debug log
 
     // Get and clean the current attractions for this specific day
     const currentDayAttractions = dayAttractions.find(da => da.dayIndex === day.dayIndex);
@@ -260,14 +280,25 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
       .map(attraction => attraction.trim())
       .filter(attraction => attraction.length > 0) || [];
 
-    console.log('Opening popup for day:', day.dayIndex, 'Current attractions:', cleanedCurrentAttractions);
+    console.log('Current day attractions:', cleanedCurrentAttractions); // Debug log
+
+    // If there are no attractions in the master list but we have selected attractions,
+    // we should include them in the master list
+    if (allAttractions.length === 0 && cleanedCurrentAttractions.length > 0) {
+      cleanedCurrentAttractions.forEach(attraction => {
+        allAttractions.push({
+          name: attraction,
+          description: ''
+        });
+      });
+    }
 
     setSelectedDay({
       date: formatDate(day.date),
       destination: day.destination,
       discover: cleanedCurrentAttractions.join(', '),
       dayIndex: day.dayIndex,
-      allAttractions: destinationAttractions
+      allAttractions
     });
     setShowDiscoverPopup(true);
   };
@@ -283,26 +314,48 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
 
       try {
         // Update the local state first for immediate feedback
-        onDayAttractionsUpdate(selectedDay.dayIndex, cleanedAttractions);
+        const updatedDayAttractions = [...dayAttractions];
+        const existingIndex = updatedDayAttractions.findIndex(da => da.dayIndex === selectedDay.dayIndex);
 
-        // Update the database
-        const { error } = await supabase
-          .from('user_itinerary_day_attractions')
-          .upsert({
-            itinerary_id: itineraryId,
-            day_index: selectedDay.dayIndex,
-            attractions: cleanedAttractions
+        if (existingIndex >= 0) {
+          updatedDayAttractions[existingIndex] = {
+            ...updatedDayAttractions[existingIndex],
+            selectedAttractions: cleanedAttractions
+          };
+        } else {
+          updatedDayAttractions.push({
+            dayIndex: selectedDay.dayIndex,
+            selectedAttractions: cleanedAttractions
           });
-
-        if (error) {
-          console.error('Error updating attractions:', error);
-          // Revert local state if database update fails
-          const previousAttractions = dayAttractions.find(da => da.dayIndex === selectedDay.dayIndex)?.selectedAttractions || [];
-          onDayAttractionsUpdate(selectedDay.dayIndex, previousAttractions);
-          throw error;
         }
 
-        // Close the popup and reset selected day
+        onDayAttractionsUpdate(selectedDay.dayIndex, cleanedAttractions);
+
+        // If we have an itineraryId, update the database
+        if (itineraryId) {
+          const { error } = await supabase
+            .from('user_itinerary_day_attractions')
+            .upsert({
+              itinerary_id: itineraryId,
+              day_index: selectedDay.dayIndex,
+              attractions: cleanedAttractions
+            });
+
+          if (error) {
+            console.error('Error updating attractions:', error);
+            // Revert local state if database update fails
+            const previousAttractions = dayAttractions.find(da => da.dayIndex === selectedDay.dayIndex)?.selectedAttractions || [];
+            onDayAttractionsUpdate(selectedDay.dayIndex, previousAttractions);
+            throw error;
+          }
+
+          console.log('Successfully updated attractions in database');
+        }
+
+        // Store the current state for future comparison
+        previousAttractionsRef.current = JSON.stringify(updatedDayAttractions);
+
+        // Only close the popup after successful update
         setShowDiscoverPopup(false);
         setSelectedDay(null);
 
