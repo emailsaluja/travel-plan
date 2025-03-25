@@ -572,27 +572,13 @@ const CreateItinerary: React.FC = () => {
           food: foodString,
           hotel: day.hotel || '',
           manual_hotel: day.manual_hotel || '',
-          manual_hotel_desc: day.manual_hotel_desc || ''
+          manual_hotel_desc: day.manual_hotel_desc || '',
+          order_index: index,
+          itinerary_id: itineraryId || ''
         };
       });
 
-      console.log('Saving destinations with food:', destinationsWithFood);
-
-      // Create a map of day hotel descriptions from the cache and stored data
-      const hotelDescriptionsMap: Record<number, string> = { ...hotelDescriptionCache };
-
-      // Add any descriptions that might be in the database but not in the cache
-      if (itineraryId) {
-        for (const hotel of dayHotels) {
-          // If we don't have a description in the cache, try to get it from the database
-          if (hotelDescriptionsMap[hotel.dayIndex] === undefined) {
-            const dayHotelDesc = await getHotelDescForDay(hotel.dayIndex);
-            if (dayHotelDesc !== null) {
-              hotelDescriptionsMap[hotel.dayIndex] = dayHotelDesc;
-            }
-          }
-        }
-      }
+      console.log('Saving destinations with descriptions:', destinationsWithFood);
 
       const saveData = {
         tripSummary: {
@@ -612,8 +598,7 @@ const CreateItinerary: React.FC = () => {
         dayHotels: dayHotels.map(dh => ({
           day_index: dh.dayIndex,
           hotel: dh.hotel,
-          hotel_desc: hotelDescriptionsMap[dh.dayIndex] || ''
-          // Removed is_manual as it doesn't exist in the database
+          hotel_desc: hotelDescriptionCache[dh.dayIndex] || ''
         })),
         dayNotes: dayNotes.map(dn => ({
           day_index: dn.dayIndex,
@@ -622,7 +607,6 @@ const CreateItinerary: React.FC = () => {
       };
 
       // Simply call the service method to handle the save/update
-      // The UserItineraryService will handle all database operations
       if (itineraryId) {
         await UserItineraryService.updateItinerary(itineraryId, saveData);
       } else {
@@ -1284,13 +1268,39 @@ const CreateItinerary: React.FC = () => {
 
   // Add this function before the renderDestinationsGrid function
   const handleAttractionsUpdate = (index: number, attractions: string[], descriptions: string[]) => {
+    console.log('Updating attractions:', { index, attractions, descriptions });
     const updatedDays = [...itineraryDays];
     updatedDays[index] = {
       ...updatedDays[index],
       manual_discover: attractions.join(', '),
       manual_discover_desc: descriptions.join(', ')
     };
+    console.log('Updated day:', updatedDays[index]);
     setItineraryDays(updatedDays);
+
+    // If we have an itineraryId, update the database immediately
+    if (itineraryId) {
+      (async () => {
+        try {
+          const { error } = await supabase
+            .from('user_itinerary_destinations')
+            .update({
+              manual_discover: attractions.join(', '),
+              manual_discover_desc: descriptions.join(', ')
+            })
+            .eq('itinerary_id', itineraryId)
+            .eq('order_index', index);
+
+          if (error) {
+            console.error('Error updating attractions:', error);
+          } else {
+            console.log('Successfully updated attractions in database');
+          }
+        } catch (error) {
+          console.error('Failed to update attractions:', error);
+        }
+      })();
+    }
   };
 
   const renderDestinationsGrid = () => {
@@ -2492,12 +2502,33 @@ const CreateItinerary: React.FC = () => {
           open={showDestinationDiscover}
           onClose={() => setShowDestinationDiscover(false)}
           destination={activeDestinationForDiscover}
-          attractions={itineraryDays.find(day => cleanDestination(day.destination) === activeDestinationForDiscover)?.manual_discover.split(', ').filter(Boolean) || []}
-          descriptions={itineraryDays.find(day => cleanDestination(day.destination) === activeDestinationForDiscover)?.manual_discover_desc.split(', ').filter(Boolean) || []}
-          onAttractionsUpdate={(attractions, descriptions) => {
-            const index = itineraryDays.findIndex(day => cleanDestination(day.destination) === activeDestinationForDiscover);
-            if (index !== -1) {
-              handleAttractionsUpdate(index, attractions, descriptions);
+          attractions={(() => {
+            const day = itineraryDays.find((d: ItineraryDay) => cleanDestination(d.destination) === activeDestinationForDiscover);
+            if (!day) return [];
+            const manualAttractions = day.manual_discover ? day.manual_discover.split(',').map(s => s.trim()).filter(Boolean) : [];
+            return manualAttractions;
+          })()}
+          descriptions={(() => {
+            const day = itineraryDays.find((d: ItineraryDay) => cleanDestination(d.destination) === activeDestinationForDiscover);
+            if (!day || !day.manual_discover_desc) return [];
+            // Split by comma but preserve empty strings for proper alignment
+            const parts = day.manual_discover_desc.split(',');
+            return parts.map(s => s.trim());
+          })()}
+          onAttractionsUpdate={(newAttractions: string[], newDescriptions: string[]) => {
+            const dayIndex = itineraryDays.findIndex((d: ItineraryDay) => cleanDestination(d.destination) === activeDestinationForDiscover);
+            if (dayIndex !== -1) {
+              console.log('Updating attractions and descriptions:', {
+                attractions: newAttractions,
+                descriptions: newDescriptions
+              });
+              const updatedDays = [...itineraryDays];
+              updatedDays[dayIndex] = {
+                ...updatedDays[dayIndex],
+                manual_discover: newAttractions.join(','),
+                manual_discover_desc: newDescriptions.join(',')
+              };
+              setItineraryDays(updatedDays);
             }
           }}
         />

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, X } from 'lucide-react';
 
 interface DestinationDiscoverProps {
@@ -23,43 +23,110 @@ const DestinationDiscover: React.FC<DestinationDiscoverProps> = ({
     const [newDescription, setNewDescription] = useState('');
     const [editAttraction, setEditAttraction] = useState('');
     const [editDescription, setEditDescription] = useState('');
+    const [localAttractions, setLocalAttractions] = useState<string[]>([]);
+    const [localDescriptions, setLocalDescriptions] = useState<string[]>([]);
+
+    // Sync local state with props and ensure descriptions array is properly sized
+    useEffect(() => {
+        const normalizedDescriptions = [...descriptions];
+        while (normalizedDescriptions.length < attractions.length) {
+            normalizedDescriptions.push('');
+        }
+        setLocalAttractions(attractions);
+        setLocalDescriptions(normalizedDescriptions);
+        console.log('Initial state:', { attractions, descriptions: normalizedDescriptions });
+    }, [attractions, descriptions]);
 
     if (!open) return null;
 
     const handleAddAttraction = () => {
         if (!newAttraction.trim()) return;
 
-        const updatedAttractions = [...attractions, newAttraction.trim()];
-        const updatedDescriptions = [...descriptions, newDescription.trim()];
+        const updatedAttractions = [...localAttractions, newAttraction.trim()];
+        const updatedDescriptions = [...localDescriptions, newDescription.trim()];
 
+        console.log('Adding attraction:', {
+            attraction: newAttraction.trim(),
+            description: newDescription.trim(),
+            updatedAttractions,
+            updatedDescriptions
+        });
+
+        setLocalAttractions(updatedAttractions);
+        setLocalDescriptions(updatedDescriptions);
         onAttractionsUpdate?.(updatedAttractions, updatedDescriptions);
         setNewAttraction('');
         setNewDescription('');
     };
 
     const handleEditAttraction = (index: number) => {
-        setEditAttraction(attractions[index]);
-        setEditDescription(descriptions[index] || '');
+        console.log('Starting edit:', {
+            index,
+            attraction: localAttractions[index],
+            description: localDescriptions[index] || ''
+        });
+
         setIsEditing(index);
+        setEditAttraction(localAttractions[index]);
+        setEditDescription(localDescriptions[index] || '');
     };
 
     const handleSaveEdit = () => {
-        if (!editAttraction.trim()) return;
+        if (!editAttraction.trim() || isEditing === null) return;
 
-        const updatedAttractions = [...attractions];
-        const updatedDescriptions = [...descriptions];
+        const updatedAttractions = [...localAttractions];
+        const updatedDescriptions = [...localDescriptions];
 
-        updatedAttractions[isEditing!] = editAttraction.trim();
-        updatedDescriptions[isEditing!] = editDescription.trim();
+        // Ensure arrays are properly sized
+        while (updatedDescriptions.length < updatedAttractions.length) {
+            updatedDescriptions.push('');
+        }
 
+        console.log('Before save:', {
+            editingIndex: isEditing,
+            currentAttractions: updatedAttractions,
+            currentDescriptions: updatedDescriptions,
+            newAttraction: editAttraction.trim(),
+            newDescription: editDescription.trim()
+        });
+
+        updatedAttractions[isEditing] = editAttraction.trim();
+        updatedDescriptions[isEditing] = editDescription.trim();
+
+        console.log('After save:', {
+            editingIndex: isEditing,
+            updatedAttractions,
+            updatedDescriptions
+        });
+
+        setLocalAttractions(updatedAttractions);
+        setLocalDescriptions(updatedDescriptions);
         onAttractionsUpdate?.(updatedAttractions, updatedDescriptions);
+
+        // Clear edit state
         setIsEditing(null);
+        setEditAttraction('');
+        setEditDescription('');
+    };
+
+    const handleCancelEdit = () => {
+        setIsEditing(null);
+        setEditAttraction('');
+        setEditDescription('');
     };
 
     const handleDeleteAttraction = (index: number) => {
-        const updatedAttractions = attractions.filter((_, i) => i !== index);
-        const updatedDescriptions = descriptions.filter((_, i) => i !== index);
+        const updatedAttractions = localAttractions.filter((_, i) => i !== index);
+        const updatedDescriptions = localDescriptions.filter((_, i) => i !== index);
 
+        console.log('Deleting attraction:', {
+            index,
+            updatedAttractions,
+            updatedDescriptions
+        });
+
+        setLocalAttractions(updatedAttractions);
+        setLocalDescriptions(updatedDescriptions);
         onAttractionsUpdate?.(updatedAttractions, updatedDescriptions);
     };
 
@@ -112,8 +179,8 @@ const DestinationDiscover: React.FC<DestinationDiscoverProps> = ({
 
                             {/* Attractions list */}
                             <div className="space-y-3">
-                                {attractions.map((attraction, index) => (
-                                    <div key={index} className="border rounded-lg p-3">
+                                {localAttractions.map((attraction, index) => (
+                                    <div key={`${attraction}-${index}`} className="border rounded-lg p-3">
                                         {isEditing === index ? (
                                             <div className="space-y-2">
                                                 <input
@@ -136,7 +203,7 @@ const DestinationDiscover: React.FC<DestinationDiscoverProps> = ({
                                                         Save
                                                     </button>
                                                     <button
-                                                        onClick={() => setIsEditing(null)}
+                                                        onClick={handleCancelEdit}
                                                         className="flex-1 px-3 py-1 border border-gray-200 rounded hover:bg-gray-50 transition-colors"
                                                     >
                                                         Cancel
@@ -162,8 +229,8 @@ const DestinationDiscover: React.FC<DestinationDiscoverProps> = ({
                                                         </button>
                                                     </div>
                                                 </div>
-                                                {descriptions[index] && (
-                                                    <p className="text-sm text-gray-600">{descriptions[index]}</p>
+                                                {localDescriptions[index] && (
+                                                    <p className="text-sm text-gray-600">{localDescriptions[index]}</p>
                                                 )}
                                             </div>
                                         )}
