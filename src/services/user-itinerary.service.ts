@@ -8,6 +8,7 @@ interface UserItineraryDestination {
   transport: string;
   notes: string;
   food: string;
+  food_desc: string;
   hotel?: string;
   manual_hotel: string;
   manual_hotel_desc: string;
@@ -66,6 +67,47 @@ interface SupabaseItineraryResponse {
   day_notes?: UserItineraryDayNote[];
 }
 
+interface ItineraryResponse {
+  id: string;
+  trip_name: string;
+  country: string;
+  start_date: string;
+  duration: number;
+  passengers: number;
+  created_at: string;
+  is_private: boolean;
+  tags: string[];
+  user_id: string;
+  destinations: Array<{
+    destination: string;
+    nights: number;
+    food: string;
+    food_desc: string;
+    discover: string;
+    transport: string;
+    notes: string;
+    hotel: string;
+    manual_hotel: string;
+    manual_hotel_desc: string;
+    manual_discover: string;
+    manual_discover_desc: string;
+    order_index: number;
+  }>;
+  day_attractions?: Array<{
+    day_index: number;
+    attractions: string[];
+  }>;
+  day_hotels?: Array<{
+    day_index: number;
+    hotel: string;
+    hotel_desc: string;
+  }>;
+  day_notes?: Array<{
+    day_index: number;
+    notes: string;
+  }>;
+}
+
 export interface UserItinerary {
   id: string;
   trip_name: string;
@@ -84,6 +126,7 @@ export interface UserItinerary {
     transport: string;
     notes: string;
     food: string;
+    food_desc: string;
     manual_hotel: string;
     order_index: number;
   }[];
@@ -114,6 +157,7 @@ export interface SaveItineraryData {
     transport: string;
     notes: string;
     food: string;
+    food_desc: string;
     hotel?: string;
     manual_hotel?: string;
     manual_hotel_desc?: string;
@@ -150,14 +194,15 @@ interface LikedItinerary {
     transport: string;
     notes: string;
     food: string;
+    food_desc: string;
     hotel?: string;
     manual_hotel?: string;
   }>;
   liked_at: string;
 }
 
-export const UserItineraryService = {
-  async saveItinerary(data: SaveItineraryData) {
+export class UserItineraryService {
+  static async saveItinerary(data: SaveItineraryData) {
     try {
       // First, insert the main itinerary
       const { data: itinerary, error: itineraryError } = await supabase
@@ -186,6 +231,7 @@ export const UserItineraryService = {
         transport: dest.transport,
         notes: dest.notes,
         food: dest.food,
+        food_desc: dest.food_desc,
         hotel: dest.hotel || '',
         manual_hotel: dest.manual_hotel || '',
         manual_hotel_desc: dest.manual_hotel_desc || '',
@@ -256,9 +302,9 @@ export const UserItineraryService = {
       console.error('Error saving itinerary:', error);
       throw error;
     }
-  },
+  }
 
-  async getUserItineraries() {
+  static async getUserItineraries() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -281,9 +327,9 @@ export const UserItineraryService = {
       console.error('Error fetching user itineraries:', error);
       throw error;
     }
-  },
+  }
 
-  async getAllPublicItineraries() {
+  static async getAllPublicItineraries() {
     try {
       const { data, error } = await supabase
         .from('user_itineraries')
@@ -300,99 +346,63 @@ export const UserItineraryService = {
       console.error('Error fetching public itineraries:', error);
       throw error;
     }
-  },
+  }
 
-  async getItineraryById(id: string) {
-    try {
-      // Get the current user, but don't require authentication
-      const { data: { user } } = await supabase.auth.getUser();
+  static async getItineraryById(id: string) {
+    const { data, error } = await supabase
+      .from('user_itineraries')
+      .select(`
+        id,
+        trip_name,
+        country,
+        start_date,
+        duration,
+        passengers,
+        created_at,
+        is_private,
+        tags,
+        user_id,
+        destinations:user_itinerary_destinations(
+          destination,
+          nights,
+          discover,
+          transport,
+          notes,
+          food,
+          food_desc,
+          hotel,
+          manual_hotel,
+          manual_hotel_desc,
+          manual_discover,
+          manual_discover_desc,
+          order_index
+        ),
+        day_attractions:user_itinerary_day_attractions(
+          day_index,
+          attractions
+        ),
+        day_hotels:user_itinerary_day_hotels(
+          day_index,
+          hotel,
+          hotel_desc
+        ),
+        day_notes:user_itinerary_day_notes(
+          day_index,
+          notes
+        )
+      `)
+      .eq('id', id)
+      .single();
 
-      const query = supabase
-        .from('user_itineraries')
-        .select(`
-          *,
-          destinations:user_itinerary_destinations(
-            id,
-            destination,
-            nights,
-            discover,
-            transport,
-            notes,
-            food,
-            hotel,
-            manual_hotel,
-            manual_hotel_desc,
-            manual_discover,
-            manual_discover_desc,
-            order_index
-          ),
-          day_attractions:user_itinerary_day_attractions(
-            day_index,
-            attractions
-          ),
-          day_hotels:user_itinerary_day_hotels(
-            day_index,
-            hotel,
-            hotel_desc
-          ),
-          day_notes:user_itinerary_day_notes(
-            day_index,
-            notes
-          )
-        `)
-        .eq('id', id);
-
-      // If user is authenticated, allow access to their private itineraries
-      if (user) {
-        query.or(`user_id.eq.${user.id},is_private.eq.false`);
-      } else {
-        // For anonymous users, only show non-private itineraries
-        query.eq('is_private', false);
-      }
-
-      const { data, error } = await query.single() as {
-        data: SupabaseItineraryResponse | null;
-        error: any;
-      };
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          throw new Error('Itinerary not found or you do not have permission to view it');
-        }
-        throw error;
-      }
-
-      if (!data) {
-        throw new Error('Itinerary not found');
-      }
-
-      // Transform the data to match the expected format
-      const transformedData: UserItineraryData = {
-        id: data.id,
-        trip_name: data.trip_name,
-        country: data.country,
-        start_date: data.start_date,
-        duration: data.duration,
-        passengers: data.passengers,
-        created_at: data.created_at,
-        user_id: data.user_id,
-        is_private: data.is_private,
-        tags: data.tags,
-        destinations: (data.destinations?.sort((a: UserItineraryDestination, b: UserItineraryDestination) =>
-          a.order_index - b.order_index) || []) as UserItineraryDestination[],
-        day_attractions: (data.day_attractions || []) as UserItineraryDayAttraction[],
-        day_hotels: (data.day_hotels || []) as UserItineraryDayHotel[],
-        day_notes: (data.day_notes || []) as UserItineraryDayNote[]
-      };
-
-      return { data: transformedData };
-    } catch (error) {
+    if (error) {
       console.error('Error fetching itinerary:', error);
-      throw error;
+      return { data: null, error };
     }
-  },
 
-  async deleteItinerary(id: string) {
+    return { data: data as ItineraryResponse, error: null };
+  }
+
+  static async deleteItinerary(id: string) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -491,9 +501,9 @@ export const UserItineraryService = {
       console.error('Error deleting itinerary:', error);
       throw error;
     }
-  },
+  }
 
-  async updateItinerary(id: string, data: SaveItineraryData) {
+  static async updateItinerary(id: string, data: SaveItineraryData) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -547,6 +557,7 @@ export const UserItineraryService = {
         transport: dest.transport,
         notes: dest.notes,
         food: dest.food,
+        food_desc: dest.food_desc,
         hotel: dest.hotel || '',
         manual_hotel: dest.manual_hotel || '',
         manual_hotel_desc: dest.manual_hotel_desc || '',
@@ -630,9 +641,9 @@ export const UserItineraryService = {
       console.error('Error updating itinerary:', error);
       throw error;
     }
-  },
+  }
 
-  async getLikedItineraries() {
+  static async getLikedItineraries() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -654,7 +665,9 @@ export const UserItineraryService = {
             created_at,
             destinations:user_itinerary_destinations(
               destination,
-              nights
+              nights,
+              food,
+              food_desc
             )
           )
         `)
@@ -681,9 +694,9 @@ export const UserItineraryService = {
       console.error('Error fetching liked itineraries:', error);
       throw error;
     }
-  },
+  }
 
-  async toggleLikeItinerary(itineraryId: string) {
+  static async toggleLikeItinerary(itineraryId: string) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -727,9 +740,9 @@ export const UserItineraryService = {
       console.error('Error toggling itinerary like:', error);
       throw error;
     }
-  },
+  }
 
-  async isItineraryLiked(itineraryId: string) {
+  static async isItineraryLiked(itineraryId: string) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -751,9 +764,9 @@ export const UserItineraryService = {
       console.error('Error checking if itinerary is liked:', error);
       throw error;
     }
-  },
+  }
 
-  async copyItinerary(id: string) {
+  static async copyItinerary(id: string) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -795,6 +808,7 @@ export const UserItineraryService = {
           transport: dest.transport || '',
           notes: dest.notes || '',
           food: dest.food || '',
+          food_desc: dest.food_desc || '',
           manual_hotel: dest.manual_hotel || '',
           manual_hotel_desc: dest.manual_hotel_desc || '',
           manual_discover: dest.manual_discover || '',
@@ -859,5 +873,5 @@ export const UserItineraryService = {
       console.error('Error copying itinerary:', error);
       throw error;
     }
-  },
-}; 
+  }
+} 

@@ -112,8 +112,8 @@ const DayDiscoverPopup: React.FC<DayDiscoverPopupProps> = ({
                 <div
                   key={attraction.name}
                   className={`group relative rounded-lg border p-4 transition-all hover:shadow-md ${localAttractions.includes(attraction.name)
-                      ? 'border-[#00B8A9] bg-[#00B8A9]/5'
-                      : 'border-gray-200 hover:border-[#00B8A9]'
+                    ? 'border-[#00B8A9] bg-[#00B8A9]/5'
+                    : 'border-gray-200 hover:border-[#00B8A9]'
                     }`}
                 >
                   <button

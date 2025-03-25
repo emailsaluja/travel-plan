@@ -29,6 +29,7 @@ interface DayByDayGridProps {
     notes: string;
     hotel?: string;
     food: string;
+    food_desc?: string;
     manual_discover?: string;
     manual_discover_desc?: string;
   }>;
@@ -404,8 +405,96 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   };
 
   const handleFoodClick = (day: ExpandedDay) => {
-    if (onFoodClick) {
-      onFoodClick(day.destination, day.dayIndex);
+    const destinationData = destinations.find(d => d.destination === day.destination);
+
+    console.log('Destination data:', destinationData); // Debug log
+
+    // Get the food items and descriptions
+    const foodItems = destinationData?.food?.split(',').filter(Boolean) || [];
+    const foodDescriptions = destinationData?.food_desc?.split(',').filter(Boolean) || [];
+
+    console.log('Food items:', foodItems); // Debug log
+    console.log('Food descriptions:', foodDescriptions); // Debug log
+
+    // Create an array of food objects with names and descriptions
+    const allFoodItems = foodItems.map((name, index) => ({
+      name: name.trim(),
+      description: (foodDescriptions[index] || '').trim()
+    }));
+
+    console.log('All food items:', allFoodItems); // Debug log
+
+    // Get and clean the current food items for this specific day
+    const currentDayFood = dayFoods?.find(df => df.dayIndex === day.dayIndex);
+    const cleanedCurrentFood = currentDayFood?.foodItems
+      .map(food => food.trim())
+      .filter(food => food.length > 0) || [];
+
+    console.log('Current day food:', cleanedCurrentFood); // Debug log
+
+    setSelectedDayForFood({
+      dayIndex: day.dayIndex,
+      destination: day.destination,
+      food: cleanedCurrentFood.join(', ')
+    });
+    setShowFoodPopup(true);
+  };
+
+  const handleUpdateDayFood = async (foodItems: string[]) => {
+    if (selectedDayForFood) {
+      // Clean food items before updating
+      const cleanedFoodItems = foodItems
+        .map(food => food.trim())
+        .filter(food => food.length > 0);
+
+      console.log('Updating food for day:', selectedDayForFood.dayIndex, 'with:', cleanedFoodItems);
+
+      try {
+        // Update the local state first for immediate feedback
+        const updatedDayFoods = [...(dayFoods || [])];
+        const existingIndex = updatedDayFoods.findIndex(df => df.dayIndex === selectedDayForFood.dayIndex);
+
+        if (existingIndex >= 0) {
+          updatedDayFoods[existingIndex] = {
+            ...updatedDayFoods[existingIndex],
+            foodItems: cleanedFoodItems
+          };
+        } else {
+          updatedDayFoods.push({
+            dayIndex: selectedDayForFood.dayIndex,
+            foodItems: cleanedFoodItems
+          });
+        }
+
+        if (onFoodSelect) {
+          onFoodSelect(selectedDayForFood.destination, selectedDayForFood.dayIndex);
+        }
+
+        // If we have an itineraryId, update the database
+        if (itineraryId) {
+          const { error } = await supabase
+            .from('user_itinerary_day_food')
+            .upsert({
+              itinerary_id: itineraryId,
+              day_index: selectedDayForFood.dayIndex,
+              food_items: cleanedFoodItems
+            });
+
+          if (error) {
+            console.error('Error updating food:', error);
+            throw error;
+          }
+
+          console.log('Successfully updated food in database');
+        }
+
+        // Only close the popup after successful update
+        setShowFoodPopup(false);
+        setSelectedDayForFood(null);
+
+      } catch (error) {
+        console.error('Failed to update food:', error);
+      }
     }
   };
 
@@ -674,6 +763,32 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
           dayNumber={selectedDayForNotes.dayIndex + 1}
           initialNotes={selectedDayForNotes.notes}
           onSave={handleNotesUpdate}
+        />
+      )}
+
+      {/* Food Popup */}
+      {showFoodPopup && selectedDayForFood && (
+        <FoodPopup
+          isOpen={showFoodPopup}
+          onClose={() => {
+            setShowFoodPopup(false);
+            setSelectedDayForFood(null);
+          }}
+          date={formatDate(expandedDays[selectedDayForFood.dayIndex].date)}
+          destination={selectedDayForFood.destination}
+          selectedFoodItems={dayFoods?.find(df =>
+            df.dayIndex === selectedDayForFood.dayIndex
+          )?.foodItems || []}
+          allDestinationFood={(() => {
+            const destinationData = destinations.find(d => d.destination === selectedDayForFood.destination);
+            const foodItems = destinationData?.food?.split(',').filter(Boolean) || [];
+            const foodDescriptions = destinationData?.food_desc?.split(',').filter(Boolean) || [];
+            return foodItems.map((name, index) => ({
+              name: name.trim(),
+              description: (foodDescriptions[index] || '').trim()
+            }));
+          })()}
+          onFoodUpdate={handleUpdateDayFood}
         />
       )}
     </div>

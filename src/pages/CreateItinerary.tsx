@@ -169,6 +169,20 @@ interface DayFood {
   foodDesc?: string;
 }
 
+// Utility functions
+const formatDate = (date: Date) => {
+  const formattedDate = new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  }).format(date);
+
+  // Convert "Mon, Mar 14, 2025" to "Mon 14 Mar 2025"
+  const [weekday, month, day, year] = formattedDate.replace(',', '').split(' ');
+  return `${weekday} ${day} ${month} ${year}`;
+};
+
 const CreateItinerary: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -276,6 +290,7 @@ const CreateItinerary: React.FC = () => {
               transport: dest.transport || '',
               notes: dest.notes || '',
               food: dest.food || '',
+              food_desc: dest.food_desc || '', // Add this line to load food descriptions
               hotel: dest.hotel || '',
               manual_hotel: dest.manual_hotel || '',
               manual_hotel_desc: dest.manual_hotel_desc || ''
@@ -361,27 +376,30 @@ const CreateItinerary: React.FC = () => {
               setHasSyncedHotelDescriptions(true);
             }
 
-            // Initialize dayFoods from destinations data
+            // Initialize dayFoods from destinations data with descriptions
             let currentDayIndex = 0;
             const newDayFoods: DayFood[] = [];
 
             data.destinations.forEach((dest: any) => {
               const foodItems = dest.food ? dest.food.split(', ').filter(Boolean) : [];
+              const foodDesc = dest.food_desc || ''; // Get food descriptions
 
-              // For each night in the destination, add the food items
+              // For each night in the destination, add the food items and descriptions
               for (let i = 0; i < dest.nights; i++) {
                 newDayFoods.push({
                   dayIndex: currentDayIndex + i,
-                  foodItems: []  // Initialize with empty array
+                  foodItems: [],
+                  foodDesc: '' // Initialize with empty description
                 });
               }
 
-              // Only set food items for the first day of the destination
+              // Only set food items and descriptions for the first day of the destination
               if (foodItems.length > 0) {
                 const firstDayIndex = currentDayIndex;
                 newDayFoods[firstDayIndex] = {
                   dayIndex: firstDayIndex,
-                  foodItems: foodItems
+                  foodItems: foodItems,
+                  foodDesc: foodDesc // Add the food description
                 };
               }
 
@@ -534,7 +552,7 @@ const CreateItinerary: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // First, prepare the destinations data with food items
+      // First, prepare the destinations data with food items and descriptions
       const destinationsWithFood = itineraryDays.map((day, index) => {
         // Calculate start day index for this destination
         let startDayIndex = 0;
@@ -542,8 +560,22 @@ const CreateItinerary: React.FC = () => {
           startDayIndex += itineraryDays[i].nights;
         }
 
-        // Get all food items for this destination's days
+        // Get all food items and descriptions for this destination's days
         const foodItems = new Set<string>();
+        let foodDesc = day.food_desc || ''; // Start with existing food_desc
+
+        // If no existing food_desc, try to get it from dayFoods
+        if (!foodDesc) {
+          for (let i = 0; i < day.nights; i++) {
+            const dayFood = dayFoods.find(f => f.dayIndex === startDayIndex + i);
+            if (dayFood?.foodDesc) {
+              foodDesc = dayFood.foodDesc;
+              break; // Use the first non-empty description we find
+            }
+          }
+        }
+
+        // Collect all food items
         for (let i = 0; i < day.nights; i++) {
           const dayFood = dayFoods.find(f => f.dayIndex === startDayIndex + i);
           if (dayFood?.foodItems) {
@@ -559,8 +591,6 @@ const CreateItinerary: React.FC = () => {
         // Convert food items to string
         const foodString = Array.from(foodItems).join(', ');
 
-        // For destinations, we use the destination's hotel data directly
-        // NOT derived from dayHotels which might have day-specific overrides
         return {
           destination: day.destination,
           nights: day.nights,
@@ -570,6 +600,7 @@ const CreateItinerary: React.FC = () => {
           transport: day.transport || '',
           notes: day.notes || '',
           food: foodString,
+          food_desc: foodDesc, // Include the food description
           hotel: day.hotel || '',
           manual_hotel: day.manual_hotel || '',
           manual_hotel_desc: day.manual_hotel_desc || '',
@@ -578,39 +609,136 @@ const CreateItinerary: React.FC = () => {
         };
       });
 
-      console.log('Saving destinations with descriptions:', destinationsWithFood);
-
-      const saveData = {
-        tripSummary: {
-          tripName: tripSummary.tripName,
-          country: tripSummary.country,
-          duration: tripSummary.duration,
-          startDate: tripSummary.startDate,
-          passengers: tripSummary.passengers,
-          isPrivate: tripSummary.isPrivate,
-          tags: tripSummary.tags
-        },
-        destinations: destinationsWithFood,
-        dayAttractions: dayAttractions.map(da => ({
-          dayIndex: da.dayIndex,
-          selectedAttractions: da.selectedAttractions
-        })),
-        dayHotels: dayHotels.map(dh => ({
-          day_index: dh.dayIndex,
-          hotel: dh.hotel,
-          hotel_desc: hotelDescriptionCache[dh.dayIndex] || ''
-        })),
-        dayNotes: dayNotes.map(dn => ({
-          day_index: dn.dayIndex,
-          notes: dn.notes
-        }))
-      };
-
-      // Simply call the service method to handle the save/update
+      // If updating an existing itinerary
       if (itineraryId) {
-        await UserItineraryService.updateItinerary(itineraryId, saveData);
+        // Update user_itinerary_destinations table with food descriptions
+        for (const destination of destinationsWithFood) {
+          console.log('Updating destination with food data:', {
+            destination: destination.destination,
+            food: destination.food,
+            food_desc: destination.food_desc
+          });
+
+          try {
+            // First, update the user_itinerary_destinations table
+            const { error: updateError } = await supabase
+              .from('user_itinerary_destinations')
+              .update({
+                destination: destination.destination,
+                nights: destination.nights,
+                discover: destination.discover,
+                manual_discover: destination.manual_discover,
+                manual_discover_desc: destination.manual_discover_desc,
+                transport: destination.transport,
+                notes: destination.notes,
+                food: destination.food,
+                food_desc: destination.food_desc, // Add this line to include food_desc
+                hotel: destination.hotel,
+                manual_hotel: destination.manual_hotel,
+                manual_hotel_desc: destination.manual_hotel_desc
+              })
+              .eq('itinerary_id', itineraryId)
+              .eq('order_index', destination.order_index);
+
+            if (updateError) {
+              console.error('Error updating destination:', updateError);
+              throw updateError;
+            }
+
+            // Verify the update was successful
+            const { data: verifyData, error: verifyError } = await supabase
+              .from('user_itinerary_destinations')
+              .select('food, food_desc')
+              .eq('itinerary_id', itineraryId)
+              .eq('order_index', destination.order_index)
+              .single();
+
+            if (verifyError) {
+              console.error('Error verifying update:', verifyError);
+            } else {
+              console.log('Verified database update:', verifyData);
+
+              // Additional verification check
+              if (verifyData.food !== destination.food || verifyData.food_desc !== destination.food_desc) {
+                console.error('Data mismatch after update:', {
+                  expected: { food: destination.food, food_desc: destination.food_desc },
+                  received: verifyData
+                });
+                throw new Error('Data verification failed');
+              }
+            }
+          } catch (error) {
+            console.error('Error in database operation:', error);
+            throw error;
+          }
+        }
+
+        // Update the rest of the itinerary data
+        const result = await UserItineraryService.updateItinerary(itineraryId, {
+          tripSummary: {
+            tripName: tripSummary.tripName,
+            country: tripSummary.country,
+            duration: tripSummary.duration,
+            startDate: tripSummary.startDate,
+            passengers: tripSummary.passengers,
+            isPrivate: tripSummary.isPrivate,
+            tags: tripSummary.tags
+          },
+          destinations: destinationsWithFood,
+          dayAttractions: dayAttractions.map(da => ({
+            dayIndex: da.dayIndex,
+            selectedAttractions: da.selectedAttractions
+          })),
+          dayHotels: dayHotels.map(dh => ({
+            day_index: dh.dayIndex,
+            hotel: dh.hotel,
+            hotel_desc: hotelDescriptionCache[dh.dayIndex] || ''
+          })),
+          dayNotes: dayNotes.map(dn => ({
+            day_index: dn.dayIndex,
+            notes: dn.notes
+          }))
+        });
+
+        if (!result.success) {
+          console.error('Error updating itinerary');
+          throw new Error('Failed to update itinerary');
+        }
       } else {
-        await UserItineraryService.saveItinerary(saveData);
+        // Create new itinerary
+        const result = await UserItineraryService.saveItinerary({
+          tripSummary: {
+            tripName: tripSummary.tripName,
+            country: tripSummary.country,
+            duration: tripSummary.duration,
+            startDate: tripSummary.startDate,
+            passengers: tripSummary.passengers,
+            isPrivate: tripSummary.isPrivate,
+            tags: tripSummary.tags
+          },
+          destinations: destinationsWithFood.map(dest => ({
+            ...dest,
+            food_desc: dest.food_desc || '' // Ensure food_desc is included
+          })),
+          dayAttractions: dayAttractions.map(da => ({
+            dayIndex: da.dayIndex,
+            selectedAttractions: da.selectedAttractions
+          })),
+          dayHotels: dayHotels.map(dh => ({
+            day_index: dh.dayIndex,
+            hotel: dh.hotel,
+            hotel_desc: hotelDescriptionCache[dh.dayIndex] || ''
+          })),
+          dayNotes: dayNotes.map(dn => ({
+            day_index: dn.dayIndex,
+            notes: dn.notes
+          }))
+        });
+
+        if (!result.itinerary) {
+          console.error('Error creating itinerary');
+          throw new Error('Failed to create itinerary');
+        }
       }
 
       navigate('/dashboard');
@@ -1222,30 +1350,20 @@ const CreateItinerary: React.FC = () => {
     setShowFoodPopup(true);
   };
 
-  const handleFoodSelect = (dayIndex: number, foodItems: string[], foodDesc?: string) => {
-    // Parse the food descriptions from the first item if it exists
-    let descriptions: Record<string, string> = {};
-    if (foodItems.length > 0 && foodItems[0].startsWith('{')) {
-      try {
-        descriptions = JSON.parse(foodItems[0]);
-        // Remove the JSON string from foodItems
-        foodItems = foodItems.slice(1);
-      } catch (error) {
-        console.error('Error parsing food descriptions:', error);
-      }
-    }
+  const handleFoodSelect = (dayIndex: number, foodItems: string[], descriptions: string[]) => {
+    console.log('Handling food select:', { dayIndex, foodItems, descriptions });
 
-    // Clean the food items
+    // Clean the food items and their descriptions
     const cleanedFoodItems = foodItems
       .map(item => item.trim())
       .filter(Boolean);
 
-    // Update the itineraryDays state with the food items
+    // Update the itineraryDays state with the food items and description
     const updatedItineraryDays = [...itineraryDays];
     updatedItineraryDays[dayIndex] = {
       ...updatedItineraryDays[dayIndex],
       food: cleanedFoodItems.join(', '),
-      food_desc: foodDesc
+      food_desc: descriptions.join(', ') // Join descriptions with commas
     };
 
     // Calculate start day index for this destination
@@ -1273,7 +1391,7 @@ const CreateItinerary: React.FC = () => {
       updatedDayFoods.push({
         dayIndex: currentDayIndex,
         foodItems: cleanedFoodItems,
-        foodDesc: foodDesc
+        foodDesc: descriptions.join(', ') // Join descriptions with commas
       });
     }
 
@@ -1284,10 +1402,11 @@ const CreateItinerary: React.FC = () => {
     setDayFoods(updatedDayFoods);
     setItineraryDays(updatedItineraryDays);
 
-    console.log('Updated food items:', {
+    console.log('Updated food data:', {
       destination: updatedItineraryDays[dayIndex].destination,
       foodItems: cleanedFoodItems,
-      foodDesc: foodDesc,
+      foodDesc: descriptions.join(', '),
+      updatedDay: updatedItineraryDays[dayIndex],
       dayFoods: updatedDayFoods
     });
   };
@@ -2457,6 +2576,45 @@ const CreateItinerary: React.FC = () => {
                   handleTransportSelect(currentDestinationForTransport.index, transportDetails);
                 }
               }}
+            />
+          </div>
+        )}
+
+        {/* Food Popup */}
+        {showFoodPopup && activeDestinationIndexForFood !== null && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <FoodPopup
+              isOpen={showFoodPopup}
+              onClose={() => {
+                setShowFoodPopup(false);
+                setActiveDestinationIndexForFood(null);
+              }}
+              date={formatDate(new Date(tripSummary.startDate))}
+              destination={cleanDestination(itineraryDays[activeDestinationIndexForFood].destination)}
+              selectedFoodItems={(() => {
+                let startDayIndex = 0;
+                for (let i = 0; i < activeDestinationIndexForFood; i++) {
+                  startDayIndex += itineraryDays[i].nights;
+                }
+                const foodItems = new Set<string>();
+                for (let i = 0; i < itineraryDays[activeDestinationIndexForFood].nights; i++) {
+                  const dayFood = dayFoods.find(f => f.dayIndex === startDayIndex + i);
+                  if (dayFood && dayFood.foodItems) {
+                    dayFood.foodItems.forEach(item => foodItems.add(item));
+                  }
+                }
+                return Array.from(foodItems);
+              })()}
+              allDestinationFood={(() => {
+                const destinationData = itineraryDays[activeDestinationIndexForFood];
+                const foodItems = destinationData?.food?.split(',').filter(Boolean) || [];
+                const foodDescriptions = destinationData?.food_desc?.split(',').filter(Boolean) || [];
+                return foodItems.map((name, index) => ({
+                  name: name.trim(),
+                  description: (foodDescriptions[index] || '').trim()
+                }));
+              })()}
+              onFoodUpdate={(foodItems, descriptions) => handleFoodSelect(activeDestinationIndexForFood, foodItems, descriptions)}
             />
           </div>
         )}
