@@ -51,6 +51,7 @@ import TransportPopup from '../components/TransportPopup';
 import FoodPopup from '../components/FoodPopup';
 import TopNavigation from '../components/TopNavigation';
 import MapboxMap from '../components/MapboxMap';
+import DestinationDiscover from '../components/DestinationDiscover';
 
 interface DestinationData {
   destination: string;
@@ -215,6 +216,8 @@ const CreateItinerary: React.FC = () => {
   const [isMapCollapsed, setIsMapCollapsed] = useState(false);
   const [currentDestinationForFood, setCurrentDestinationForFood] = useState('');
   const [currentDestinationIndexForFood, setCurrentDestinationIndexForFood] = useState<number | null>(null);
+  const [showDestinationDiscover, setShowDestinationDiscover] = useState(false);
+  const [activeDestinationForDiscover, setActiveDestinationForDiscover] = useState<string>('');
 
   // Add available tags constant
   const AVAILABLE_TAGS = [
@@ -1279,6 +1282,17 @@ const CreateItinerary: React.FC = () => {
     });
   };
 
+  // Add this function before the renderDestinationsGrid function
+  const handleAttractionsUpdate = (index: number, attractions: string[], descriptions: string[]) => {
+    const updatedDays = [...itineraryDays];
+    updatedDays[index] = {
+      ...updatedDays[index],
+      manual_discover: attractions.join(', '),
+      manual_discover_desc: descriptions.join(', ')
+    };
+    setItineraryDays(updatedDays);
+  };
+
   const renderDestinationsGrid = () => {
     return (
       <div className="space-y-4">
@@ -1417,8 +1431,8 @@ const CreateItinerary: React.FC = () => {
                     <div className="flex items-center justify-center">
                       <button
                         onClick={() => {
-                          setActiveDestinationIndex(index);
-                          setShowDiscoverPopup(true);
+                          setActiveDestinationForDiscover(cleanDestination(day.destination));
+                          setShowDestinationDiscover(true);
                         }}
                         className="font-['Inter_var'] font-[600] text-sm text-[#0f3e4a] hover:text-[#00C48C] transition-colors"
                       >
@@ -1432,8 +1446,8 @@ const CreateItinerary: React.FC = () => {
                     <div className="flex items-center justify-center">
                       <button
                         onClick={() => {
-                          setActiveDestinationIndex(index);
-                          setShowDiscoverPopup(true);
+                          setActiveDestinationForDiscover(cleanDestination(day.destination));
+                          setShowDestinationDiscover(true);
                         }}
                         className="discover-action column-action"
                       >
@@ -2474,6 +2488,19 @@ const CreateItinerary: React.FC = () => {
             />
           </div>
         )}
+        <DestinationDiscover
+          open={showDestinationDiscover}
+          onClose={() => setShowDestinationDiscover(false)}
+          destination={activeDestinationForDiscover}
+          attractions={itineraryDays.find(day => cleanDestination(day.destination) === activeDestinationForDiscover)?.manual_discover.split(', ').filter(Boolean) || []}
+          descriptions={itineraryDays.find(day => cleanDestination(day.destination) === activeDestinationForDiscover)?.manual_discover_desc.split(', ').filter(Boolean) || []}
+          onAttractionsUpdate={(attractions, descriptions) => {
+            const index = itineraryDays.findIndex(day => cleanDestination(day.destination) === activeDestinationForDiscover);
+            if (index !== -1) {
+              handleAttractionsUpdate(index, attractions, descriptions);
+            }
+          }}
+        />
       </div>
     );
   }
