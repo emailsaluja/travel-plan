@@ -575,6 +575,22 @@ const CreateItinerary: React.FC = () => {
 
       console.log('Saving destinations with food:', destinationsWithFood);
 
+      // Create a map of day hotel descriptions from the cache and stored data
+      const hotelDescriptionsMap: Record<number, string> = { ...hotelDescriptionCache };
+
+      // Add any descriptions that might be in the database but not in the cache
+      if (itineraryId) {
+        for (const hotel of dayHotels) {
+          // If we don't have a description in the cache, try to get it from the database
+          if (hotelDescriptionsMap[hotel.dayIndex] === undefined) {
+            const dayHotelDesc = await getHotelDescForDay(hotel.dayIndex);
+            if (dayHotelDesc !== null) {
+              hotelDescriptionsMap[hotel.dayIndex] = dayHotelDesc;
+            }
+          }
+        }
+      }
+
       const saveData = {
         tripSummary: {
           tripName: tripSummary.tripName,
@@ -592,7 +608,8 @@ const CreateItinerary: React.FC = () => {
         })),
         dayHotels: dayHotels.map(dh => ({
           day_index: dh.dayIndex,
-          hotel: dh.hotel
+          hotel: dh.hotel,
+          hotel_desc: hotelDescriptionsMap[dh.dayIndex] || ''
           // Removed is_manual as it doesn't exist in the database
         })),
         dayNotes: dayNotes.map(dn => ({

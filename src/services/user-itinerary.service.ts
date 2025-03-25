@@ -23,6 +23,7 @@ interface UserItineraryDayAttraction {
 interface UserItineraryDayHotel {
   day_index: number;
   hotel: string;
+  hotel_desc?: string;
 }
 
 interface UserItineraryDayNote {
@@ -124,6 +125,7 @@ export interface SaveItineraryData {
   dayHotels: {
     day_index: number;
     hotel: string;
+    hotel_desc?: string;
   }[];
   dayNotes: {
     day_index: number;
@@ -220,7 +222,8 @@ export const UserItineraryService = {
         const hotelsToInsert = data.dayHotels.map(day => ({
           itinerary_id: itinerary.id,
           day_index: day.day_index,
-          hotel: day.hotel
+          hotel: day.hotel,
+          hotel_desc: day.hotel_desc || ''
         }));
 
         const { error: hotelsError } = await supabase
@@ -325,7 +328,8 @@ export const UserItineraryService = {
           ),
           day_hotels:user_itinerary_day_hotels(
             day_index,
-            hotel
+            hotel,
+            hotel_desc
           ),
           day_notes:user_itinerary_day_notes(
             day_index,
@@ -584,7 +588,8 @@ export const UserItineraryService = {
         const hotelsToInsert = data.dayHotels.map(day => ({
           itinerary_id: id,
           day_index: day.day_index,
-          hotel: day.hotel
+          hotel: day.hotel,
+          hotel_desc: day.hotel_desc || ''
         }));
 
         const { error: hotelsError } = await supabase
@@ -655,9 +660,15 @@ export const UserItineraryService = {
 
       // Transform the data to match the LikedItinerary interface
       const transformedData = data?.map(item => ({
-        ...item.itinerary,
-        liked_at: item.created_at,
-        destinations: item.itinerary.destinations
+        id: item.itinerary.id,
+        trip_name: item.itinerary.trip_name,
+        country: item.itinerary.country,
+        start_date: item.itinerary.start_date,
+        duration: item.itinerary.duration,
+        passengers: item.itinerary.passengers,
+        created_at: item.itinerary.created_at,
+        destinations: item.itinerary.destinations,
+        liked_at: item.created_at
       }));
 
       return { data: transformedData };
