@@ -23,6 +23,7 @@ import Discover from './pages/Discover';
 import LikedTrips from './pages/LikedTrips';
 import AdminDashboard from './pages/AdminDashboard';
 import OnceInLife from './pages/discover/OnceInLife';
+import ViewMyItinerary from './pages/ViewMyItinerary';
 import { useLocation } from 'react-router-dom';
 
 const RootLayout = () => {
@@ -56,6 +57,7 @@ export const router = createBrowserRouter([
       { path: 'discover/:country', element: <Discover /> },
       { path: 'discover/onceinlife', element: <OnceInLife /> },
       { path: 'view-itinerary/:id', element: <ViewUserItinerary /> },
+      { path: 'viewmyitinerary/:id', element: <ViewMyItinerary /> },
       {
         path: 'dashboard',
         element: <ProtectedRoute><Dashboard /></ProtectedRoute>
