@@ -190,7 +190,8 @@ const FoodPopup: React.FC<FoodPopupProps> = ({
         };
 
         // Add to local all destination food
-        setLocalAllDestinationFood([...localAllDestinationFood, newItem]);
+        const updatedAllFood = [...localAllDestinationFood, newItem];
+        setLocalAllDestinationFood(updatedAllFood);
 
         // Add new item and description to the arrays
         const updatedItems = [...localFoodItems, newItem.name];
@@ -201,27 +202,26 @@ const FoodPopup: React.FC<FoodPopupProps> = ({
         setLocalDescriptions(updatedDescriptions);
 
         // Reset form
-        setShowAddForm(false);
         setNewFoodName('');
         setNewFoodDesc('');
+        setShowAddForm(false);
 
-        console.log('Added new food:', {
+        // Immediately save changes
+        onFoodUpdate(updatedItems, updatedDescriptions);
+
+        console.log('Added new food item:', {
             newItem,
-            items: updatedItems,
-            descriptions: updatedDescriptions,
-            allFood: [...localAllDestinationFood, newItem]
+            updatedItems,
+            updatedDescriptions,
+            allFood: updatedAllFood
         });
     };
 
     const handleClose = () => {
-        // Debug log before updating
-        console.log('Closing popup with:', {
-            items: localFoodItems,
-            descriptions: localDescriptions,
-            allFood: localAllDestinationFood
-        });
-
-        onFoodUpdate(localFoodItems, localDescriptions);
+        // Save changes before closing
+        if (localFoodItems.length > 0 || localDescriptions.length > 0) {
+            onFoodUpdate(localFoodItems, localDescriptions);
+        }
         onClose();
     };
 

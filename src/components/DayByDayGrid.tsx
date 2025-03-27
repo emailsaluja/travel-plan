@@ -121,6 +121,8 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   const [isLoadingAttractions, setIsLoadingAttractions] = useState(false);
   const [hasLoadedInitialAttractions, setHasLoadedInitialAttractions] = useState(false);
   const previousAttractionsRef = useRef<string>('');
+  const [foodOptions, setFoodOptions] = useState<Array<{ name: string; description: string }>>([]);
+  const [isLoadingFoodOptions, setIsLoadingFoodOptions] = useState(false);
 
   const formatDate = (date: Date) => {
     const formattedDate = new Intl.DateTimeFormat('en-US', {
@@ -446,97 +448,111 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
     }
   };
 
-  const handleFoodClick = (day: ExpandedDay) => {
-    const destinationData = destinations.find(d => d.destination === day.destination);
-
-    console.log('Destination data:', destinationData); // Debug log
-
-    // Get the food items and descriptions
-    const foodItems = destinationData?.food?.split(',').filter(Boolean) || [];
-    const foodDescriptions = destinationData?.food_desc?.split(',').filter(Boolean) || [];
-
-    console.log('Food items:', foodItems); // Debug log
-    console.log('Food descriptions:', foodDescriptions); // Debug log
-
-    // Create an array of food objects with names and descriptions
-    const allFoodItems = foodItems.map((name, index) => ({
-      name: name.trim(),
-      description: (foodDescriptions[index] || '').trim()
-    }));
-
-    console.log('All food items:', allFoodItems); // Debug log
-
-    // Get and clean the current food items for this specific day
-    const currentDayFood = dayFoods?.find(df => df.dayIndex === day.dayIndex);
-    const cleanedCurrentFood = currentDayFood?.foodItems
-      .map(food => food.trim())
-      .filter(food => food.length > 0) || [];
-
-    console.log('Current day food:', cleanedCurrentFood); // Debug log
-
-    setSelectedDayForFood({
-      dayIndex: day.dayIndex,
-      destination: day.destination,
-      food: cleanedCurrentFood.join(', ')
-    });
-    setShowFoodPopup(true);
-  };
-
-  const handleUpdateDayFood = async (foodItems: string[]) => {
+  const handleUpdateDayFood = async (foodItems: string[], descriptions: string[]) => {
     if (selectedDayForFood) {
-      // Clean food items before updating
-      const cleanedFoodItems = foodItems
-        .map(food => food.trim())
-        .filter(food => food.length > 0);
-
-      console.log('Updating food for day:', selectedDayForFood.dayIndex, 'with:', cleanedFoodItems);
-
       try {
-        // Update the local state first for immediate feedback
-        const updatedDayFoods = [...(dayFoods || [])];
-        const existingIndex = updatedDayFoods.findIndex(df => df.dayIndex === selectedDayForFood.dayIndex);
+        // First, delete existing food options for this day
+        const { error: deleteError } = await supabase
+          .from('user_itinerary_day_food_options')
+          .delete()
+          .eq('itinerary_id', itineraryId)
+          .eq('day_index', selectedDayForFood.dayIndex);
 
-        if (existingIndex >= 0) {
-          updatedDayFoods[existingIndex] = {
-            ...updatedDayFoods[existingIndex],
-            foodItems: cleanedFoodItems
-          };
-        } else {
-          updatedDayFoods.push({
-            dayIndex: selectedDayForFood.dayIndex,
-            foodItems: cleanedFoodItems
-          });
+        if (deleteError) {
+          console.error('Error deleting existing food options:', deleteError);
+          return;
         }
 
+        if (foodItems.length > 0) {
+          // Prepare the food items for insertion
+          const foodItemsToInsert = foodItems.map((item, index) => {
+            const description = descriptions[index] || '';
+            // Parse the description to extract cuisine, known_for, and price_level
+            const cuisineMatch = description.match(/Cuisine: ([^·]+)/);
+            const knownForMatch = description.match(/Known for: ([^·]+)/);
+            const priceMatch = description.match(/Price: ([^·]+)/);
+
+            return {
+              itinerary_id: itineraryId,
+              day_index: selectedDayForFood.dayIndex,
+              name: item.trim(),
+              cuisine: cuisineMatch ? cuisineMatch[1].trim() : '',
+              known_for: knownForMatch ? knownForMatch[1].trim() : '',
+              price_level: priceMatch ? priceMatch[1].trim() : ''
+            };
+          });
+
+          // Insert the new food options
+          const { data: insertedData, error: insertError } = await supabase
+            .from('user_itinerary_day_food_options')
+            .insert(foodItemsToInsert)
+            .select();
+
+          if (insertError) {
+            console.error('Error inserting food options:', insertError);
+            return;
+          }
+
+          // Update the local state with the new food options
+          const newFoodOptions = foodItems.map((item, index) => ({
+            name: item,
+            description: descriptions[index] || ''
+          }));
+          setFoodOptions(newFoodOptions);
+        } else {
+          // If no food items, clear the food options
+          setFoodOptions([]);
+        }
+
+        // Update local state if needed
         if (onFoodSelect) {
           onFoodSelect(selectedDayForFood.destination, selectedDayForFood.dayIndex);
         }
 
-        // If we have an itineraryId, update the database
-        if (itineraryId) {
-          const { error } = await supabase
-            .from('user_itinerary_day_food')
-            .upsert({
-              itinerary_id: itineraryId,
-              day_index: selectedDayForFood.dayIndex,
-              food_items: cleanedFoodItems
-            });
-
-          if (error) {
-            console.error('Error updating food:', error);
-            throw error;
-          }
-
-          console.log('Successfully updated food in database');
-        }
-
-        // Only close the popup after successful update
         setShowFoodPopup(false);
         setSelectedDayForFood(null);
-
       } catch (error) {
-        console.error('Failed to update food:', error);
+        console.error('Failed to update food options:', error);
       }
+    }
+  };
+
+  const handleFoodClick = async (day: ExpandedDay) => {
+    setIsLoadingFoodOptions(true);
+    try {
+      // Fetch food options from the database
+      const { data, error: fetchError } = await supabase
+        .from('user_itinerary_day_food_options')
+        .select('name, cuisine, known_for, price_level')
+        .eq('itinerary_id', itineraryId)
+        .eq('day_index', day.dayIndex);
+
+      if (fetchError) {
+        console.error('Error fetching food options:', fetchError);
+        return;
+      }
+
+      // Transform the data to match the FoodPopup interface
+      const transformedFoodOptions = (data || []).map(item => ({
+        name: item.name,
+        description: [
+          item.cuisine && `Cuisine: ${item.cuisine}`,
+          item.known_for && `Known for: ${item.known_for}`,
+          item.price_level && `Price: ${item.price_level}`
+        ].filter(Boolean).join(' · ')
+      }));
+
+      setFoodOptions(transformedFoodOptions);
+      setSelectedDayForFood({
+        dayIndex: day.dayIndex,
+        destination: day.destination,
+        food: ''
+      });
+      setShowFoodPopup(true);
+    } catch (error) {
+      console.error('Failed to fetch food options:', error);
+    } finally {
+      setIsLoadingFoodOptions(false);
     }
   };
 
@@ -592,13 +608,17 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   };
 
   const renderFoodCell = (day: { dayIndex: number; destination: string }) => {
-    const dayFood = dayFoods?.find(f => f.dayIndex === day.dayIndex);
-    const foodCount = dayFood?.foodItems.length || 0;
+    const foodCount = foodOptions.length;
+    const expandedDay = expandedDays.find(d => d.dayIndex === day.dayIndex);
+
+    if (!expandedDay) {
+      return null;
+    }
 
     return (
       <td
         className="border p-4 cursor-pointer hover:bg-gray-50"
-        onClick={() => onFoodClick && onFoodClick(day.destination, day.dayIndex)}
+        onClick={() => handleFoodClick(expandedDay)}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -663,7 +683,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   return (
     <div className="space-y-4 [&_.destination-name]:font-['Inter_var'] [&_.destination-name]:text-[14px] [&_.destination-name]:font-[600] [&_.destination-name]:text-[#1E293B] [&_.destination-subtitle]:font-['Inter_var'] [&_.destination-subtitle]:text-[13px] [&_.destination-subtitle]:text-[#64748B] [&_.destination-subtitle]:mt-1">
       {/* Column Headers */}
-      <div className="grid grid-cols-[180px,200px,200px,120px,120px] gap-0 px-4 py-2 text-xs text-[#0f3e4a] border-b border-gray-200">
+      <div className="grid grid-cols-[180px,200px,200px,120px,120px,120px] gap-0 px-4 py-2 text-xs text-[#0f3e4a] border-b border-gray-200">
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-[#6366F1]" />
           <span className="destination-name uppercase">DATE</span>
@@ -681,6 +701,10 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
           <span className="destination-name uppercase">DISCOVER</span>
         </div>
         <div className="flex items-center gap-2">
+          <FaUtensils className="w-4 h-4 text-[#8B5CF6]" />
+          <span className="destination-name uppercase">FOOD</span>
+        </div>
+        <div className="flex items-center gap-2">
           <StickyNote className="w-4 h-4 text-[#3B82F6]" />
           <span className="destination-name uppercase">NOTES</span>
         </div>
@@ -690,7 +714,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
       <div className="space-y-1">
         {expandedDays.map((day, index) => (
           <React.Fragment key={index}>
-            <div className="grid grid-cols-[180px,200px,200px,120px,120px] gap-0 items-center bg-white px-4 py-2 hover:bg-[#f1f8fa] transition-colors">
+            <div className="grid grid-cols-[180px,200px,200px,120px,120px,120px] gap-0 items-center bg-white px-4 py-2 hover:bg-[#f1f8fa] transition-colors">
               <div>
                 <div className="flex flex-col">
                   <div className="destination-name">
@@ -754,6 +778,23 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
                 )}
               </div>
               <div className="flex items-center justify-center">
+                {foodOptions.length > 0 ? (
+                  <button
+                    onClick={() => handleFoodClick(day)}
+                    className="destination-name hover:text-[#8B5CF6] transition-colors"
+                  >
+                    {foodOptions.length} food spot{foodOptions.length !== 1 ? 's' : ''}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleFoodClick(day)}
+                    className="food-action column-action"
+                  >
+                    <Plus className="w-4 h-4" strokeWidth={2.5} />
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center justify-center">
                 {dayNotes.find(n => n.dayIndex === day.dayIndex)?.notes ? (
                   <button
                     onClick={() => handleNotesClick(day)}
@@ -810,27 +851,18 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
       )}
 
       {/* Food Popup */}
-      {showFoodPopup && selectedDayForFood && (
+      {showFoodPopup && selectedDayForFood && !isLoadingFoodOptions && (
         <FoodPopup
           isOpen={showFoodPopup}
           onClose={() => {
             setShowFoodPopup(false);
             setSelectedDayForFood(null);
+            setFoodOptions([]); // Clear food options when closing popup
           }}
           date={formatDate(expandedDays[selectedDayForFood.dayIndex].date)}
           destination={selectedDayForFood.destination}
-          selectedFoodItems={dayFoods?.find(df =>
-            df.dayIndex === selectedDayForFood.dayIndex
-          )?.foodItems || []}
-          allDestinationFood={(() => {
-            const destinationData = destinations.find(d => d.destination === selectedDayForFood.destination);
-            const foodItems = destinationData?.food?.split(',').filter(Boolean) || [];
-            const foodDescriptions = destinationData?.food_desc?.split(',').filter(Boolean) || [];
-            return foodItems.map((name, index) => ({
-              name: name.trim(),
-              description: (foodDescriptions[index] || '').trim()
-            }));
-          })()}
+          selectedFoodItems={[]}
+          allDestinationFood={foodOptions}
           onFoodUpdate={handleUpdateDayFood}
         />
       )}
