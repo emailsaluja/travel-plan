@@ -52,16 +52,8 @@ const ViewMyItinerary: React.FC = () => {
     };
 
     const currentDayNumber = getDayNumber(selectedDestIndex, selectedDayIndex);
-    const dayAttractions = itinerary?.day_attractions?.find(d => d.day_index === currentDayNumber)?.attractions;
+    const dayAttractions = itinerary?.day_attractions?.find(d => d.day_index === currentDayNumber)?.attractions || [];
     const dayHotel = itinerary?.day_hotels?.find(d => d.day_index === currentDayNumber)?.hotel;
-
-    // Mock data for the schedule (replace with actual data from your backend)
-    const schedule = [
-        { time: "09:00 AM", activity: "Colosseum & Roman Forum", description: "Explore ancient Rome with a guided tour of the iconic Colosseum and Roman Forum." },
-        { time: "01:00 PM", activity: "Lunch Break", description: "Enjoy authentic Roman pasta at La Taverna dei Fori Imperiali." },
-        { time: "03:00 PM", activity: "Palatine Hill", description: "Visit the centermost of the Seven Hills of Rome with stunning views." },
-        { time: "06:00 PM", activity: "Evening Stroll", description: "Walk through Piazza Navona and enjoy the beautiful fountains." }
-    ];
 
     // Mock data for restaurants (replace with actual data from your backend)
     const restaurants = [
@@ -187,17 +179,17 @@ const ViewMyItinerary: React.FC = () => {
                                             </div>
 
                                             <div className="divide-y divide-[#E2E8F0]">
-                                                {schedule.map((item, index) => (
-                                                    <div key={index} className="p-6 flex items-start gap-6">
+                                                {dayAttractions.map((attraction, index) => (
+                                                    <div key={attraction.id || index} className="p-6 flex items-start gap-6">
                                                         <div className="flex items-center gap-2 min-w-[80px]">
                                                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                                 <path d="M8 5.33333V8L9.33333 9.33333M14 8C14 11.3137 11.3137 14 8 14C4.68629 14 2 11.3137 2 8C2 4.68629 4.68629 2 8 2C11.3137 2 14 4.68629 14 8Z" stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                                                             </svg>
-                                                            <span className="text-[#94A3B8] text-sm">{item.time}</span>
+                                                            <span className="text-[#94A3B8] text-sm">{attraction.time || 'All Day'}</span>
                                                         </div>
                                                         <div>
-                                                            <h4 className="text-[#0F172A] text-base font-medium">{item.activity}</h4>
-                                                            <p className="text-[#64748B] text-sm mt-1">{item.description}</p>
+                                                            <h4 className="text-[#0F172A] text-base font-medium">{attraction.name}</h4>
+                                                            <p className="text-[#64748B] text-sm mt-1">{attraction.description || ''}</p>
                                                         </div>
                                                     </div>
                                                 ))}

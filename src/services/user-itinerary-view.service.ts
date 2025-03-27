@@ -29,7 +29,12 @@ export interface UserItineraryView {
   };
   day_attractions?: {
     day_index: number;
-    attractions: string;
+    attractions: {
+      id: string;
+      name: string;
+      time?: string;
+      description?: string;
+    }[];
   }[];
   day_hotels?: {
     day_index: number;
@@ -74,6 +79,10 @@ export const UserItineraryViewService = {
     if (attractionsError) {
       return { data: null, error: attractionsError };
     }
+
+    console.log('Raw day attractions data:', dayAttractions);
+    console.log('Sample attraction:', dayAttractions?.[0]);
+    console.log('Attraction type:', typeof dayAttractions?.[0]?.attractions);
 
     // Get the day hotels
     const { data: dayHotels, error: hotelsError } = await supabase
