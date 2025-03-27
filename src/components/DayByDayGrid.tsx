@@ -8,6 +8,11 @@ import { FaUtensils, FaPlus } from 'react-icons/fa';
 import { cleanDestination } from '../utils/stringUtils';
 import { supabase } from '../lib/supabase';
 
+// Add a function to generate unique IDs
+const generateUniqueId = () => {
+  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+};
+
 interface DayHotel {
   dayIndex: number;
   hotel: string;
@@ -15,8 +20,10 @@ interface DayHotel {
 }
 
 interface Attraction {
+  id: string;
   name: string;
   description: string;
+  time?: string;
 }
 
 interface DayByDayGridProps {
@@ -256,40 +263,38 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   }, [itineraryId]);
 
   const handleDiscoverClick = (day: ExpandedDay, index: number) => {
+    // Get the destination data for the current day
     const destinationData = destinations.find(d => d.destination === day.destination);
 
-    console.log('Destination data:', destinationData); // Debug log
-
-    // Get the manual attractions and descriptions
+    // Get manual attractions and descriptions
     const manualAttractions = destinationData?.manual_discover?.split(',').filter(Boolean) || [];
     const manualDescriptions = destinationData?.manual_discover_desc?.split(',').filter(Boolean) || [];
 
-    console.log('Manual attractions:', manualAttractions); // Debug log
-    console.log('Manual descriptions:', manualDescriptions); // Debug log
-
     // Create an array of attraction objects with names and descriptions
     const allAttractions = manualAttractions.map((name, index) => ({
+      id: generateUniqueId(),
       name: name.trim(),
-      description: (manualDescriptions[index] || '').trim()
+      description: (manualDescriptions[index] || '').trim(),
+      time: ''
     }));
 
     console.log('All attractions:', allAttractions); // Debug log
 
     // Get and clean the current attractions for this specific day
     const currentDayAttractions = dayAttractions.find(da => da.dayIndex === day.dayIndex);
-    const cleanedCurrentAttractions = currentDayAttractions?.selectedAttractions
-      .map(attraction => attraction.trim())
-      .filter(attraction => attraction.length > 0) || [];
+    const cleanedCurrentAttractions = currentDayAttractions?.selectedAttractions || [];
 
-    console.log('Current day attractions:', cleanedCurrentAttractions); // Debug log
+    console.log('Current day attractions:', cleanedCurrentAttractions);
 
     // If there are no attractions in the master list but we have selected attractions,
     // we should include them in the master list
     if (allAttractions.length === 0 && cleanedCurrentAttractions.length > 0) {
       cleanedCurrentAttractions.forEach(attraction => {
         allAttractions.push({
+          id: generateUniqueId(),
           name: attraction,
-          description: ''
+          description: '',
+          time: ''
         });
       });
     }
@@ -304,14 +309,15 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
     setShowDiscoverPopup(true);
   };
 
-  const handleUpdateDayAttractions = async (attractions: string[]) => {
+  const handleUpdateDayAttractions = async (attractions: Attraction[]) => {
     if (selectedDay) {
-      // Clean attractions before updating
-      const cleanedAttractions = attractions
-        .map(attraction => attraction.trim())
-        .filter(attraction => attraction.length > 0);
+      // Extract just the names for backward compatibility with parent components
+      const attractionNames = attractions.map(a => typeof a.name === 'string' ? a.name : '');
 
-      console.log('Updating attractions for day:', selectedDay.dayIndex, 'with:', cleanedAttractions);
+      // Clean attractions before updating
+      const cleanedAttractionNames = attractionNames.filter(name => name && name.length > 0);
+
+      console.log('Updating attractions for day:', selectedDay.dayIndex, 'with:', cleanedAttractionNames);
 
       try {
         // Update the local state first for immediate feedback
@@ -321,26 +327,62 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
         if (existingIndex >= 0) {
           updatedDayAttractions[existingIndex] = {
             ...updatedDayAttractions[existingIndex],
-            selectedAttractions: cleanedAttractions
+            selectedAttractions: cleanedAttractionNames
           };
         } else {
           updatedDayAttractions.push({
             dayIndex: selectedDay.dayIndex,
-            selectedAttractions: cleanedAttractions
+            selectedAttractions: cleanedAttractionNames
           });
         }
 
-        onDayAttractionsUpdate(selectedDay.dayIndex, cleanedAttractions);
+        onDayAttractionsUpdate(selectedDay.dayIndex, cleanedAttractionNames);
 
         // If we have an itineraryId, update the database
         if (itineraryId) {
-          const { error } = await supabase
+          // First check if record exists
+          const { data: existingData, error: checkError } = await supabase
             .from('user_itinerary_day_attractions')
-            .upsert({
-              itinerary_id: itineraryId,
-              day_index: selectedDay.dayIndex,
-              attractions: cleanedAttractions
-            });
+            .select('*')
+            .eq('itinerary_id', itineraryId)
+            .eq('day_index', selectedDay.dayIndex)
+            .single();
+
+          let error;
+
+          if (existingData) {
+            // Update existing record with full attraction objects
+            const { error: updateError } = await supabase
+              .from('user_itinerary_day_attractions')
+              .update({
+                attractions: attractions.map(a => ({
+                  id: a.id,
+                  name: typeof a.name === 'string' ? a.name : '',
+                  description: typeof a.description === 'string' ? a.description : '',
+                  time: typeof a.time === 'string' ? a.time : ''
+                }))
+              })
+              .eq('itinerary_id', itineraryId)
+              .eq('day_index', selectedDay.dayIndex);
+
+            error = updateError;
+          } else {
+            // Insert new record with full attraction objects
+            const { error: insertError } = await supabase
+              .from('user_itinerary_day_attractions')
+              .insert({
+                itinerary_id: itineraryId,
+                day_index: selectedDay.dayIndex,
+                attractions: attractions.map(a => ({
+                  id: a.id,
+                  name: typeof a.name === 'string' ? a.name : '',
+                  description: typeof a.description === 'string' ? a.description : '',
+                  time: typeof a.time === 'string' ? a.time : ''
+                }))
+              });
+
+            error = insertError;
+          }
 
           if (error) {
             console.error('Error updating attractions:', error);
@@ -747,7 +789,8 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
           selectedAttractions={dayAttractions.find(da =>
             da.dayIndex === selectedDay.dayIndex
           )?.selectedAttractions || []}
-          allDestinationAttractions={selectedDay.allAttractions}
+          itineraryId={itineraryId}
+          dayIndex={selectedDay.dayIndex}
           onAttractionsUpdate={handleUpdateDayAttractions}
         />
       )}

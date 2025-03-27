@@ -86,7 +86,7 @@ const ViewMyItinerary: React.FC = () => {
     ];
 
     return (
-        <section className="py-12 px-6 bg-stone-50">
+        <section className="py-12 px-6 bg-[#F8FAFC]">
             <div className="container mx-auto max-w-6xl">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -95,15 +95,15 @@ const ViewMyItinerary: React.FC = () => {
                     viewport={{ once: true }}
                     className="mb-10"
                 >
-                    <h1 className="text-[40px] sm:text-[48px] font-light text-stone-800 mb-4 text-center">
+                    <h1 className="text-[40px] sm:text-[48px] font-light text-[#0F172A] mb-4 text-center">
                         {itinerary?.trip_name || '10-Day European Adventure'}
                     </h1>
-                    <p className="text-xl text-stone-600 mb-8 text-center">An unforgettable journey through Italy, Switzerland, and France.</p>
-                    <Link to="/overview" className="text-travel-600 hover:text-travel-700 flex items-center justify-center gap-2 mb-12">
+                    <p className="text-xl text-[#64748B] mb-8 text-center">An unforgettable journey through Italy, Switzerland, and France.</p>
+                    <Link to="/overview" className="text-[#6366F1] hover:text-[#4F46E5] flex items-center justify-center gap-2 mb-12">
                         ← Back to overview
                     </Link>
 
-                    <h2 className="text-3xl font-light text-stone-800 mb-6">Your {itinerary?.duration || 10}-Day Itinerary</h2>
+                    <h2 className="text-3xl font-light text-[#0F172A] mb-6">Your {itinerary?.duration || 10}-Day Itinerary</h2>
 
                     <Tabs
                         value={selectedDestination?.destination}
@@ -117,7 +117,7 @@ const ViewMyItinerary: React.FC = () => {
                                 <TabsTrigger
                                     key={dest.destination}
                                     value={dest.destination}
-                                    className="data-[state=active]:bg-travel-100 data-[state=active]:text-travel-800 mr-2 mb-2"
+                                    className="data-[state=active]:bg-[#EEF2FF] data-[state=active]:text-[#6366F1] mr-2 mb-2"
                                 >
                                     {dest.destination} ({dest.nights} {dest.nights === 1 ? 'day' : 'days'})
                                 </TabsTrigger>
@@ -130,11 +130,11 @@ const ViewMyItinerary: React.FC = () => {
                                 value={destination.destination}
                                 className="mt-0"
                             >
-                                <div className="glass-card p-6 rounded-xl mb-8 bg-white border border-stone-200/50 shadow-sm backdrop-blur-sm">
+                                <div className="bg-white rounded-2xl border border-[#E2E8F0] p-6 mb-8">
                                     <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
                                         <div>
-                                            <h3 className="text-2xl font-medium text-stone-800">{destination.destination}</h3>
-                                            <p className="text-stone-600">Starting July 1, 2023 • {destination.nights} days</p>
+                                            <h3 className="text-2xl font-medium text-[#0F172A]">{destination.destination}</h3>
+                                            <p className="text-[#64748B]">Starting July 1, 2023 • {destination.nights} days</p>
                                         </div>
                                     </div>
 
@@ -144,8 +144,8 @@ const ViewMyItinerary: React.FC = () => {
                                                 key={dayIndex}
                                                 onClick={() => setSelectedDayIndex(dayIndex)}
                                                 className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${dayIndex === selectedDayIndex
-                                                    ? 'bg-travel-600 text-white'
-                                                    : 'bg-white border border-stone-200 text-stone-700 hover:border-stone-300'
+                                                    ? 'bg-[#6366F1] text-white'
+                                                    : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:border-[#CBD5E1]'
                                                     }`}
                                             >
                                                 Day {getDayNumber(destIndex, dayIndex)}
