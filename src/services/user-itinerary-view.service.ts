@@ -22,28 +22,32 @@ export interface UserItineraryView {
       [place: string]: string;
     };
   };
-  food_descriptions?: {
-    [destination: string]: {
-      [place: string]: string;
-    };
-  };
   day_attractions?: {
     day_index: number;
     attractions: {
       id: string;
       name: string;
-      time?: string;
       description?: string;
     }[];
   }[];
   day_hotels?: {
     day_index: number;
     hotel: string;
+    hotel_desc?: string;
   }[];
   day_notes?: {
     day_index: number;
     notes: string;
   }[];
+  day_food_options: Array<{
+    day_index: number;
+    food_options: Array<{
+      id: string;
+      name: string;
+      cuisine?: string;
+      description?: string;
+    }>;
+  }>;
 }
 
 export const UserItineraryViewService = {
@@ -63,7 +67,8 @@ export const UserItineraryViewService = {
     const { data: destinations, error: destinationsError } = await supabase
       .from('user_itinerary_destinations')
       .select('*')
-      .eq('itinerary_id', id);
+      .eq('itinerary_id', id)
+      .order('order_index', { ascending: true });
 
     if (destinationsError) {
       return { data: null, error: destinationsError };
@@ -80,9 +85,26 @@ export const UserItineraryViewService = {
       return { data: null, error: attractionsError };
     }
 
-    console.log('Raw day attractions data:', dayAttractions);
-    console.log('Sample attraction:', dayAttractions?.[0]);
-    console.log('Attraction type:', typeof dayAttractions?.[0]?.attractions);
+    // Process attractions to ensure proper format
+    const processedDayAttractions = dayAttractions?.map(day => {
+      return {
+        day_index: day.day_index,
+        attractions: Array.isArray(day.attractions) ? day.attractions.map((attraction: any) => {
+          if (typeof attraction === 'object' && attraction !== null) {
+            return {
+              id: attraction.id || '',
+              name: attraction.name || '',
+              description: attraction.description || ''
+            };
+          }
+          return {
+            id: '',
+            name: String(attraction),
+            description: ''
+          };
+        }) : []
+      };
+    }) || [];
 
     // Get the day hotels
     const { data: dayHotels, error: hotelsError } = await supabase
@@ -95,6 +117,13 @@ export const UserItineraryViewService = {
       return { data: null, error: hotelsError };
     }
 
+    // Process hotels to ensure proper format and adjust day_index
+    const processedDayHotels = dayHotels?.map(hotel => ({
+      day_index: hotel.day_index,
+      hotel: hotel.hotel || '',
+      hotel_desc: hotel.hotel_desc || ''
+    })) || [];
+
     // Get the day notes
     const { data: dayNotes, error: notesError } = await supabase
       .from('user_itinerary_day_notes')
@@ -106,16 +135,40 @@ export const UserItineraryViewService = {
       return { data: null, error: notesError };
     }
 
-    console.log('Fetched day attractions:', dayAttractions);
-    console.log('Fetched day hotels:', dayHotels);
+    // Get the food options
+    const { data: foodOptions, error: foodError } = await supabase
+      .from('user_itinerary_day_food_options')
+      .select('*')
+      .eq('itinerary_id', id)
+      .order('day_index', { ascending: true });
+
+    if (foodError) {
+      return { data: null, error: foodError };
+    }
+
+    // Process food options into day_food_options format
+    const processedDayFoodOptions = foodOptions?.map(day => ({
+      day_index: day.day_index,
+      food_options: Array.isArray(day.name) ? day.name.map((food: any) => ({
+        id: food.id || '',
+        name: food.name?.text || '',
+        cuisine: food.name?.cuisine || 'Local Cuisine',
+        description: food.name?.known_for || '-'
+      })) : []
+    })) || [];
+
+    console.log('Processed day attractions:', processedDayAttractions);
+    console.log('Processed day hotels:', processedDayHotels);
     console.log('Fetched day notes:', dayNotes);
+    console.log('Processed food options:', processedDayFoodOptions);
 
     const formattedData = {
       ...itinerary,
       destinations: destinations || [],
-      day_attractions: dayAttractions || [],
-      day_hotels: dayHotels || [],
-      day_notes: dayNotes || []
+      day_attractions: processedDayAttractions,
+      day_hotels: processedDayHotels,
+      day_notes: dayNotes || [],
+      day_food_options: processedDayFoodOptions
     };
 
     console.log('Formatted itinerary data:', formattedData);
