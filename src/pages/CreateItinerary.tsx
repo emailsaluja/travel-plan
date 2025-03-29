@@ -2829,6 +2829,22 @@ const CreateItinerary: React.FC = () => {
             />
           </div>
         )}
+
+        {/* Trip Summary Edit Popup */}
+        {showTripSummaryEdit && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="trip-summary-edit-title"
+          >
+            <TripSummaryEdit
+              tripSummary={tripSummary}
+              onUpdate={handleTripSummaryUpdate}
+              onClose={() => setShowTripSummaryEdit(false)}
+            />
+          </div>
+        )}
       </div>
     );
   }

@@ -31,6 +31,7 @@ const DestinationDiscover: React.FC<DestinationDiscoverProps> = ({
     const [editDescription, setEditDescription] = useState('');
     const [localAttractions, setLocalAttractions] = useState<string[]>([]);
     const [localDescriptions, setLocalDescriptions] = useState<string[]>([]);
+    const [showAddNew, setShowAddNew] = useState(false);
 
     // Sync local state with props and ensure descriptions array is properly sized
     useEffect(() => {
@@ -204,39 +205,59 @@ const DestinationDiscover: React.FC<DestinationDiscoverProps> = ({
                     {/* Content */}
                     <div className="p-4 space-y-4">
                         {/* Add New Attraction Form */}
-                        <div className="bg-[#00B8A9]/5 rounded-lg p-4 space-y-3">
-                            <div className="space-y-3">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Place Name</label>
-                                    <input
-                                        type="text"
-                                        placeholder="Enter place name"
-                                        value={newAttraction}
-                                        onChange={(e) => setNewAttraction(e.target.value)}
-                                        className="w-full p-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#00B8A9] focus:border-transparent outline-none transition-shadow text-sm"
-                                    />
+                        {showAddNew ? (
+                            <div className="bg-[#00B8A9]/5 rounded-lg p-4 space-y-3">
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Place Name</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Enter place name"
+                                            value={newAttraction}
+                                            onChange={(e) => setNewAttraction(e.target.value)}
+                                            className="w-full p-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#00B8A9] focus:border-transparent outline-none transition-shadow text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                        <textarea
+                                            value={newDescription}
+                                            onChange={(e) => setNewDescription(e.target.value)}
+                                            placeholder="Add description (optional)"
+                                            className="w-full p-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#00B8A9] focus:border-transparent outline-none transition-shadow text-sm"
+                                            rows={2}
+                                        />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                                    <textarea
-                                        value={newDescription}
-                                        onChange={(e) => setNewDescription(e.target.value)}
-                                        placeholder="Add description (optional)"
-                                        className="w-full p-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#00B8A9] focus:border-transparent outline-none transition-shadow text-sm"
-                                        rows={2}
-                                    />
+                                <div className="flex justify-end gap-2">
+                                    <button
+                                        onClick={() => setShowAddNew(false)}
+                                        className="px-3 py-1.5 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-sm"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            handleAddAttraction();
+                                            setShowAddNew(false);
+                                        }}
+                                        className="px-4 py-1.5 bg-[#00B8A9] text-white rounded-lg hover:bg-[#009B8E] transition-colors text-sm flex items-center gap-2"
+                                    >
+                                        Add Place
+                                    </button>
                                 </div>
                             </div>
-                            <div className="flex justify-end gap-2">
-                                <button
-                                    onClick={handleAddAttraction}
-                                    className="px-4 py-1.5 bg-[#00B8A9] text-white rounded-lg hover:bg-[#009B8E] transition-colors text-sm flex items-center gap-2"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                    Add Place
-                                </button>
-                            </div>
-                        </div>
+                        ) : (
+                            <button
+                                onClick={() => setShowAddNew(true)}
+                                className="w-full p-3 border-2 border-dashed border-[#00B8A9]/20 rounded-lg text-[#00B8A9] hover:bg-[#00B8A9]/5 hover:border-[#00B8A9]/30 transition-all group"
+                            >
+                                <div className="flex flex-col items-center gap-1.5">
+                                    <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                    <span className="text-sm font-medium">Add New Place</span>
+                                </div>
+                            </button>
+                        )}
 
                         {/* Attractions List */}
                         <div className="space-y-3">
@@ -249,7 +270,7 @@ const DestinationDiscover: React.FC<DestinationDiscoverProps> = ({
                             <div className="border border-gray-100 rounded-lg divide-y divide-gray-100 max-h-[300px] overflow-y-auto">
                                 {localAttractions.map((attraction, index) => (
                                     <div
-                                        key={`${attraction}-${index}`}
+                                        key={index}
                                         className="p-3 hover:bg-gray-50 group transition-colors"
                                     >
                                         {isEditing === index ? (
@@ -282,7 +303,7 @@ const DestinationDiscover: React.FC<DestinationDiscoverProps> = ({
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="flex items-start justify-between">
+                                            <div className="flex items-center justify-between">
                                                 <div className="flex items-start gap-2.5">
                                                     <div className="w-8 h-8 rounded-lg bg-[#00B8A9]/10 flex items-center justify-center flex-shrink-0">
                                                         <Sparkles className="w-4 h-4 text-[#00B8A9]" />
@@ -294,10 +315,10 @@ const DestinationDiscover: React.FC<DestinationDiscoverProps> = ({
                                                         )}
                                                     </div>
                                                 </div>
-                                                <div className="flex gap-1">
+                                                <div className="flex items-center gap-1">
                                                     <button
                                                         onClick={() => handleEditAttraction(index)}
-                                                        className="p-1.5 text-gray-400 hover:text-[#00B8A9] hover:bg-[#00B8A9]/5 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                                                        className="p-1.5 text-gray-400 hover:text-[#00B8A9] hover:bg-[#00B8A9]/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
                                                     >
                                                         <Pencil className="w-4 h-4" />
                                                     </button>
@@ -318,7 +339,7 @@ const DestinationDiscover: React.FC<DestinationDiscoverProps> = ({
                                             <Sparkles className="w-6 h-6 text-[#00B8A9]/40" />
                                         </div>
                                         <p className="text-sm text-gray-500 font-medium">No places selected</p>
-                                        <p className="text-xs text-gray-400 mt-0.5">Add some interesting spots to discover!</p>
+                                        <p className="text-xs text-gray-400 mt-0.5">Add some exciting spots to your itinerary!</p>
                                     </div>
                                 )}
                             </div>
