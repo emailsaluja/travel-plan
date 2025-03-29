@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, MapPin, Star, Compass, Check, Plus, Pencil, Trash2, Clock } from 'lucide-react';
+import { X, MapPin, Star, Compass, Check, Plus, Pencil, Trash2, Sparkles } from 'lucide-react';
 import { cleanDestination } from '../utils/stringUtils';
 import { supabase } from '../lib/supabase';
+import { Dialog } from '@headlessui/react';
 
 // Add a function to generate unique IDs
 const generateUniqueId = () => {
@@ -12,7 +13,6 @@ interface Attraction {
   id: string;
   name: string;
   description: string;
-  time?: string;
 }
 
 interface DayDiscoverPopupProps {
@@ -40,10 +40,8 @@ const DayDiscoverPopup: React.FC<DayDiscoverPopupProps> = ({
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [newAttractionName, setNewAttractionName] = useState('');
   const [newAttractionDesc, setNewAttractionDesc] = useState('');
-  const [newAttractionTime, setNewAttractionTime] = useState('');
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
-  const [editTime, setEditTime] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
 
   // Initialize attractions from selectedAttractions prop
@@ -52,8 +50,7 @@ const DayDiscoverPopup: React.FC<DayDiscoverPopupProps> = ({
       const initialAttractions = selectedAttractions.map(name => ({
         id: generateUniqueId(),
         name,
-        description: '',
-        time: ''
+        description: ''
       }));
       setAttractions(initialAttractions);
     }
@@ -88,15 +85,13 @@ const DayDiscoverPopup: React.FC<DayDiscoverPopupProps> = ({
               return {
                 id: generateUniqueId(),
                 name: attraction,
-                description: '',
-                time: ''
+                description: ''
               };
             }
             return {
               id: attraction.id || generateUniqueId(),
               name: attraction.name || '',
-              description: attraction.description || '',
-              time: attraction.time || ''
+              description: attraction.description || ''
             };
           }).filter(attraction => attraction.name.trim() !== '');
         }
@@ -109,28 +104,31 @@ const DayDiscoverPopup: React.FC<DayDiscoverPopupProps> = ({
     fetchAttractions();
   }, [itineraryId, dayIndex, isOpen]);
 
-  const handleAddAttraction = async () => {
+  const handleAddAttraction = () => {
     if (!newAttractionName.trim()) return;
 
     const newAttraction: Attraction = {
       id: generateUniqueId(),
       name: newAttractionName.trim(),
-      description: newAttractionDesc.trim(),
-      time: newAttractionTime.trim()
+      description: newAttractionDesc.trim()
     };
 
-    const updatedAttractions = [...attractions, newAttraction];
+    setAttractions([...attractions, newAttraction]);
+    setNewAttractionName('');
+    setNewAttractionDesc('');
+    setShowAddForm(false);
+  };
 
+  const handleSaveChanges = async () => {
     try {
       // Try to update first
       const { data: updateData, error: updateError } = await supabase
         .from('user_itinerary_day_attractions')
         .update({
-          attractions: updatedAttractions.map(a => ({
+          attractions: attractions.map(a => ({
             id: a.id,
             name: a.name,
-            description: a.description,
-            time: a.time
+            description: a.description
           }))
         })
         .eq('itinerary_id', itineraryId)
@@ -145,33 +143,28 @@ const DayDiscoverPopup: React.FC<DayDiscoverPopupProps> = ({
             .insert({
               itinerary_id: itineraryId,
               day_index: dayIndex,
-              attractions: updatedAttractions.map(a => ({
+              attractions: attractions.map(a => ({
                 id: a.id,
                 name: a.name,
-                description: a.description,
-                time: a.time
+                description: a.description
               }))
             })
             .select();
 
           if (insertError) {
-            console.error('Error inserting attraction:', insertError);
+            console.error('Error inserting attractions:', insertError);
             return;
           }
         } else {
-          console.error('Error updating attraction:', updateError);
+          console.error('Error updating attractions:', updateError);
           return;
         }
       }
 
-      setAttractions(updatedAttractions);
-      setNewAttractionName('');
-      setNewAttractionDesc('');
-      setNewAttractionTime('');
-      setShowAddForm(false);
-      onAttractionsUpdate(updatedAttractions);
+      onAttractionsUpdate(attractions);
+      onClose();
     } catch (error) {
-      console.error('Error saving attraction:', error);
+      console.error('Error saving attractions:', error);
     }
   };
 
@@ -183,8 +176,7 @@ const DayDiscoverPopup: React.FC<DayDiscoverPopupProps> = ({
         ? {
           ...attraction,
           name: editName.trim(),
-          description: editDesc.trim(),
-          time: editTime.trim()
+          description: editDesc.trim()
         }
         : attraction
     );
@@ -196,8 +188,7 @@ const DayDiscoverPopup: React.FC<DayDiscoverPopupProps> = ({
           attractions: updatedAttractions.map(a => ({
             id: a.id,
             name: a.name,
-            description: a.description,
-            time: a.time
+            description: a.description
           }))
         })
         .eq('itinerary_id', itineraryId)
@@ -212,7 +203,6 @@ const DayDiscoverPopup: React.FC<DayDiscoverPopupProps> = ({
       setIsEditing(null);
       setEditName('');
       setEditDesc('');
-      setEditTime('');
       onAttractionsUpdate(updatedAttractions);
     } catch (error) {
       console.error('Error saving attraction:', error);
@@ -229,8 +219,7 @@ const DayDiscoverPopup: React.FC<DayDiscoverPopupProps> = ({
           attractions: updatedAttractions.map(a => ({
             id: a.id,
             name: a.name,
-            description: a.description,
-            time: a.time
+            description: a.description
           }))
         })
         .eq('itinerary_id', itineraryId)
@@ -251,181 +240,198 @@ const DayDiscoverPopup: React.FC<DayDiscoverPopupProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onClose} />
-      <div className="relative w-full max-w-3xl bg-white rounded-xl shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#E2E8F0] px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#00B8A9]/10 flex items-center justify-center">
-              <Compass className="w-5 h-5 text-[#00B8A9]" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-[#1E293B]">
-                {cleanDestination(destination)}
-              </h2>
-              <p className="text-sm text-[#64748B]">{date}</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-full p-2 text-[#64748B] hover:bg-[#F1F5F9] transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      className="fixed inset-0 z-50 overflow-y-auto"
+    >
+      <div className="flex items-center justify-center min-h-screen p-3">
+        <Dialog.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
 
-        {/* Content */}
-        <div className="max-h-[60vh] overflow-y-auto p-6">
-          {/* Add Attraction Button */}
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="w-full mb-6 flex items-center justify-center gap-2 px-4 py-3 text-[#6366F1] border border-[#6366F1] rounded-lg hover:bg-[#EEF2FF] transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Add New Attraction
-          </button>
-
-          {/* Add Attraction Form */}
-          {showAddForm && (
-            <div className="mb-6 p-4 border border-[#E2E8F0] rounded-lg">
-              <input
-                type="text"
-                value={newAttractionName}
-                onChange={(e) => setNewAttractionName(e.target.value)}
-                placeholder="Attraction name"
-                className="w-full mb-2 px-3 py-2 border border-[#E2E8F0] rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-              />
-              <textarea
-                value={newAttractionDesc}
-                onChange={(e) => setNewAttractionDesc(e.target.value)}
-                placeholder="Description (optional)"
-                className="w-full mb-2 px-3 py-2 border border-[#E2E8F0] rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                rows={3}
-              />
-              <input
-                type="time"
-                value={newAttractionTime}
-                onChange={(e) => setNewAttractionTime(e.target.value)}
-                className="w-full mb-4 px-3 py-2 border border-[#E2E8F0] rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-              />
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => setShowAddForm(false)}
-                  className="px-4 py-2 text-[#64748B] hover:bg-[#F1F5F9] rounded-md transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddAttraction}
-                  className="px-4 py-2 bg-[#6366F1] text-white rounded-md hover:bg-[#4F46E5] transition-colors"
-                >
-                  Add
-                </button>
+        <div className="relative bg-white rounded-xl w-full max-w-xl shadow-2xl">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 bg-[#00B8A9]/5 rounded-t-xl border-b border-[#00B8A9]/10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-[#00B8A9]/10 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-[#00B8A9]" />
+              </div>
+              <div>
+                <Dialog.Title className="text-lg font-semibold text-gray-900">
+                  Discover Places
+                </Dialog.Title>
+                <p className="text-sm text-gray-500">
+                  {cleanDestination(destination)} · {date}
+                </p>
               </div>
             </div>
-          )}
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-gray-400 hover:text-gray-500 hover:bg-[#00B8A9]/5 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
-          {/* Attractions List */}
-          <div className="space-y-4">
-            {attractions.map((attraction) => (
-              <div
-                key={attraction.id}
-                className="relative rounded-lg border border-[#E2E8F0] p-4 hover:shadow-md transition-all"
-              >
-                {isEditing === attraction.id ? (
-                  <div>
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      placeholder="Attraction name"
-                      className="w-full mb-2 px-3 py-2 border border-[#E2E8F0] rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                    />
-                    <textarea
-                      value={editDesc}
-                      onChange={(e) => setEditDesc(e.target.value)}
-                      placeholder="Description (optional)"
-                      className="w-full mb-2 px-3 py-2 border border-[#E2E8F0] rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                      rows={3}
-                    />
-                    <input
-                      type="time"
-                      value={editTime}
-                      onChange={(e) => setEditTime(e.target.value)}
-                      placeholder="Select time"
-                      className="w-full mb-4 px-3 py-2 border border-[#E2E8F0] rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                    />
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => setIsEditing(null)}
-                        className="px-4 py-2 text-[#64748B] hover:bg-[#F1F5F9] rounded-md transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => handleEditAttraction(attraction.id)}
-                        className="px-4 py-2 bg-[#6366F1] text-white rounded-md hover:bg-[#4F46E5] transition-colors"
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <MapPin className="h-5 w-5 text-[#00B8A9]" />
-                        <span className="font-medium text-[#1E293B]">
-                          {typeof attraction.name === 'string' ? attraction.name : ''}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            setIsEditing(attraction.id);
-                            setEditName(attraction.name);
-                            setEditDesc(attraction.description || '');
-                            setEditTime(attraction.time || '');
-                            console.log('Setting edit values:', {
-                              name: attraction.name,
-                              description: attraction.description,
-                              time: attraction.time
-                            });
-                          }}
-                          className="p-1.5 text-[#64748B] hover:bg-[#F1F5F9] rounded-md transition-colors"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteAttraction(attraction.id)}
-                          className="p-1.5 text-[#EF4444] hover:bg-[#FEE2E2] rounded-md transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="mt-2 ml-8 space-y-1">
-                      {typeof attraction.description === 'string' && attraction.description && (
-                        <p className="text-sm text-[#64748B]">
-                          {attraction.description}
-                        </p>
-                      )}
-                      {typeof attraction.time === 'string' && attraction.time && (
-                        <div className="flex items-center gap-2 text-sm text-[#64748B]">
-                          <Clock className="w-4 h-4" />
-                          <span>{attraction.time}</span>
+          {/* Content */}
+          <div className="p-6">
+            {/* Add Attraction Button */}
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="w-full mb-6 flex items-center justify-center gap-2 px-4 py-3 bg-[#00B8A9]/5 text-[#00B8A9] rounded-lg hover:bg-[#00B8A9]/10 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add New Place
+            </button>
+
+            {/* Add Attraction Form */}
+            {showAddForm && (
+              <div className="mb-6 p-4 border border-[#E2E8F0] rounded-lg">
+                <input
+                  type="text"
+                  value={newAttractionName}
+                  onChange={(e) => setNewAttractionName(e.target.value)}
+                  placeholder="Place name"
+                  className="w-full mb-2 px-3 py-2 border border-[#E2E8F0] rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B8A9]"
+                />
+                <textarea
+                  value={newAttractionDesc}
+                  onChange={(e) => setNewAttractionDesc(e.target.value)}
+                  placeholder="Description (optional)"
+                  className="w-full mb-4 px-3 py-2 border border-[#E2E8F0] rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B8A9]"
+                  rows={3}
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setShowAddForm(false)}
+                    className="px-4 py-2 text-[#64748B] hover:bg-[#F1F5F9] rounded-md transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAddAttraction}
+                    className="px-4 py-2 bg-[#00B8A9] text-white rounded-md hover:bg-[#009B8E] transition-colors"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Attractions List */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold text-gray-900">Selected Places</h3>
+                <span className="px-2.5 py-0.5 bg-[#00B8A9]/10 text-[#00B8A9] text-sm font-medium rounded-full">
+                  {attractions.length} {attractions.length === 1 ? 'place' : 'places'}
+                </span>
+              </div>
+              <div className="border border-gray-100 rounded-lg divide-y divide-gray-100 max-h-[300px] overflow-y-auto">
+                {attractions.map((attraction) => (
+                  <div
+                    key={attraction.id}
+                    className="p-3 hover:bg-gray-50 group transition-colors"
+                  >
+                    {isEditing === attraction.id ? (
+                      <div>
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          placeholder="Place name"
+                          className="w-full mb-2 px-3 py-2 border border-[#E2E8F0] rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B8A9]"
+                        />
+                        <textarea
+                          value={editDesc}
+                          onChange={(e) => setEditDesc(e.target.value)}
+                          placeholder="Description (optional)"
+                          className="w-full mb-4 px-3 py-2 border border-[#E2E8F0] rounded-md focus:outline-none focus:ring-2 focus:ring-[#00B8A9]"
+                          rows={3}
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => setIsEditing(null)}
+                            className="px-4 py-2 text-[#64748B] hover:bg-[#F1F5F9] rounded-md transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => handleEditAttraction(attraction.id)}
+                            className="px-4 py-2 bg-[#00B8A9] text-white rounded-md hover:bg-[#009B8E] transition-colors"
+                          >
+                            Save
+                          </button>
                         </div>
-                      )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-start gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-[#00B8A9]/10 flex items-center justify-center flex-shrink-0">
+                            <Sparkles className="w-4 h-4 text-[#00B8A9]" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900 text-sm">
+                              {typeof attraction.name === 'string' ? attraction.name : ''}
+                            </p>
+                            {attraction.description && (
+                              <p className="text-xs text-gray-500">
+                                {typeof attraction.description === 'string' ? attraction.description : ''}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => {
+                              setIsEditing(attraction.id);
+                              setEditName(attraction.name);
+                              setEditDesc(attraction.description || '');
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-md transition-colors"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAttraction(attraction.id)}
+                            className="p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {attractions.length === 0 && (
+                  <div className="p-6 text-center">
+                    <div className="w-12 h-12 rounded-lg bg-[#00B8A9]/5 flex items-center justify-center mx-auto mb-3">
+                      <Sparkles className="w-6 h-6 text-[#00B8A9]/40" />
                     </div>
-                  </>
+                    <p className="text-sm text-gray-500 font-medium">No places selected</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Add some exciting spots to your itinerary!</p>
+                  </div>
                 )}
               </div>
-            ))}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-end gap-2 p-4 bg-gray-50 rounded-b-xl border-t border-gray-100">
+            <button
+              onClick={onClose}
+              className="px-3 py-1.5 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveChanges}
+              className="px-4 py-1.5 bg-[#00B8A9] text-white rounded-lg hover:bg-[#009B8E] transition-colors text-sm"
+            >
+              Save Changes
+            </button>
           </div>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 };
 
