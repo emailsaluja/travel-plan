@@ -1,167 +1,206 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, Trash2, Plus } from 'lucide-react';
+import { Dialog } from '@headlessui/react';
+import { X, Bed } from 'lucide-react';
 import { cleanDestination } from '../utils/stringUtils';
+import { supabase } from '../lib/supabase';
 
 interface HotelSearchPopupProps {
   isOpen: boolean;
   onClose: () => void;
   destination: string;
-  onHotelSelect: (hotel: string, isManual?: boolean, description?: string) => void;
   selectedHotel?: string;
   manualHotel?: string;
   manualHotelDesc?: string;
+  onHotelSelect: (hotel: string, isManual?: boolean, description?: string) => void;
+  itineraryId?: string;
+  destinationIndex?: number;
 }
 
 const HotelSearchPopup: React.FC<HotelSearchPopupProps> = ({
   isOpen,
   onClose,
   destination,
-  onHotelSelect,
   selectedHotel,
   manualHotel,
-  manualHotelDesc
+  manualHotelDesc,
+  onHotelSelect,
+  itineraryId,
+  destinationIndex
 }) => {
-  // State for manual hotel entry
-  const [manualHotelName, setManualHotelName] = useState('');
-  const [manualHotelDescription, setManualHotelDescription] = useState('');
+  const [hotelName, setHotelName] = useState('');
+  const [hotelDescription, setHotelDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Initialize with existing hotel data if available
   useEffect(() => {
-    // Reset states first
-    setManualHotelName('');
-    setManualHotelDescription('');
+    setHotelName(manualHotel || selectedHotel || '');
+    setHotelDescription(manualHotelDesc || '');
+    setError(null);
+  }, [selectedHotel, manualHotel, manualHotelDesc]);
 
-    // First try to use the manual hotel name
-    if (manualHotel) {
-      setManualHotelName(manualHotel);
-    }
-    // If no manual hotel name, use the selected hotel name
-    else if (selectedHotel) {
-      setManualHotelName(selectedHotel);
-    }
-
-    // Set the description if available
-    if (manualHotelDesc) {
-      setManualHotelDescription(manualHotelDesc);
-    }
-
-    // Log values for debugging
-    console.log('Hotel popup values:', { manualHotel, selectedHotel, manualHotelDesc });
-  }, [isOpen, manualHotel, selectedHotel, manualHotelDesc]);
-
-  // Handle manual hotel submission
-  const handleManualHotelSubmit = () => {
-    if (manualHotelName.trim()) {
-      onHotelSelect(manualHotelName.trim(), true, manualHotelDescription.trim());
-      onClose();
-    } else {
+  const handleSaveChanges = async () => {
+    if (!hotelName.trim()) {
       setError('Hotel name is required');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      if (itineraryId && destinationIndex !== undefined) {
+        // Update the user_itinerary_destinations table
+        const { error: updateError } = await supabase
+          .from('user_itinerary_destinations')
+          .update({
+            manual_hotel: hotelName.trim(),
+            manual_hotel_desc: hotelDescription.trim()
+          })
+          .eq('itinerary_id', itineraryId)
+          .eq('order_index', destinationIndex);
+
+        if (updateError) {
+          throw updateError;
+        }
+      }
+
+      // Call the parent handler
+      onHotelSelect(hotelName.trim(), true, hotelDescription.trim());
+      onClose();
+    } catch (error) {
+      console.error('Error saving hotel:', error);
+      setError('Failed to save hotel. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  // Handle delete hotel
-  const handleDeleteHotel = () => {
-    // Also clear the local state to ensure UI reflects the deletion immediately
-    setManualHotelName('');
-    setManualHotelDescription('');
+  const handleDeleteHotel = async () => {
+    setIsSaving(true);
+    try {
+      if (itineraryId && destinationIndex !== undefined) {
+        // Clear the hotel data in the user_itinerary_destinations table
+        const { error: updateError } = await supabase
+          .from('user_itinerary_destinations')
+          .update({
+            manual_hotel: '',
+            manual_hotel_desc: ''
+          })
+          .eq('itinerary_id', itineraryId)
+          .eq('order_index', destinationIndex);
 
-    // Call the parent component's handler with empty values
-    onHotelSelect('', true, '');
-    onClose();
+        if (updateError) {
+          throw updateError;
+        }
+      }
+
+      // Call the parent handler
+      onHotelSelect('', true, '');
+      onClose();
+    } catch (error) {
+      console.error('Error deleting hotel:', error);
+      setError('Failed to delete hotel. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
-
-  if (!isOpen) return null;
-
-  // Determine if we have any existing hotel data
-  const hasExistingHotel = Boolean(manualHotel || selectedHotel);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl w-full max-w-md max-h-[90vh] overflow-hidden relative">
-        {/* Close button at the top of popup */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 bg-white rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors z-10"
-        >
-          <X className="w-5 h-5" />
-        </button>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      className="fixed inset-0 z-50 overflow-y-auto"
+    >
+      <div className="flex items-center justify-center min-h-screen p-3">
+        <Dialog.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
 
-        <div className="p-6">
-          <div className="mb-6">
-            <h2 className="text-[#165964] text-2xl font-bold pr-8">
-              Sleeping in {cleanDestination(destination)}
-            </h2>
-            <div className="text-gray-500 text-sm">
-              {hasExistingHotel ? 'Edit hotel details' : 'Add your hotel information'}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Hotel Name*
-              </label>
-              <input
-                type="text"
-                value={manualHotelName}
-                onChange={(e) => setManualHotelName(e.target.value)}
-                placeholder="Enter hotel name"
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFBA49] focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Hotel Description
-              </label>
-              <textarea
-                value={manualHotelDescription}
-                onChange={(e) => setManualHotelDescription(e.target.value)}
-                placeholder="Enter hotel description, address, or additional details"
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFBA49] focus:border-transparent h-32 resize-none"
-              />
-            </div>
-
-            {error && (
-              <div className="text-red-500 text-sm">
-                {error}
+        <div className="relative bg-white rounded-xl w-full max-w-xl shadow-2xl">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 bg-[#F59E0B]/5 rounded-t-xl border-b border-[#F59E0B]/10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-[#F59E0B]/10 flex items-center justify-center">
+                <Bed className="w-5 h-5 text-[#F59E0B]" />
               </div>
-            )}
+              <div>
+                <Dialog.Title className="text-lg font-semibold text-gray-900">
+                  Hotel Details
+                </Dialog.Title>
+                <p className="text-sm text-gray-500">
+                  {cleanDestination(destination)}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-gray-400 hover:text-gray-500 hover:bg-[#F59E0B]/5 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-        </div>
 
-        <div className="border-t border-gray-100 pt-4 pb-4 px-6">
-          <div className="flex justify-between gap-4">
-            {!hasExistingHotel ? (
+          {/* Content */}
+          <div className="p-4 space-y-4">
+            <div className="bg-[#F59E0B]/5 rounded-lg p-4 space-y-3">
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Hotel Name</label>
+                  <input
+                    type="text"
+                    placeholder="Enter hotel name"
+                    value={hotelName}
+                    onChange={(e) => {
+                      setHotelName(e.target.value);
+                      setError(null);
+                    }}
+                    className={`w-full p-2.5 border ${error ? 'border-red-500' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-[#F59E0B] focus:border-transparent outline-none transition-shadow text-sm`}
+                  />
+                  {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
+                  <textarea
+                    placeholder="Add any notes about the hotel"
+                    value={hotelDescription}
+                    onChange={(e) => setHotelDescription(e.target.value)}
+                    rows={3}
+                    className="w-full p-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#F59E0B] focus:border-transparent outline-none transition-shadow text-sm resize-none"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-b-xl border-t border-gray-100">
+            {selectedHotel || manualHotel ? (
               <button
-                onClick={handleManualHotelSubmit}
-                className="w-full py-3 bg-[#FFBA49] text-white rounded-full flex items-center justify-center gap-2 font-semibold hover:bg-[#F0B042] transition-colors"
+                onClick={handleDeleteHotel}
+                disabled={isSaving}
+                className="px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Plus className="w-5 h-5" />
-                Add custom
+                {isSaving ? 'Removing...' : 'Remove Hotel'}
               </button>
             ) : (
-              <>
-                <button
-                  onClick={handleManualHotelSubmit}
-                  className="flex-1 py-3 bg-[#FFBA49] text-white rounded-full flex items-center justify-center gap-2 font-semibold hover:bg-[#F0B042] transition-colors"
-                >
-                  <Check className="w-5 h-5" />
-                  Save
-                </button>
-                <button
-                  onClick={handleDeleteHotel}
-                  className="py-3 px-5 bg-red-500 text-white rounded-full flex items-center gap-2 hover:bg-red-600 transition-colors"
-                >
-                  <Trash2 className="w-5 h-5" />
-                  Delete
-                </button>
-              </>
+              <div></div>
             )}
+            <div className="flex gap-2">
+              <button
+                onClick={onClose}
+                disabled={isSaving}
+                className="px-3 py-1.5 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveChanges}
+                disabled={isSaving}
+                className="px-3 py-1.5 bg-[#F59E0B] text-white rounded-lg hover:bg-[#D97706] transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 };
 

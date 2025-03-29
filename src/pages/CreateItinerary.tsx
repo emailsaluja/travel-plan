@@ -311,6 +311,55 @@ const CreateItinerary: React.FC = () => {
             console.log('Setting sorted destinations with hotels:', destinationsWithHotels);
             setItineraryDays(destinationsWithHotels);
 
+            // Load hotels from user_itinerary_day_hotels table
+            const { data: dayHotelsData, error: dayHotelsError } = await supabase
+              .from('user_itinerary_day_hotels')
+              .select('day_index, hotel, hotel_desc')
+              .eq('itinerary_id', itineraryId)
+              .order('day_index');
+
+            if (dayHotelsError) {
+              console.error('Error loading day hotels:', dayHotelsError);
+            } else {
+              // Initialize dayHotels from user_itinerary_day_hotels
+              const newDayHotels: DayHotel[] = dayHotelsData.map((dh: any) => ({
+                dayIndex: dh.day_index,
+                hotel: dh.hotel || '',
+                isManual: true
+              }));
+
+              // If there are missing days, fill them with hotels from destinations
+              let hotelDayIndex = 0;
+              destinationsWithHotels.forEach((dest: any) => {
+                const hotelName = dest.manual_hotel || dest.hotel || '';
+                for (let i = 0; i < dest.nights; i++) {
+                  const dayIndex = hotelDayIndex + i;
+                  if (!newDayHotels.some(h => h.dayIndex === dayIndex)) {
+                    newDayHotels.push({
+                      dayIndex,
+                      hotel: hotelName,
+                      isManual: Boolean(dest.manual_hotel)
+                    });
+                  }
+                }
+                hotelDayIndex += dest.nights;
+              });
+
+              // Sort hotels by day index
+              newDayHotels.sort((a, b) => a.dayIndex - b.dayIndex);
+              console.log('Setting day hotels from user_itinerary_day_hotels:', newDayHotels);
+              setDayHotels(newDayHotels);
+
+              // Cache hotel descriptions
+              const descriptionCache: Record<number, string> = {};
+              dayHotelsData.forEach((dh: any) => {
+                if (dh.hotel_desc) {
+                  descriptionCache[dh.day_index] = dh.hotel_desc;
+                }
+              });
+              setHotelDescriptionCache(descriptionCache);
+            }
+
             // Initialize dayFoods from sorted destinations
             let currentDayIndex = 0;
             const newDayFoods: DayFood[] = [];
@@ -2168,7 +2217,7 @@ const CreateItinerary: React.FC = () => {
   };
 
   // Add a new helper function to get hotel info without API calls
-  const getHotelInfoFromState = (dayIndex: number): { hotel: string, description: string } => {
+  const getHotelInfoFromState = async (dayIndex: number): Promise<{ hotel: string, description: string }> => {
     // First check our cache for description
     const cachedDescription = hotelDescriptionCache[dayIndex];
 
@@ -2184,7 +2233,34 @@ const CreateItinerary: React.FC = () => {
       };
     }
 
-    // If no cached description, try to find a fallback from destinations
+    // If we have an itineraryId, check the database first
+    if (itineraryId) {
+      try {
+        const { data, error } = await supabase
+          .from('user_itinerary_day_hotels')
+          .select('hotel, hotel_desc')
+          .eq('itinerary_id', itineraryId)
+          .eq('day_index', dayIndex)
+          .maybeSingle();
+
+        if (!error && data) {
+          // Cache the description
+          setHotelDescriptionCache(prev => ({
+            ...prev,
+            [dayIndex]: data.hotel_desc || ''
+          }));
+
+          return {
+            hotel: data.hotel || '',
+            description: data.hotel_desc || ''
+          };
+        }
+      } catch (error) {
+        console.error('Error fetching hotel info from database:', error);
+      }
+    }
+
+    // If no data in database or no itineraryId, try to find a fallback from destinations
     // Find which destination this day belongs to
     let currentDayCount = 0;
     let destinationIndex = -1;
@@ -2514,44 +2590,15 @@ const CreateItinerary: React.FC = () => {
                             console.log(`Hotel click for day ${dayIndex}, destination: ${destination}`);
 
                             // Get hotel info without API calls first
-                            const { hotel, description } = getHotelInfoFromState(dayIndex);
+                            (async () => {
+                              const { hotel, description } = await getHotelInfoFromState(dayIndex);
 
-                            // Set the description and open the popup right away
-                            setDayHotelDesc(description);
-                            setCurrentDestinationForHotel(cleanDestination(destination));
-                            setCurrentDestinationIndexForHotel(dayIndex);
-                            setIsDayHotelSearchOpen(true);
-
-                            // Only fetch from API if we don't have data and an itineraryId exists
-                            // This should never happen during normal tab switching
-                            if (!description && itineraryId) {
-                              (async () => {
-                                try {
-                                  console.log(`Fetching hotel description for day ${dayIndex} from API`);
-                                  const { data, error } = await supabase
-                                    .from('user_itinerary_day_hotels')
-                                    .select('hotel_desc')
-                                    .eq('itinerary_id', itineraryId)
-                                    .eq('day_index', dayIndex)
-                                    .single();
-
-                                  if (error) {
-                                    console.error(`Error fetching hotel description for day ${dayIndex}:`, error);
-                                  } else if (data && data.hotel_desc) {
-                                    console.log(`Found hotel description for day ${dayIndex}:`, data.hotel_desc);
-                                    setDayHotelDesc(data.hotel_desc);
-
-                                    // Cache the description
-                                    setHotelDescriptionCache(prev => ({
-                                      ...prev,
-                                      [dayIndex]: data.hotel_desc
-                                    }));
-                                  }
-                                } catch (error) {
-                                  console.error(`Failed to fetch hotel description for day ${dayIndex}:`, error);
-                                }
-                              })();
-                            }
+                              // Set the description and open the popup right away
+                              setDayHotelDesc(description);
+                              setCurrentDestinationForHotel(cleanDestination(destination));
+                              setCurrentDestinationIndexForHotel(dayIndex);
+                              setIsDayHotelSearchOpen(true);
+                            })();
                           }}
                           onFoodClick={handleDayFoodSelect}
                           dayFoods={dayFoods.map(df => df.foodItems)}
@@ -2678,7 +2725,6 @@ const CreateItinerary: React.FC = () => {
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="hotel-search-title"
           >
             <HotelSearchPopup
               isOpen={isHotelSearchOpen}
@@ -2687,25 +2733,12 @@ const CreateItinerary: React.FC = () => {
                 setCurrentDestinationForHotel('');
               }}
               destination={currentDestinationForHotel}
-              selectedHotel={itineraryDays[currentDestinationIndexForHotel]?.hotel || ''}
-              manualHotel={itineraryDays[currentDestinationIndexForHotel]?.manual_hotel || ''}
-              manualHotelDesc={itineraryDays[currentDestinationIndexForHotel]?.manual_hotel_desc || ''}
-              onHotelSelect={(hotel, isManual, description) => handleHotelSelect(hotel, isManual, description)}
-            />
-          </div>
-        )}
-
-        {showTripSummaryEdit && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="trip-summary-edit-title"
-          >
-            <TripSummaryEdit
-              tripSummary={tripSummary}
-              onClose={() => setShowTripSummaryEdit(false)}
-              onUpdate={handleTripSummaryUpdate}
+              onHotelSelect={handleHotelSelect}
+              itineraryId={itineraryId || ''}
+              destinationIndex={currentDestinationIndexForHotel}
+              selectedHotel={itineraryDays[currentDestinationIndexForHotel]?.hotel}
+              manualHotel={itineraryDays[currentDestinationIndexForHotel]?.manual_hotel}
+              manualHotelDesc={itineraryDays[currentDestinationIndexForHotel]?.manual_hotel_desc}
             />
           </div>
         )}
@@ -2715,21 +2748,20 @@ const CreateItinerary: React.FC = () => {
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="day-hotel-search-title"
           >
             <DayHotelSearchPopup
               isOpen={isDayHotelSearchOpen}
               onClose={() => {
                 setIsDayHotelSearchOpen(false);
                 setCurrentDestinationForHotel('');
-                setCurrentDestinationIndexForHotel(-1);
                 setDayHotelDesc('');
               }}
               destination={currentDestinationForHotel}
-              dayIndex={currentDestinationIndexForHotel}
-              selectedHotel={dayHotels.find(h => h.dayIndex === currentDestinationIndexForHotel)?.hotel || ''}
-              hotelDesc={dayHotelDesc}
               onHotelSelect={handleDayHotelSelect}
+              dayIndex={currentDestinationIndexForHotel}
+              selectedHotel={dayHotels.find(h => h.dayIndex === currentDestinationIndexForHotel)?.hotel}
+              hotelDesc={dayHotelDesc}
+              itineraryId={itineraryId || ''}
             />
           </div>
         )}
@@ -2773,6 +2805,8 @@ const CreateItinerary: React.FC = () => {
                   setItineraryDays(updatedDays);
                 }
               }}
+              itineraryId={itineraryId || ''}
+              destinationIndex={itineraryDays.findIndex((d: ItineraryDay) => cleanDestination(d.destination) === activeDestinationForDiscover)}
             />
           </div>
         )}

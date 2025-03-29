@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, Trash2, Plus } from 'lucide-react';
+import { Dialog } from '@headlessui/react';
+import { X, Bed } from 'lucide-react';
 import { cleanDestination } from '../utils/stringUtils';
+import { supabase } from '../lib/supabase';
 
 interface DayHotelSearchPopupProps {
     isOpen: boolean;
@@ -10,6 +12,7 @@ interface DayHotelSearchPopupProps {
     onHotelSelect: (hotel: string, dayIndex: number, description?: string) => void;
     selectedHotel?: string;
     hotelDesc?: string;
+    itineraryId?: string;
 }
 
 const DayHotelSearchPopup: React.FC<DayHotelSearchPopupProps> = ({
@@ -19,154 +22,256 @@ const DayHotelSearchPopup: React.FC<DayHotelSearchPopupProps> = ({
     dayIndex,
     onHotelSelect,
     selectedHotel,
-    hotelDesc
+    hotelDesc,
+    itineraryId
 }) => {
-    // State for hotel entry
     const [hotelName, setHotelName] = useState('');
     const [hotelDescription, setHotelDescription] = useState('');
     const [error, setError] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
-    // Initialize with existing hotel data if available
+    // Fetch hotel data from user_itinerary_day_hotels when popup opens
     useEffect(() => {
-        // Reset states first
-        setHotelName('');
-        setHotelDescription('');
+        const fetchHotelData = async () => {
+            if (!itineraryId || !isOpen) return;
 
-        // Use the selected hotel if available
-        if (selectedHotel) {
-            setHotelName(selectedHotel);
+            setIsLoading(true);
+            try {
+                const { data, error } = await supabase
+                    .from('user_itinerary_day_hotels')
+                    .select('hotel, hotel_desc')
+                    .eq('itinerary_id', itineraryId)
+                    .eq('day_index', dayIndex)
+                    .maybeSingle();
+
+                if (error) {
+                    console.error('Error fetching hotel data:', error);
+                    return;
+                }
+
+                if (data) {
+                    setHotelName(data.hotel || '');
+                    setHotelDescription(data.hotel_desc || '');
+                } else {
+                    // If no data in user_itinerary_day_hotels, use the passed props
+                    setHotelName(selectedHotel || '');
+                    setHotelDescription(hotelDesc || '');
+                }
+            } catch (error) {
+                console.error('Error fetching hotel data:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchHotelData();
+    }, [itineraryId, dayIndex, isOpen]);
+
+    // Reset form when popup closes
+    useEffect(() => {
+        if (!isOpen) {
+            setError(null);
+            setIsSaving(false);
+            setIsLoading(false);
+        }
+    }, [isOpen]);
+
+    const handleSaveChanges = async () => {
+        if (!hotelName.trim()) {
+            setError('Hotel name is required');
+            return;
         }
 
-        // Set the description if available
-        if (hotelDesc) {
-            console.log(`Setting hotel description to: "${hotelDesc}"`);
-            setHotelDescription(hotelDesc);
-        } else {
-            console.log('No hotel description available');
-        }
+        setIsSaving(true);
+        try {
+            if (itineraryId) {
+                // First check if a record exists
+                const { data: existingRecord, error: checkError } = await supabase
+                    .from('user_itinerary_day_hotels')
+                    .select('*')
+                    .eq('itinerary_id', itineraryId)
+                    .eq('day_index', dayIndex)
+                    .maybeSingle();
 
-        // Log values for debugging
-        console.log('Day Hotel popup values:', {
-            selectedHotel,
-            hotelDesc,
-            dayIndex,
-            destination
-        });
-    }, [isOpen, selectedHotel, hotelDesc, dayIndex, destination]);
+                if (checkError) {
+                    throw checkError;
+                }
 
-    // Handle hotel submission
-    const handleHotelSubmit = () => {
-        if (hotelName.trim()) {
-            console.log(`Submitting hotel: "${hotelName.trim()}" with description: "${hotelDescription.trim()}"`);
+                if (existingRecord) {
+                    // Update existing record
+                    const { error: updateError } = await supabase
+                        .from('user_itinerary_day_hotels')
+                        .update({
+                            hotel: hotelName.trim(),
+                            hotel_desc: hotelDescription.trim(),
+                            created_at: new Date()
+                        })
+                        .eq('itinerary_id', itineraryId)
+                        .eq('day_index', dayIndex);
+
+                    if (updateError) {
+                        throw updateError;
+                    }
+                } else {
+                    // Insert new record
+                    const { error: insertError } = await supabase
+                        .from('user_itinerary_day_hotels')
+                        .insert({
+                            itinerary_id: itineraryId,
+                            day_index: dayIndex,
+                            hotel: hotelName.trim(),
+                            hotel_desc: hotelDescription.trim(),
+                            created_at: new Date()
+                        });
+
+                    if (insertError) {
+                        throw insertError;
+                    }
+                }
+            }
+
+            // Call the parent handler
             onHotelSelect(hotelName.trim(), dayIndex, hotelDescription.trim());
             onClose();
-        } else {
-            setError('Hotel name is required');
+        } catch (error) {
+            console.error('Error saving hotel:', error);
+            setError('Failed to save hotel. Please try again.');
+        } finally {
+            setIsSaving(false);
         }
     };
 
-    // Handle delete hotel
-    const handleDeleteHotel = () => {
-        // Clear the local state
-        setHotelName('');
-        setHotelDescription('');
+    const handleDeleteHotel = async () => {
+        setIsSaving(true);
+        try {
+            if (itineraryId) {
+                const { error: deleteError } = await supabase
+                    .from('user_itinerary_day_hotels')
+                    .delete()
+                    .eq('itinerary_id', itineraryId)
+                    .eq('day_index', dayIndex);
 
-        // Call the parent component's handler with empty values
-        onHotelSelect('', dayIndex, '');
-        onClose();
+                if (deleteError) {
+                    throw deleteError;
+                }
+            }
+
+            // Call the parent handler
+            onHotelSelect('', dayIndex, '');
+            onClose();
+        } catch (error) {
+            console.error('Error deleting hotel:', error);
+            setError('Failed to delete hotel. Please try again.');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
-    if (!isOpen) return null;
-
-    // Determine if we have any existing hotel data
-    const hasExistingHotel = Boolean(selectedHotel);
-
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl w-full max-w-md max-h-[90vh] overflow-hidden relative">
-                {/* Close button at the top of popup */}
-                <button
-                    onClick={onClose}
-                    className="absolute top-4 right-4 p-2 bg-white rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors z-10"
-                >
-                    <X className="w-5 h-5" />
-                </button>
+        <Dialog
+            open={isOpen}
+            onClose={onClose}
+            className="fixed inset-0 z-50 overflow-y-auto"
+        >
+            <div className="flex items-center justify-center min-h-screen p-3">
+                <Dialog.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
 
-                <div className="p-6">
-                    <div className="mb-6">
-                        <h2 className="text-[#165964] text-2xl font-bold pr-8">
-                            Hotel in {cleanDestination(destination)}
-                        </h2>
-                        <div className="text-gray-500 text-sm">
-                            {hasExistingHotel ? 'Edit hotel details' : 'Add your hotel information'}
+                <div className="relative bg-white rounded-xl w-full max-w-xl shadow-2xl">
+                    {/* Header */}
+                    <div className="flex items-center justify-between p-4 bg-[#F59E0B]/5 rounded-t-xl border-b border-[#F59E0B]/10">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-[#F59E0B]/10 flex items-center justify-center">
+                                <Bed className="w-5 h-5 text-[#F59E0B]" />
+                            </div>
+                            <div>
+                                <Dialog.Title className="text-lg font-semibold text-gray-900">
+                                    Hotel Details
+                                </Dialog.Title>
+                                <p className="text-sm text-gray-500">
+                                    Day {dayIndex + 1} · {cleanDestination(destination)}
+                                </p>
+                            </div>
                         </div>
+                        <button
+                            onClick={onClose}
+                            className="rounded-lg p-1.5 text-gray-400 hover:text-gray-500 hover:bg-[#F59E0B]/5 transition-colors"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
                     </div>
 
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Hotel Name*
-                            </label>
-                            <input
-                                type="text"
-                                value={hotelName}
-                                onChange={(e) => setHotelName(e.target.value)}
-                                placeholder="Enter hotel name"
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFBA49] focus:border-transparent"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Hotel Description
-                            </label>
-                            <textarea
-                                value={hotelDescription}
-                                onChange={(e) => setHotelDescription(e.target.value)}
-                                placeholder="Enter hotel description, address, or additional details"
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFBA49] focus:border-transparent h-32 resize-none"
-                            />
-                        </div>
-
-                        {error && (
-                            <div className="text-red-500 text-sm">
-                                {error}
+                    {/* Content */}
+                    <div className="p-4 space-y-4">
+                        {isLoading ? (
+                            <div className="flex items-center justify-center py-8">
+                                <div className="w-6 h-6 border-2 border-[#F59E0B] border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                        ) : (
+                            <div className="bg-[#F59E0B]/5 rounded-lg p-4 space-y-3">
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Hotel Name</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Enter hotel name"
+                                            value={hotelName}
+                                            onChange={(e) => {
+                                                setHotelName(e.target.value);
+                                                setError(null);
+                                            }}
+                                            className={`w-full p-2.5 border ${error ? 'border-red-500' : 'border-gray-200'} rounded-lg focus:ring-2 focus:ring-[#F59E0B] focus:border-transparent outline-none transition-shadow text-sm`}
+                                        />
+                                        {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
+                                        <textarea
+                                            placeholder="Add any notes about the hotel"
+                                            value={hotelDescription}
+                                            onChange={(e) => setHotelDescription(e.target.value)}
+                                            rows={3}
+                                            className="w-full p-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#F59E0B] focus:border-transparent outline-none transition-shadow text-sm resize-none"
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
-                </div>
 
-                <div className="border-t border-gray-100 pt-4 pb-4 px-6">
-                    <div className="flex justify-between gap-4">
-                        {!hasExistingHotel ? (
+                    {/* Footer */}
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-b-xl border-t border-gray-100">
+                        {selectedHotel ? (
                             <button
-                                onClick={handleHotelSubmit}
-                                className="w-full py-3 bg-[#FFBA49] text-white rounded-full flex items-center justify-center gap-2 font-semibold hover:bg-[#F0B042] transition-colors"
+                                onClick={handleDeleteHotel}
+                                disabled={isSaving}
+                                className="px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <Plus className="w-5 h-5" />
-                                Add hotel
+                                {isSaving ? 'Removing...' : 'Remove Hotel'}
                             </button>
                         ) : (
-                            <>
-                                <button
-                                    onClick={handleHotelSubmit}
-                                    className="flex-1 py-3 bg-[#FFBA49] text-white rounded-full flex items-center justify-center gap-2 font-semibold hover:bg-[#F0B042] transition-colors"
-                                >
-                                    <Check className="w-5 h-5" />
-                                    Save
-                                </button>
-                                <button
-                                    onClick={handleDeleteHotel}
-                                    className="py-3 px-5 bg-red-500 text-white rounded-full flex items-center gap-2 hover:bg-red-600 transition-colors"
-                                >
-                                    <Trash2 className="w-5 h-5" />
-                                    Delete
-                                </button>
-                            </>
+                            <div></div>
                         )}
+                        <div className="flex gap-2">
+                            <button
+                                onClick={onClose}
+                                disabled={isSaving}
+                                className="px-3 py-1.5 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSaveChanges}
+                                disabled={isSaving}
+                                className="px-3 py-1.5 bg-[#F59E0B] text-white rounded-lg hover:bg-[#D97706] transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isSaving ? 'Saving...' : 'Save Changes'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </Dialog>
     );
 };
 
