@@ -486,7 +486,6 @@ const CreateItinerary: React.FC = () => {
     // If we're updating nights, we need to update the hotel assignments
     if (field === 'nights') {
       const oldNights = itineraryDays[index].nights;
-      const destinationHotel = updatedDays[index].hotel || '';
       const newNights = Number(value);
 
       // Calculate the start day index for this destination
@@ -496,32 +495,52 @@ const CreateItinerary: React.FC = () => {
       }
 
       // Create a new array of day hotels
-      const updatedHotels = dayHotels.filter(h => h.dayIndex < startDayIndex);
+      let updatedHotels = [...dayHotels];
+
+      // First, preserve all hotels before this destination
+      const hotelsBeforeDestination = updatedHotels.filter(h => h.dayIndex < startDayIndex);
+
+      // Get the hotels for this destination
+      const destinationHotel = updatedDays[index].hotel || updatedDays[index].manual_hotel || '';
+      const isManual = Boolean(updatedDays[index].manual_hotel);
 
       // Add hotel entries for all days in this destination
-      for (let i = 0; i < newNights; i++) {
-        updatedHotels.push({
-          dayIndex: startDayIndex + i,
-          hotel: destinationHotel,
-          isManual: false
-        });
-      }
+      const destinationHotels = Array.from({ length: newNights }, (_, i) => ({
+        dayIndex: startDayIndex + i,
+        hotel: destinationHotel,
+        isManual
+      }));
 
-      // Add hotels for subsequent destinations
-      let currentDayIndex = startDayIndex + newNights;
+      // Calculate the start index for subsequent destinations
+      const nextDestinationStartIndex = startDayIndex + newNights;
+
+      // Get all subsequent destinations' hotels
+      let subsequentHotels: DayHotel[] = [];
+      let currentDayIndex = nextDestinationStartIndex;
+
+      // Process each subsequent destination
       for (let i = index + 1; i < itineraryDays.length; i++) {
         const dest = itineraryDays[i];
-        const destHotel = dest.hotel || '';
+        const destHotel = dest.hotel || dest.manual_hotel || '';
+        const isManualDest = Boolean(dest.manual_hotel);
 
+        // Add hotels for each night in this destination
         for (let j = 0; j < dest.nights; j++) {
-          updatedHotels.push({
+          subsequentHotels.push({
             dayIndex: currentDayIndex + j,
             hotel: destHotel,
-            isManual: false
+            isManual: isManualDest
           });
         }
         currentDayIndex += dest.nights;
       }
+
+      // Combine all hotels in correct order
+      updatedHotels = [
+        ...hotelsBeforeDestination,
+        ...destinationHotels,
+        ...subsequentHotels
+      ];
 
       // Sort hotels by day index
       updatedHotels.sort((a, b) => a.dayIndex - b.dayIndex);
