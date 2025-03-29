@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { UserItineraryViewService, UserItineraryView } from '../services/user-itinerary-view.service';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
-import { Calendar, Utensils } from 'lucide-react';
+import { Calendar, Utensils, MapPin, ArrowLeft } from 'lucide-react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { config } from '../config/config';
@@ -12,44 +12,115 @@ import { config } from '../config/config';
 mapboxgl.accessToken = config.mapbox.accessToken;
 
 const getHeroImage = async (tripName: string, country: string): Promise<string> => {
-    // Curated fallback images for travel/landscape
-    const fallbackImages = [
-        'https://images.unsplash.com/photo-1469521669194-babb45599def',
-        'https://images.unsplash.com/photo-1507699622108-4be3abd695ad',
-        'https://images.unsplash.com/photo-1598890777032-bde835ba27c2'
-    ];
+    // Curated images for New Zealand's most popular tourist destinations
+    const newZealandDestinations: Record<string, string[]> = {
+        'Auckland': [
+            'https://images.unsplash.com/photo-1507699622108-4be3abd695ad?w=3000&q=90', // Auckland Skyline
+            'https://images.unsplash.com/photo-1551224364-0658ccd4c61e?w=3000&q=90' // Auckland Harbour
+        ],
+        'Rotorua': [
+            'https://images.unsplash.com/photo-1578862973944-aa3f6bbe3b11?w=3000&q=90', // Thermal pools
+            'https://images.unsplash.com/photo-1601341339138-3184c0756ff9?w=3000&q=90'  // Redwoods
+        ],
+        'Waitomo': [
+            'https://images.unsplash.com/photo-1579258151343-c8cb81408939?w=3000&q=90', // Glowworm caves
+            'https://images.unsplash.com/photo-1578862973944-aa3f6bbe3b11?w=3000&q=90'  // Scenic landscape
+        ],
+        'Wellington': [
+            'https://images.unsplash.com/photo-1589579234047-c0452a71d909?w=3000&q=90', // Wellington cityscape
+            'https://images.unsplash.com/photo-1584590069631-1c180f90a54c?w=3000&q=90'  // Mount Victoria
+        ],
+        'Queenstown': [
+            'https://images.unsplash.com/photo-1469521669194-babb45599def?w=3000&q=90', // Lake Wakatipu
+            'https://images.unsplash.com/photo-1595739463664-e2f8734ddc4c?w=3000&q=90'  // Remarkables
+        ],
+        'Mount Cook': [
+            'https://images.unsplash.com/photo-1578862973944-aa3f6bbe3b11?w=3000&q=90', // Aoraki
+            'https://images.unsplash.com/photo-1530523712096-296c1b78fa77?w=3000&q=90'  // Lake Pukaki
+        ],
+        'Milford Sound': [
+            'https://images.unsplash.com/photo-1504675099198-7023dd85f5a3?w=3000&q=90', // Mitre Peak
+            'https://images.unsplash.com/photo-1531116336130-daa2c0864bda?w=3000&q=90'  // Waterfalls
+        ],
+        'Coromandel': [
+            'https://images.unsplash.com/photo-1530523712096-296c1b78fa77?w=3000&q=90', // Cathedral Cove
+            'https://images.unsplash.com/photo-1578862973944-aa3f6bbe3b11?w=3000&q=90'  // Hot Water Beach
+        ]
+    };
 
-    // If no valid Unsplash API key, return a random fallback image
-    if (!config.unsplash.accessKey || config.unsplash.accessKey === 'your_unsplash_access_key_here') {
-        const randomIndex = Math.floor(Math.random() * fallbackImages.length);
-        return `${fallbackImages[randomIndex]}?w=3000&q=85&auto=format&fit=crop`;
-    }
+    // Generic scenic images for New Zealand as fallback
+    const countryScenic: Record<string, string[]> = {
+        'New Zealand': [
+            'https://images.unsplash.com/photo-1469521669194-babb45599def?w=3000&q=90', // Milford Sound
+            'https://images.unsplash.com/photo-1578862973944-aa3f6bbe3b11?w=3000&q=90', // Mount Cook
+            'https://images.unsplash.com/photo-1595739463664-e2f8734ddc4c?w=3000&q=90', // Queenstown
+            'https://images.unsplash.com/photo-1504675099198-7023dd85f5a3?w=3000&q=90', // Lake Tekapo
+            'https://images.unsplash.com/photo-1530523712096-296c1b78fa77?w=3000&q=90', // Cathedral Cove
+            'https://images.unsplash.com/photo-1589579234047-c0452a71d909?w=3000&q=90'  // Wellington
+        ]
+    };
 
     try {
-        // Create a search query for Unsplash
-        const query = `${country} landscape scenic travel`;
+        // First, try to find a destination-specific image
+        if (country === 'New Zealand') {
+            // Find the current destination from the trip name
+            const destination = Object.keys(newZealandDestinations).find(
+                dest => tripName.includes(dest)
+            );
 
-        // Call Unsplash API to get a relevant photo
-        const response = await fetch(
-            `${config.unsplash.apiBaseUrl}/photos/random?query=${encodeURIComponent(query)}&orientation=landscape`,
-            {
-                headers: {
-                    'Authorization': `Client-ID ${config.unsplash.accessKey}`
-                }
+            if (destination) {
+                const destinationImages = newZealandDestinations[destination];
+                return destinationImages[Math.floor(Math.random() * destinationImages.length)];
             }
-        );
 
-        if (!response.ok) {
-            throw new Error('Failed to fetch image');
+            // If no specific destination match, use country scenic images
+            const countryImages = countryScenic[country];
+            if (countryImages) {
+                return countryImages[Math.floor(Math.random() * countryImages.length)];
+            }
         }
 
-        const data = await response.json();
-        return `${data.urls.raw}&w=3000&q=85&auto=format&fit=crop`;
+        // If no matching destination or country images, try Unsplash API
+        if (config.unsplash.accessKey && config.unsplash.accessKey !== 'your_unsplash_access_key_here') {
+            const searchTerms = [
+                country,
+                'landmark',
+                'tourist destination',
+                'scenic',
+                'famous'
+            ];
+
+            const query = searchTerms.join(' ');
+            const params = new URLSearchParams({
+                query,
+                orientation: 'landscape',
+                content_filter: 'high',
+                order_by: 'relevant'
+            });
+
+            const response = await fetch(
+                `${config.unsplash.apiBaseUrl}/photos/random?${params}`,
+                {
+                    headers: {
+                        'Authorization': `Client-ID ${config.unsplash.accessKey}`
+                    }
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch image');
+            }
+
+            const data = await response.json();
+            return `${data.urls.raw}&w=3000&q=90&auto=enhance,format&fit=crop&crop=entropy&sharp=10&sat=1.2`;
+        }
+
+        // Final fallback: use a random New Zealand scenic image
+        return countryScenic['New Zealand'][Math.floor(Math.random() * countryScenic['New Zealand'].length)];
     } catch (error) {
         console.error('Error fetching hero image:', error);
-        // Return a random fallback image on error
-        const randomIndex = Math.floor(Math.random() * fallbackImages.length);
-        return `${fallbackImages[randomIndex]}?w=3000&q=85&auto=format&fit=crop`;
+        // Fallback to New Zealand scenic images
+        return countryScenic['New Zealand'][Math.floor(Math.random() * countryScenic['New Zealand'].length)];
     }
 };
 
@@ -339,32 +410,37 @@ const ViewMyItinerary: React.FC = () => {
 
     return (
         <section className="relative">
-            <div className="relative w-full h-[500px] -mt-20">
+            <div className="relative w-full h-[70vh] -mt-20">
                 <div
                     className="absolute inset-0 bg-cover bg-center transition-all duration-500"
                     style={{
                         backgroundImage: `url('${heroImage}')`,
                     }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-black/30" />
-                <div className="container mx-auto h-full max-w-[90rem] relative">
-                    <div className="flex flex-col justify-end h-full pb-16">
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.6 }}
-                            className="text-center px-6"
-                        >
-                            <h1 className="text-[40px] sm:text-[48px] font-light text-white mb-4">
-                                {itinerary?.trip_name}
-                            </h1>
-                            <p className="text-xl text-white/90 mb-6">
-                                A {itinerary?.duration}-day journey through {itinerary?.country}
-                            </p>
-                            <Link to="/overview" className="text-white/90 hover:text-white flex items-center justify-center gap-2 transition-colors">
-                                ← Back to overview
-                            </Link>
-                        </motion.div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                <div className="container mx-auto h-full max-w-[1400px] relative">
+                    <div className="absolute bottom-0 left-0 right-0 p-12">
+                        <div className="flex flex-wrap gap-4 mb-6 text-white/90">
+                            <div className="flex items-center gap-2">
+                                <MapPin className="w-5 h-5" />
+                                <span className="text-lg">{itinerary?.country}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Calendar className="w-5 h-5" />
+                                <span className="text-lg">{formatDate(itinerary?.start_date || '')}</span>
+                            </div>
+                        </div>
+                        <h1 className="text-5xl font-medium tracking-tight mb-6 text-white">
+                            {itinerary?.trip_name}
+                        </h1>
+                        <div className="flex items-center gap-4">
+                            <span className="px-4 py-1.5 bg-[#00C48C] text-white rounded-full text-sm font-medium">
+                                {itinerary?.duration} days
+                            </span>
+                            <span className="px-4 py-1.5 bg-white/95 text-gray-900 rounded-full text-sm font-medium">
+                                {itinerary?.passengers} travelers
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -385,14 +461,35 @@ const ViewMyItinerary: React.FC = () => {
                         }}
                         className="w-full"
                     >
-                        <TabsList className="mb-6 flex flex-wrap h-auto bg-transparent p-0 justify-start w-full border-b border-[#E2E8F0]">
+                        <TabsList className="mb-8 relative flex flex-wrap h-auto bg-transparent p-0 justify-start w-full">
+                            {/* Timeline line */}
+                            <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gradient-to-r from-teal-500 to-teal-400 transform -translate-y-1/2 rounded-full" />
+
                             {itinerary?.destinations.map((dest, index) => (
                                 <TabsTrigger
                                     key={dest.destination}
                                     value={dest.destination}
-                                    className="data-[state=active]:bg-transparent data-[state=active]:text-[#6366F1] data-[state=active]:border-b-2 data-[state=active]:border-[#6366F1] mr-6 mb-0 px-1 pb-4 rounded-none"
+                                    className="group relative px-2 py-3 min-w-[140px] transition-all duration-300 data-[state=active]:scale-105"
                                 >
-                                    {dest.destination} ({dest.nights} {dest.nights === 1 ? 'day' : 'days'})
+                                    {/* Card */}
+                                    <div className="relative mt-3 bg-white rounded-lg p-2.5 shadow-lg shadow-black/[0.03] border border-gray-100 group-data-[state=active]:border-teal-500/20 group-data-[state=active]:shadow-teal-500/10 transition-all duration-300">
+                                        <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-white border-t border-l border-gray-100 group-data-[state=active]:border-teal-500/20" />
+
+                                        <div className="flex flex-col items-center text-center">
+                                            <div className="w-6 h-6 mb-1.5 rounded-full bg-[#F8FAFC] flex items-center justify-center text-xs font-medium text-teal-600 group-data-[state=active]:bg-teal-500 group-data-[state=active]:text-white transition-colors">
+                                                {index + 1}
+                                            </div>
+                                            <div className="font-medium text-[#0F172A] group-data-[state=active]:text-teal-600 transition-colors text-xs">
+                                                {dest.destination}
+                                            </div>
+                                            <div className="mt-0.5 text-[10px] text-[#64748B]">
+                                                {dest.nights} {dest.nights === 1 ? 'night' : 'nights'}
+                                            </div>
+                                            <div className="mt-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-50 text-gray-600 group-data-[state=active]:bg-teal-50 group-data-[state=active]:text-teal-600">
+                                                {formatDate(calculateStartDate(index, 0).toISOString())}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </TabsTrigger>
                             ))}
                         </TabsList>
@@ -590,6 +687,30 @@ const ViewMyItinerary: React.FC = () => {
                 }
                 .destination-popup .mapboxgl-popup-tip {
                     display: none;
+                }
+                
+                /* Custom Teal Theme Styles */
+                .tab-gradient {
+                    background: linear-gradient(to right, #14b8a6, #2dd4bf);
+                }
+                
+                .tab-active {
+                    border-color: rgba(20, 184, 166, 0.2);
+                    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.1);
+                }
+                
+                .tab-number {
+                    color: #0d9488;
+                }
+                
+                .tab-number-active {
+                    background-color: #14b8a6;
+                    color: white;
+                }
+                
+                .tab-date {
+                    background-color: #f0fdfa;
+                    color: #0d9488;
                 }
             `}</style>
         </section>
