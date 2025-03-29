@@ -70,9 +70,11 @@ export const CountryImagesService = {
                     return this.getFallbackImages();
                 }
 
+                // Initialize result with fallback images first
+                const result: Record<string, string[]> = this.getFallbackImages();
+
                 // Fetch all folders in parallel with batching
-                const result: Record<string, string[]> = {};
-                const batchSize = 5; // Reduced batch size for better reliability
+                const batchSize = 5;
 
                 for (let i = 0; i < countries.length; i += batchSize) {
                     const batch = countries.slice(i, i + batchSize);
@@ -80,7 +82,7 @@ export const CountryImagesService = {
                         try {
                             if (!country.folder_name) {
                                 console.warn(`No folder name for country: ${country.name}`);
-                                result[country.name] = this.getFallbackImagesForCountry(country.name);
+                                // Already initialized with fallback
                                 return;
                             }
 
@@ -88,43 +90,43 @@ export const CountryImagesService = {
                                 .from('country-images')
                                 .list(`${country.folder_name}/`);
 
-                            if (error) {
-                                console.error(`Error listing files for ${country.name}:`, error);
-                                result[country.name] = this.getFallbackImagesForCountry(country.name);
+                            if (error || !files || files.length === 0) {
+                                console.warn(`Using fallback images for ${country.name}`);
+                                // Already initialized with fallback
                                 return;
                             }
 
-                            if (!files || files.length === 0) {
-                                console.warn(`No images found for ${country.name}`);
-                                result[country.name] = this.getFallbackImagesForCountry(country.name);
-                                return;
-                            }
+                            const urls = files
+                                .map(file => {
+                                    try {
+                                        const { data: { publicUrl } } = supabase.storage
+                                            .from('country-images')
+                                            .getPublicUrl(`${country.folder_name}/${file.name}`);
+                                        return publicUrl;
+                                    } catch (e) {
+                                        console.error(`Error getting public URL for ${country.name}/${file.name}:`, e);
+                                        return null;
+                                    }
+                                })
+                                .filter(url => url) as string[]; // Filter out any null URLs
 
-                            const urls = files.map(file => {
-                                const { data: { publicUrl } } = supabase.storage
-                                    .from('country-images')
-                                    .getPublicUrl(`${country.folder_name}/${file.name}`);
-                                return publicUrl;
-                            }).filter(url => url); // Filter out any undefined URLs
-
-                            if (urls.length === 0) {
-                                result[country.name] = this.getFallbackImagesForCountry(country.name);
-                            } else {
+                            if (urls.length > 0) {
                                 result[country.name] = urls;
                                 imageCache.set(country.name, {
                                     urls,
                                     timestamp: Date.now()
                                 });
                             }
+                            // If no valid URLs, keep the fallback images we initialized with
                         } catch (error) {
                             console.error(`Error processing images for ${country.name}:`, error);
-                            result[country.name] = this.getFallbackImagesForCountry(country.name);
+                            // Keep fallback images
                         }
                     }));
 
                     // Small delay between batches to prevent rate limiting
                     if (i + batchSize < countries.length) {
-                        await new Promise(resolve => setTimeout(resolve, 100)); // Increased delay
+                        await new Promise(resolve => setTimeout(resolve, 200));
                     }
                 }
 

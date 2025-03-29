@@ -346,10 +346,14 @@ const Discover: React.FC = () => {
                             }
                             selected[country] = imageUrl.toString();
                         } else {
-                            selected[country] = '/images/empty-state.svg';
+                            // Use default images if no country-specific images found
+                            const defaultImages = images['default'] || [];
+                            const randomDefaultIndex = Math.floor(Math.random() * defaultImages.length);
+                            selected[country] = defaultImages[randomDefaultIndex];
                         }
                     } catch (error) {
                         console.error(`Error processing hero image for ${country}:`, error);
+                        // Use a static fallback image if everything else fails
                         selected[country] = '/images/empty-state.svg';
                     }
                 });
@@ -368,7 +372,10 @@ const Discover: React.FC = () => {
                             }
                             selected[itinerary.id] = imageUrl.toString();
                         } else {
-                            selected[itinerary.id] = '/images/empty-state.svg';
+                            // Use default images if no country-specific images found
+                            const defaultImages = images['default'] || [];
+                            const randomDefaultIndex = Math.floor(Math.random() * defaultImages.length);
+                            selected[itinerary.id] = defaultImages[randomDefaultIndex];
                         }
                     } catch (error) {
                         console.error(`Error processing itinerary image for ${itinerary.id}:`, error);
@@ -393,7 +400,7 @@ const Discover: React.FC = () => {
         };
 
         fetchCountryImages();
-    }, [countryStats, itineraries]);
+    }, [itineraries, countryStats]);
 
     const loadItineraries = async () => {
         try {
@@ -652,8 +659,16 @@ const Discover: React.FC = () => {
                                     className="absolute inset-0 w-full h-full object-cover"
                                     loading="lazy"
                                     onError={(e) => {
+                                        console.error(`Failed to load image for ${country}`);
                                         const target = e.target as HTMLImageElement;
-                                        target.src = '/images/empty-state.svg';
+                                        // Try to get a default image from the country images
+                                        const defaultImages = countryImages['default'] || [];
+                                        if (defaultImages.length > 0) {
+                                            const randomIndex = Math.floor(Math.random() * defaultImages.length);
+                                            target.src = defaultImages[randomIndex];
+                                        } else {
+                                            target.src = '/images/empty-state.svg';
+                                        }
                                     }}
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/60"></div>

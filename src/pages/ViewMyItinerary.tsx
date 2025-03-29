@@ -6,9 +6,52 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs'
 import { Calendar, Utensils } from 'lucide-react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { config } from '../config/config';
 
 // Initialize Mapbox with the token
-mapboxgl.accessToken = 'pk.eyJ1IjoiYW1hbjlpbiIsImEiOiJjbThrdHZrcjQxNXByMmtvZ3d1cGlsYXA4In0.nUn4wFsWrbw2jC6ZMEJNPw';
+mapboxgl.accessToken = config.mapbox.accessToken;
+
+const getHeroImage = async (tripName: string, country: string): Promise<string> => {
+    // Curated fallback images for travel/landscape
+    const fallbackImages = [
+        'https://images.unsplash.com/photo-1469521669194-babb45599def',
+        'https://images.unsplash.com/photo-1507699622108-4be3abd695ad',
+        'https://images.unsplash.com/photo-1598890777032-bde835ba27c2'
+    ];
+
+    // If no valid Unsplash API key, return a random fallback image
+    if (!config.unsplash.accessKey || config.unsplash.accessKey === 'your_unsplash_access_key_here') {
+        const randomIndex = Math.floor(Math.random() * fallbackImages.length);
+        return `${fallbackImages[randomIndex]}?w=3000&q=85&auto=format&fit=crop`;
+    }
+
+    try {
+        // Create a search query for Unsplash
+        const query = `${country} landscape scenic travel`;
+
+        // Call Unsplash API to get a relevant photo
+        const response = await fetch(
+            `${config.unsplash.apiBaseUrl}/photos/random?query=${encodeURIComponent(query)}&orientation=landscape`,
+            {
+                headers: {
+                    'Authorization': `Client-ID ${config.unsplash.accessKey}`
+                }
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch image');
+        }
+
+        const data = await response.json();
+        return `${data.urls.raw}&w=3000&q=85&auto=format&fit=crop`;
+    } catch (error) {
+        console.error('Error fetching hero image:', error);
+        // Return a random fallback image on error
+        const randomIndex = Math.floor(Math.random() * fallbackImages.length);
+        return `${fallbackImages[randomIndex]}?w=3000&q=85&auto=format&fit=crop`;
+    }
+};
 
 const ViewMyItinerary: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -19,6 +62,7 @@ const ViewMyItinerary: React.FC = () => {
     const [coordinates, setCoordinates] = useState<[number, number][]>([]);
     const mapContainer = useRef<HTMLDivElement>(null);
     const map = useRef<mapboxgl.Map | null>(null);
+    const [heroImage, setHeroImage] = useState<string>('');
 
     const formatDate = (date: string) => {
         const options: Intl.DateTimeFormatOptions = {
@@ -49,15 +93,15 @@ const ViewMyItinerary: React.FC = () => {
             const searchQuery = `${destination}, New Zealand`;
 
             const params = new URLSearchParams();
-            params.append('access_token', mapboxgl.accessToken || '');
+            params.append('access_token', config.mapbox.accessToken);
             params.append('types', 'place,region,district,locality,neighborhood');
             params.append('country', 'nz');
             params.append('language', 'en');
             params.append('limit', '1');
-            params.append('proximity', '174.7645,-41.2865'); // Wellington coordinates as center point for NZ
+            params.append('proximity', `${config.map.newZealand.center.lng},${config.map.newZealand.center.lat}`);
 
             const response = await fetch(
-                `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchQuery)}.json?${params}`
+                `${config.mapbox.apiBaseUrl}/geocoding/v5/mapbox.places/${encodeURIComponent(searchQuery)}.json?${params}`
             );
 
             const data = await response.json();
@@ -95,7 +139,7 @@ const ViewMyItinerary: React.FC = () => {
             // Function to get route between two points
             const getRouteBetweenPoints = async (start: [number, number], end: [number, number]) => {
                 const response = await fetch(
-                    `https://api.mapbox.com/directions/v5/mapbox/driving/${start.join(',')};${end.join(',')}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`
+                    `${config.mapbox.apiBaseUrl}/directions/v5/mapbox/driving/${start.join(',')};${end.join(',')}?geometries=geojson&overview=full&access_token=${config.mapbox.accessToken}`
                 );
                 const data = await response.json();
                 return data.routes?.[0]?.geometry?.coordinates || null;
@@ -207,7 +251,7 @@ const ViewMyItinerary: React.FC = () => {
 
             map.current = new mapboxgl.Map({
                 container: mapContainer.current,
-                style: 'mapbox://styles/mapbox/streets-v12',
+                style: config.mapbox.defaultMapStyle,
                 bounds: bounds,
                 fitBoundsOptions: { padding: 50 }
             });
@@ -265,6 +309,15 @@ const ViewMyItinerary: React.FC = () => {
         setSelectedDayIndex(0);
     }, [selectedDestIndex]);
 
+    // Load hero image
+    useEffect(() => {
+        const loadHeroImage = async () => {
+            const imageUrl = await getHeroImage(itinerary?.trip_name || '', itinerary?.country || '');
+            setHeroImage(imageUrl);
+        };
+        loadHeroImage();
+    }, [itinerary?.trip_name, itinerary?.country]);
+
     if (loading) {
         return <div className="container mx-auto px-4 py-8 mt-16">Loading...</div>;
     }
@@ -285,27 +338,45 @@ const ViewMyItinerary: React.FC = () => {
     const dayFoodOptions = itinerary?.day_food_options?.[currentDayNumber - 1]?.food_options || [];
 
     return (
-        <section className="px-6 pt-20">
+        <section className="relative">
+            <div className="relative w-full h-[500px] -mt-20">
+                <div
+                    className="absolute inset-0 bg-cover bg-center transition-all duration-500"
+                    style={{
+                        backgroundImage: `url('${heroImage}')`,
+                    }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-black/30" />
+                <div className="container mx-auto h-full max-w-[90rem] relative">
+                    <div className="flex flex-col justify-end h-full pb-16">
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.6 }}
+                            className="text-center px-6"
+                        >
+                            <h1 className="text-[40px] sm:text-[48px] font-light text-white mb-4">
+                                {itinerary?.trip_name}
+                            </h1>
+                            <p className="text-xl text-white/90 mb-6">
+                                A {itinerary?.duration}-day journey through {itinerary?.country}
+                            </p>
+                            <Link to="/overview" className="text-white/90 hover:text-white flex items-center justify-center gap-2 transition-colors">
+                                ← Back to overview
+                            </Link>
+                        </motion.div>
+                    </div>
+                </div>
+            </div>
+
             <div className="container mx-auto max-w-[90rem]">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6 }}
                     viewport={{ once: true }}
-                    className="py-8"
+                    className="px-6"
                 >
-                    <h1 className="text-[40px] sm:text-[48px] font-light text-[#0F172A] mb-4 text-center">
-                        {itinerary?.trip_name}
-                    </h1>
-                    <p className="text-xl text-[#64748B] mb-6 text-center">
-                        A {itinerary?.duration}-day journey through {itinerary?.country}
-                    </p>
-                    <Link to="/overview" className="text-[#6366F1] hover:text-[#4F46E5] flex items-center justify-center gap-2 mb-8">
-                        ← Back to overview
-                    </Link>
-
-                    <h2 className="text-3xl font-light text-[#0F172A] mb-6">Your {itinerary?.duration}-Day Itinerary</h2>
-
                     <Tabs
                         value={selectedDestination?.destination}
                         onValueChange={(value: string) => {
