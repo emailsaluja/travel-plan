@@ -13,9 +13,12 @@ export interface UserItineraryView {
     destination: string;
     nights: number;
     discover: string;
+    manual_discover?: string;
+    manual_discover_desc?: string;
     transport: string;
     notes: string;
     food: string;
+    food_desc?: string;
   }[];
   discover_descriptions?: {
     [destination: string]: {
@@ -24,11 +27,11 @@ export interface UserItineraryView {
   };
   day_attractions?: {
     day_index: number;
-    attractions: {
+    attractions: (string | {
       id: string;
       name: string;
       description?: string;
-    }[];
+    })[];
   }[];
   day_hotels?: {
     day_index: number;
@@ -46,6 +49,7 @@ export interface UserItineraryView {
       name: string;
       cuisine?: string;
       description?: string;
+      isDestinationFood?: boolean;
     }>;
   }>;
 }
@@ -153,7 +157,8 @@ export const UserItineraryViewService = {
         id: food.id || '',
         name: food.name?.text || '',
         cuisine: food.name?.cuisine || 'Local Cuisine',
-        description: food.name?.known_for || '-'
+        description: food.name?.known_for || '-',
+        isDestinationFood: food.name?.is_destination_food === true
       })) : []
     })) || [];
 

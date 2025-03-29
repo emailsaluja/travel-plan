@@ -408,6 +408,48 @@ const ViewMyItinerary: React.FC = () => {
     const dayNotes = itinerary?.day_notes?.find(d => d.day_index === currentDayNumber - 1)?.notes;
     const dayFoodOptions = itinerary?.day_food_options?.[currentDayNumber - 1]?.food_options || [];
 
+    // Get discover items for the current destination
+    const currentDestination = itinerary?.destinations[selectedDestIndex];
+    const discoverItems = currentDestination?.manual_discover?.split(',').filter(Boolean) || [];
+    const discoverDescriptions = currentDestination?.manual_discover_desc?.split(',').filter(Boolean) || [];
+
+    // Combine day attractions and discover items
+    const allAttractions = [
+        ...dayAttractions.map(attraction => {
+            const name = typeof attraction === 'string' ? attraction : attraction.name;
+            const description = typeof attraction === 'string' ? '' : attraction.description || '';
+            return {
+                name,
+                description,
+                isDiscover: false
+            };
+        }),
+        ...discoverItems.map((item: string, index: number) => ({
+            name: item,
+            description: discoverDescriptions[index] || '',
+            isDiscover: true
+        }))
+    ];
+
+    // Get food items from the current destination
+    const destinationFoodItems = currentDestination?.food?.split(',').filter(Boolean) || [];
+    const destinationFoodDescriptions = currentDestination?.food_desc?.split(',').filter(Boolean) || [];
+
+    // Combine day food options with destination food items
+    const allFoodOptions = [
+        ...dayFoodOptions,
+        ...destinationFoodItems.map((item: string, index: number) => {
+            const [cuisine = '', knownFor = ''] = (destinationFoodDescriptions[index] || '').split('-').map((s: string) => s.trim());
+            return {
+                id: `dest-${index}`,
+                name: item.trim(),
+                cuisine: cuisine || 'Local Cuisine',
+                description: knownFor || '-',
+                isDestinationFood: true
+            };
+        })
+    ];
+
     return (
         <section className="relative">
             <div className="relative w-full h-[70vh] -mt-20">
@@ -558,12 +600,12 @@ const ViewMyItinerary: React.FC = () => {
                                                             </svg>
                                                             <h3 className="text-[#0F172A] text-lg font-semibold">Things to Do & See</h3>
                                                         </div>
-                                                        <p className="text-[#64748B] text-sm">Scheduled activities for the day</p>
+                                                        <p className="text-[#64748B] text-sm">Scheduled activities and recommended places to visit</p>
                                                     </div>
 
                                                     <div className="space-y-4 p-6 pt-2">
-                                                        {dayAttractions.map((attraction, index) => (
-                                                            <div key={attraction.id || index} className="flex items-start justify-between p-4 border border-[#E2E8F0] rounded-lg">
+                                                        {allAttractions.map((attraction, index) => (
+                                                            <div key={index} className="flex items-start justify-between p-4 border border-[#E2E8F0] rounded-lg">
                                                                 <div className="flex items-start gap-3">
                                                                     <div className="mt-1">
                                                                         <svg className="w-4 h-4 text-[#0EA5E9]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -572,7 +614,14 @@ const ViewMyItinerary: React.FC = () => {
                                                                     </div>
                                                                     <div>
                                                                         <h4 className="text-[#0F172A] text-base font-medium">{attraction.name}</h4>
-                                                                        <p className="text-[#64748B] text-sm mt-1">{attraction.description || ''}</p>
+                                                                        {attraction.description && (
+                                                                            <p className="text-[#64748B] text-sm mt-1">{attraction.description}</p>
+                                                                        )}
+                                                                        {attraction.isDiscover && (
+                                                                            <span className="inline-block mt-1 text-xs px-2 py-0.5 bg-[#0EA5E9]/10 text-[#0EA5E9] rounded-full">
+                                                                                Not scheduled
+                                                                            </span>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                                 {(() => {
@@ -602,7 +651,7 @@ const ViewMyItinerary: React.FC = () => {
                                                                 })()}
                                                             </div>
                                                         ))}
-                                                        {dayAttractions.length === 0 && (
+                                                        {allAttractions.length === 0 && (
                                                             <div className="p-6 text-[#64748B] text-sm">
                                                                 No activities scheduled for this day.
                                                             </div>
@@ -628,14 +677,21 @@ const ViewMyItinerary: React.FC = () => {
                                                         </div>
 
                                                         <div className="divide-y divide-[#E2E8F0]">
-                                                            {dayFoodOptions.map((food, index) => (
+                                                            {allFoodOptions.map((food, index) => (
                                                                 <div key={food.id || index} className="grid grid-cols-[2fr,1.5fr,2.5fr] py-4">
-                                                                    <div className="text-[#0F172A] text-sm font-medium">{food.name}</div>
+                                                                    <div className="flex flex-col gap-1">
+                                                                        <div className="text-[#0F172A] text-sm font-medium">{food.name}</div>
+                                                                        {food.isDestinationFood && (
+                                                                            <span className="inline-block text-xs px-2 py-0.5 bg-[#0EA5E9]/10 text-[#0EA5E9] rounded-full w-fit">
+                                                                                Not scheduled
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
                                                                     <div className="text-[#64748B] text-sm">{food.cuisine || 'Local Cuisine'}</div>
                                                                     <div className="text-[#64748B] text-sm">{food.description || '-'}</div>
                                                                 </div>
                                                             ))}
-                                                            {dayFoodOptions.length === 0 && (
+                                                            {allFoodOptions.length === 0 && (
                                                                 <div className="py-4 text-[#64748B] text-sm">
                                                                     No dining options added for this day.
                                                                 </div>
