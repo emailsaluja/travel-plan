@@ -32,7 +32,16 @@ const FoodPopup: React.FC<FoodPopupProps> = ({
     dayIndex,
     onFoodUpdate,
 }) => {
-    const [foodItems, setFoodItems] = useState<FoodItem[]>(selectedFoodItems);
+    const [foodItems, setFoodItems] = useState<FoodItem[]>(
+        selectedFoodItems?.map(item => ({
+            id: item.id || Math.random().toString(36).substring(7),
+            name: {
+                text: item.name?.text || '',
+                cuisine: item.name?.cuisine || '',
+                known_for: item.name?.known_for || ''
+            }
+        })) || []
+    );
     const [showAddNew, setShowAddNew] = useState(false);
     const [newFoodItem, setNewFoodItem] = useState<{
         text: string;
@@ -45,7 +54,17 @@ const FoodPopup: React.FC<FoodPopupProps> = ({
     });
 
     useEffect(() => {
-        setFoodItems(selectedFoodItems);
+        // Ensure we properly format incoming food items
+        setFoodItems(
+            selectedFoodItems?.map(item => ({
+                id: item.id || Math.random().toString(36).substring(7),
+                name: {
+                    text: item.name?.text || '',
+                    cuisine: item.name?.cuisine || '',
+                    known_for: item.name?.known_for || ''
+                }
+            })) || []
+        );
     }, [selectedFoodItems]);
 
     const handleRemoveFood = (foodId: string) => {
@@ -53,7 +72,16 @@ const FoodPopup: React.FC<FoodPopupProps> = ({
     };
 
     const handleSaveChanges = () => {
-        onFoodUpdate(foodItems);
+        // Ensure all food items have the correct structure before saving
+        const cleanedFoodItems = foodItems.map(item => ({
+            id: item.id || Math.random().toString(36).substring(7),
+            name: {
+                text: item.name?.text || '',
+                cuisine: item.name?.cuisine || '',
+                known_for: item.name?.known_for || ''
+            }
+        }));
+        onFoodUpdate(cleanedFoodItems);
     };
 
     const handleAddNewFood = async () => {
@@ -63,9 +91,9 @@ const FoodPopup: React.FC<FoodPopupProps> = ({
             const newFood: FoodItem = {
                 id: Math.random().toString(36).substring(7),
                 name: {
-                    text: newFoodItem.text,
-                    cuisine: newFoodItem.cuisine,
-                    known_for: newFoodItem.known_for,
+                    text: newFoodItem.text.trim(),
+                    cuisine: newFoodItem.cuisine.trim(),
+                    known_for: newFoodItem.known_for.trim(),
                 },
             };
 
