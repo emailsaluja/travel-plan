@@ -52,6 +52,7 @@ import FoodPopup from '../components/FoodPopup';
 import TopNavigation from '../components/TopNavigation';
 import MapboxMap from '../components/MapboxMap';
 import DestinationDiscover from '../components/DestinationDiscover';
+import { toast } from 'react-toastify';
 
 interface DestinationData {
   destination: string;
@@ -192,6 +193,18 @@ const formatDate = (date: Date) => {
   return `${weekday} ${day} ${month} ${year}`;
 };
 
+interface Destination {
+  nights: number;
+  discover?: Array<{ name: string }>;
+  manual_discover?: Array<{ name: string }>;
+  food?: Array<{
+    id: string;
+    name: string;
+    cuisine: string;
+    known_for: string;
+  }>;
+}
+
 const CreateItinerary: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -241,6 +254,14 @@ const CreateItinerary: React.FC = () => {
   const [currentDestinationIndexForFood, setCurrentDestinationIndexForFood] = useState<number | null>(null);
   const [showDestinationDiscover, setShowDestinationDiscover] = useState(false);
   const [activeDestinationForDiscover, setActiveDestinationForDiscover] = useState<string>('');
+  // Add a state to track if we're in day-by-day view
+  const [isDayByDayView, setIsDayByDayView] = useState(false);
+  const [showNotesPopup, setShowNotesPopup] = useState(false);
+  const [selectedDayForNotes, setSelectedDayForNotes] = useState<{
+    dayIndex: number;
+    notes: string;
+  } | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Add available tags constant
   const AVAILABLE_TAGS = [
@@ -268,6 +289,18 @@ const CreateItinerary: React.FC = () => {
 
   // Add a new state to manually trigger sync
   const [triggerSync, setTriggerSync] = useState(false);
+
+  // Add state for day-by-day data
+  const [dayByDayData, setDayByDayData] = useState<{
+    dayAttractions: Array<{
+      dayIndex: number;
+      selectedAttractions: string[];
+    }>;
+    dayFoodOptions: FoodItem[][];
+  }>({
+    dayAttractions: [],
+    dayFoodOptions: []
+  });
 
   useEffect(() => {
     const loadExistingItinerary = async () => {
@@ -435,6 +468,48 @@ const CreateItinerary: React.FC = () => {
     loadExistingItinerary();
   }, [itineraryId]);
 
+  // Initialize day-by-day data when itinerary days change
+  useEffect(() => {
+    if (!itineraryDays?.length) return;
+
+    const newDayAttractions: Array<{
+      dayIndex: number;
+      selectedAttractions: string[];
+    }> = [];
+    const newDayFoodOptions: FoodItem[][] = [];
+
+    let currentDayIndex = 0;
+    itineraryDays.forEach((destination) => {
+      for (let night = 0; night < destination.nights; night++) {
+        // Process attractions
+        const dayAttractions = destination.discover ? [destination.discover] : [];
+        const manualAttractions = destination.manual_discover ? [destination.manual_discover] : [];
+        newDayAttractions.push({
+          dayIndex: currentDayIndex,
+          selectedAttractions: [...dayAttractions, ...manualAttractions]
+        });
+
+        // Process food options
+        const foodItems: FoodItem[] = destination.food ? destination.food.split(',').map(foodName => ({
+          id: Math.random().toString(36).substring(7),
+          name: {
+            text: foodName.trim(),
+            cuisine: 'Local Cuisine',
+            known_for: ''
+          }
+        })) : [];
+        newDayFoodOptions[currentDayIndex] = foodItems;
+
+        currentDayIndex++;
+      }
+    });
+
+    setDayByDayData({
+      dayAttractions: newDayAttractions,
+      dayFoodOptions: newDayFoodOptions
+    });
+  }, [itineraryDays]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setTripSummary(prev => ({
@@ -552,196 +627,93 @@ const CreateItinerary: React.FC = () => {
 
   const handleSave = async () => {
     try {
-      setLoading(true);
-      setError(null);
+      setIsSaving(true);
 
-      // First, prepare the destinations data with food items and descriptions
-      const destinationsWithFood = itineraryDays.map((day, index) => {
-        let startDayIndex = 0;
-        for (let i = 0; i < index; i++) {
-          startDayIndex += itineraryDays[i].nights;
-        }
+      if (!itineraryId) {
+        throw new Error('No itinerary ID found');
+      }
 
-        // Get unique food items for this destination
-        const uniqueFoodItems = new Set<FoodItem>();
-        const foodDescriptions = new Set<string>();
+      // First, delete all existing day attractions
+      const { error: deleteError } = await supabase
+        .from('user_itinerary_day_attractions')
+        .delete()
+        .eq('itinerary_id', itineraryId);
 
-        for (let i = 0; i < day.nights; i++) {
-          const dayFood = dayFoods.find(f => f.dayIndex === startDayIndex + i);
-          if (dayFood?.foodItems) {
-            dayFood.foodItems.forEach(item => {
-              if (item && item.name) {
-                uniqueFoodItems.add(item);
-                const cuisine = item.name.cuisine || '';
-                const knownFor = item.name.known_for || '';
-                if (cuisine || knownFor) {
-                  const desc = [cuisine, knownFor].filter(Boolean).join(' - ');
-                  if (desc) foodDescriptions.add(desc);
-                }
-              }
-            });
-          }
-        }
+      if (deleteError) {
+        console.error('Error deleting existing attractions:', deleteError);
+        throw deleteError;
+      }
 
-        // Convert food items to string
-        const foodString = Array.from(uniqueFoodItems)
-          .map(item => item?.name?.text || '')
-          .filter(Boolean)
-          .join(', ');
+      // Prepare day attractions for saving
+      const dayAttractionsToSave = dayByDayData.dayAttractions.map(da => ({
+        itinerary_id: itineraryId,
+        day_index: da.dayIndex,
+        attractions: da.selectedAttractions
+      }));
 
-        const foodDescString = Array.from(foodDescriptions)
-          .filter(Boolean)
-          .join(', ');
+      // Insert new day attractions
+      if (dayAttractionsToSave.length > 0) {
+        const { error: insertError } = await supabase
+          .from('user_itinerary_day_attractions')
+          .insert(dayAttractionsToSave);
 
-        return {
-          destination: day.destination,
-          nights: day.nights,
-          discover: day.discover || '',
-          manual_discover: day.manual_discover || '',
-          manual_discover_desc: day.manual_discover_desc || '',
-          transport: day.transport || '',
-          notes: day.notes || '',
-          food: foodString,
-          food_desc: foodDescString,
-          hotel: day.hotel || '',
-          manual_hotel: day.manual_hotel || '',
-          manual_hotel_desc: day.manual_hotel_desc || '',
-          order_index: index,
-          itinerary_id: itineraryId || ''
-        };
-      });
-
-      // If updating an existing itinerary
-      if (itineraryId) {
-        // Update user_itinerary_destinations table with food descriptions
-        for (const destination of destinationsWithFood) {
-          console.log('Updating destination with food data:', {
-            destination: destination.destination,
-            food: destination.food,
-            food_desc: destination.food_desc,
-            order_index: destination.order_index
-          });
-
-          try {
-            // First, update the user_itinerary_destinations table
-            const { error: updateError } = await supabase
-              .from('user_itinerary_destinations')
-              .update({
-                destination: destination.destination,
-                nights: destination.nights,
-                discover: destination.discover,
-                manual_discover: destination.manual_discover,
-                manual_discover_desc: destination.manual_discover_desc,
-                transport: destination.transport,
-                notes: destination.notes,
-                food: destination.food,
-                food_desc: destination.food_desc,
-                hotel: destination.hotel,
-                manual_hotel: destination.manual_hotel,
-                manual_hotel_desc: destination.manual_hotel_desc,
-                order_index: destination.order_index
-              })
-              .eq('itinerary_id', itineraryId)
-              .eq('order_index', destination.order_index);
-
-            if (updateError) {
-              console.error('Error updating destination:', updateError);
-              throw updateError;
-            }
-
-            // Verify the update was successful
-            const { data: verifyData, error: verifyError } = await supabase
-              .from('user_itinerary_destinations')
-              .select('food, food_desc')
-              .eq('itinerary_id', itineraryId)
-              .eq('order_index', destination.order_index)
-              .single();
-
-            if (verifyError) {
-              console.error('Error verifying update:', verifyError);
-            } else {
-              console.log('Verified database update:', verifyData);
-            }
-          } catch (error) {
-            console.error('Error in database operation:', error);
-            throw error;
-          }
-        }
-
-        // Update the rest of the itinerary data
-        const result = await UserItineraryService.updateItinerary(itineraryId, {
-          tripSummary: {
-            tripName: tripSummary.tripName,
-            country: tripSummary.country,
-            duration: tripSummary.duration,
-            startDate: tripSummary.startDate,
-            passengers: tripSummary.passengers,
-            isPrivate: tripSummary.isPrivate,
-            tags: tripSummary.tags
-          },
-          destinations: destinationsWithFood,
-          dayAttractions: dayAttractions.map(da => ({
-            dayIndex: da.dayIndex,
-            selectedAttractions: da.selectedAttractions
-          })),
-          dayHotels: dayHotels.map(dh => ({
-            day_index: dh.dayIndex,
-            hotel: dh.hotel,
-            hotel_desc: hotelDescriptionCache[dh.dayIndex] || ''
-          })),
-          dayNotes: dayNotes.map(dn => ({
-            day_index: dn.dayIndex,
-            notes: dn.notes
-          }))
-        });
-
-        if (!result.success) {
-          console.error('Error updating itinerary');
-          throw new Error('Failed to update itinerary');
-        }
-      } else {
-        // Create new itinerary
-        const result = await UserItineraryService.saveItinerary({
-          tripSummary: {
-            tripName: tripSummary.tripName,
-            country: tripSummary.country,
-            duration: tripSummary.duration,
-            startDate: tripSummary.startDate,
-            passengers: tripSummary.passengers,
-            isPrivate: tripSummary.isPrivate,
-            tags: tripSummary.tags
-          },
-          destinations: destinationsWithFood.map(dest => ({
-            ...dest,
-            food_desc: dest.food_desc || '' // Ensure food_desc is included
-          })),
-          dayAttractions: dayAttractions.map(da => ({
-            dayIndex: da.dayIndex,
-            selectedAttractions: da.selectedAttractions
-          })),
-          dayHotels: dayHotels.map(dh => ({
-            day_index: dh.dayIndex,
-            hotel: dh.hotel,
-            hotel_desc: hotelDescriptionCache[dh.dayIndex] || ''
-          })),
-          dayNotes: dayNotes.map(dn => ({
-            day_index: dn.dayIndex,
-            notes: dn.notes
-          }))
-        });
-
-        if (!result.itinerary) {
-          console.error('Error creating itinerary');
-          throw new Error('Failed to create itinerary');
+        if (insertError) {
+          console.error('Error inserting attractions:', insertError);
+          throw insertError;
         }
       }
 
-      navigate('/dashboard');
+      // Continue with the rest of the save operation...
+      const result = await UserItineraryService.updateItinerary(itineraryId, {
+        tripSummary: {
+          tripName: tripSummary.tripName,
+          country: tripSummary.country,
+          duration: tripSummary.duration,
+          startDate: tripSummary.startDate,
+          passengers: tripSummary.passengers,
+          isPrivate: tripSummary.isPrivate,
+          tags: tripSummary.tags
+        },
+        destinations: itineraryDays.map(day => ({
+          destination: day.destination,
+          nights: day.nights,
+          discover: day.discover || '',
+          transport: day.transport || '',
+          notes: day.notes || '',
+          food: day.food || '',
+          food_desc: day.food_desc || '',
+          hotel: day.hotel || '',
+          manual_hotel: day.manual_hotel || '',
+          manual_hotel_desc: day.manual_hotel_desc || '',
+          manual_discover: day.manual_discover || '',
+          manual_discover_desc: day.manual_discover_desc || ''
+        })),
+        dayAttractions: dayByDayData.dayAttractions.map(da => ({
+          dayIndex: da.dayIndex,
+          selectedAttractions: da.selectedAttractions
+        })),
+        dayHotels: dayHotels.map(dh => ({
+          day_index: dh.dayIndex,
+          hotel: dh.hotel,
+          hotel_desc: hotelDescriptionCache[dh.dayIndex] || ''
+        })),
+        dayNotes: dayNotes.map(dn => ({
+          day_index: dn.dayIndex,
+          notes: dn.notes
+        }))
+      });
+
+      if (!result.success) {
+        console.error('Error updating itinerary');
+        throw new Error('Failed to update itinerary');
+      }
+
+      setIsSaving(false);
+      toast.success('Itinerary saved successfully!');
     } catch (error) {
       console.error('Error saving itinerary:', error);
-      setError('Failed to save itinerary. Please try again.');
-    } finally {
-      setLoading(false);
+      setIsSaving(false);
+      toast.error('Failed to save itinerary');
     }
   };
 
@@ -1474,7 +1446,7 @@ const CreateItinerary: React.FC = () => {
     return (
       <div className="space-y-4">
         {/* Column Headers */}
-        <div className="grid grid-cols-[200px,100px,180px,120px,120px,140px] gap-0 px-4 py-2 text-xs text-[#0f3e4a] border-b border-gray-200">
+        <div className="grid grid-cols-[200px,100px,180px,120px,120px] gap-0 px-4 py-2 text-xs text-[#0f3e4a] border-b border-gray-200">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 destination-icon" />
             <span className="font-[600] font-['Inter_var']">DESTINATION</span>
@@ -1495,17 +1467,13 @@ const CreateItinerary: React.FC = () => {
             <Utensils className="w-4 h-4 food-icon" />
             <span className="font-[600] font-['Inter_var']">FOOD</span>
           </div>
-          <div className="flex items-center justify-center gap-2">
-            <Transport className="w-4 h-4 transport-icon" />
-            <span className="font-[600] font-['Inter_var']">TRANSPORT</span>
-          </div>
         </div>
 
         {/* Destinations List */}
         <div className="space-y-1">
           {itineraryDays.map((day, index) => (
             <React.Fragment key={index}>
-              <div className="grid grid-cols-[200px,100px,180px,120px,120px,140px] gap-0 items-center bg-white px-4 py-2 hover:bg-[#f1f8fa] transition-colors">
+              <div className="grid grid-cols-[200px,100px,180px,120px,120px] gap-0 items-center bg-white px-4 py-2 hover:bg-[#f1f8fa] transition-colors">
                 <div className="pr-0">
                   <div className="flex items-center gap-2">
                     <div className="relative group">
@@ -1686,93 +1654,12 @@ const CreateItinerary: React.FC = () => {
               {index < itineraryDays.length - 1 && (
                 <div className="relative">
                   <div className="border-b border-gray-200"></div>
-                  <div className="grid grid-cols-[200px,100px,180px,120px,120px,140px] gap-0">
+                  <div className="grid grid-cols-[200px,100px,180px,120px,120px] gap-0">
                     <div></div>
                     <div></div>
                     <div></div>
                     <div></div>
                     <div></div>
-                    <div className="relative">
-                      {day.transport ? (
-                        <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2">
-                          <button
-                            onClick={() => {
-                              const fromDest = day?.destination ? cleanDestination(day.destination) : '';
-                              const toDest = index < itineraryDays.length - 1 && itineraryDays[index + 1]?.destination
-                                ? cleanDestination(itineraryDays[index + 1].destination)
-                                : '';
-
-                              setCurrentDestinationForTransport({
-                                from: fromDest,
-                                to: toDest,
-                                index
-                              });
-                              setShowTransportPopup(true);
-                            }}
-                            className="flex flex-col items-center text-center hover:opacity-80 transition-opacity"
-                          >
-                            <div>
-                              {day.transport.includes('Drive') && (
-                                <div className="transport-mode-bg">
-                                  <Car className="transport-car-icon" />
-                                </div>
-                              )}
-                              {day.transport.includes('Flight') && (
-                                <div className="transport-mode-bg">
-                                  <Plane className="transport-plane-icon" />
-                                </div>
-                              )}
-                              {day.transport.includes('Train') && (
-                                <div className="transport-mode-bg">
-                                  <Train className="transport-train-icon" />
-                                </div>
-                              )}
-                              {day.transport.includes('Bus') && (
-                                <div className="transport-mode-bg">
-                                  <BusIcon className="transport-bus-icon" />
-                                </div>
-                              )}
-                            </div>
-                            <div className="text-[10px] font-['Inter_var'] font-[600] mt-0.5">
-                              <span className="transport-duration">
-                                {(() => {
-                                  const transportParts = day.transport?.split(' · ');
-                                  if (!transportParts || transportParts.length < 2) return '';
-
-                                  return transportParts[1]
-                                    .replace(' hours', 'h')
-                                    .replace(' hour', 'h')
-                                    .replace(' mins', 'm')
-                                    .replace(' min', 'm')
-                                    .replace('0h ', '');
-                                })()}
-                              </span>
-                            </div>
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2">
-                          <button
-                            onClick={() => {
-                              const fromDest = day?.destination ? cleanDestination(day.destination) : '';
-                              const toDest = index < itineraryDays.length - 1 && itineraryDays[index + 1]?.destination
-                                ? cleanDestination(itineraryDays[index + 1].destination)
-                                : '';
-
-                              setCurrentDestinationForTransport({
-                                from: fromDest,
-                                to: toDest,
-                                index
-                              });
-                              setShowTransportPopup(true);
-                            }}
-                            className="transport-action column-action"
-                          >
-                            <Plus className="w-4 h-4" strokeWidth={2.5} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
                   </div>
                 </div>
               )}
@@ -1780,11 +1667,8 @@ const CreateItinerary: React.FC = () => {
           ))}
         </div>
 
-        {/* Row Separator */}
-        <div className="border-b border-gray-200 my-4"></div>
-
-        {/* Add Destination Button */}
-        <div className="flex items-center justify-center">
+        {/* Add Destination Button and Update Button Row */}
+        <div className="flex items-center justify-between px-4 py-4 border-t border-gray-200">
           <button
             onClick={() => {
               setItineraryDays([
@@ -1792,10 +1676,24 @@ const CreateItinerary: React.FC = () => {
                 { destination: '', nights: 1, discover: '', manual_discover: '', manual_discover_desc: '', transport: '', notes: '', food: '', food_desc: '', hotel: '', manual_hotel: '', manual_hotel_desc: '' }
               ]);
             }}
-            className="flex items-center gap-2 px-4 py-2 text-sm text-[#0f3e4a] hover:text-[#00C48C] transition-colors font-['Inter_var'] font-[600]"
+            className="flex items-center gap-2 text-sm text-[#0f3e4a] hover:text-[#00C48C] transition-colors font-['Inter_var'] font-[600]"
           >
             <Plus className="w-6 h-6" />
             Add new destination...
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={loading}
+            className="px-6 py-2 bg-[#00C48C] text-white rounded-lg hover:bg-[#00B380] transition-colors shadow-sm flex items-center gap-2 font-['Inter_var'] font-[600]"
+          >
+            {loading ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              <>
+                <span>{saveButtonText}</span>
+                <ChevronRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -2120,15 +2018,14 @@ const CreateItinerary: React.FC = () => {
   };
 
   // Modify the handleTabChange function to completely avoid any sync or data operations
-  const handleTabChange = (tab: TabType) => {
-    // Don't re-render if we're already on this tab
-    if (tab === activeTab) return;
-
-    // Just switch the tab with no additional operations
-    setActiveTab(tab);
-
-    // Log the tab change for debugging
-    console.log(`Tab changed to ${tab}, no automatic sync`);
+  const handleTabChange = (newTab: TabType) => {
+    if (newTab === activeTab) return;
+    setActiveTab(newTab);
+    if (newTab === 'day-by-day') {
+      handleDayByDayTabChange('dayByDay');
+    } else {
+      handleDayByDayTabChange('destinations');
+    }
   };
 
   // Also, add a function to clear hotel description cache when hotel data changes
@@ -2212,182 +2109,55 @@ const CreateItinerary: React.FC = () => {
     };
   };
 
+  // Update the attractions only when not in day-by-day view
+  useEffect(() => {
+    if (isDayByDayView || !itineraryDays.length) return;
+
+    if (activeDestinationIndex === undefined) return;
+
+    const updateAttractions = async () => {
+      try {
+        // ... existing attractions update logic ...
+      } catch (error) {
+        console.error('Error updating attractions:', error);
+      }
+    };
+
+    updateAttractions();
+  }, [activeDestinationIndex, isDayByDayView, itineraryDays]);
+
+  // Update food options only when not in day-by-day view
+  useEffect(() => {
+    if (isDayByDayView || !itineraryDays.length) return;
+
+    if (activeDestinationIndex === undefined) return;
+
+    const updateFoodOptions = async () => {
+      try {
+        // ... existing food options update logic ...
+      } catch (error) {
+        console.error('Error updating food options:', error);
+      }
+    };
+
+    updateFoodOptions();
+  }, [activeDestinationIndex, isDayByDayView, itineraryDays]);
+
+  // Handle tab changes in DayByDayGrid
+  const handleDayByDayTabChange = (tab: 'destinations' | 'dayByDay') => {
+    setIsDayByDayView(tab === 'dayByDay');
+    console.log(`Tab changed to ${tab}, updates ${tab === 'dayByDay' ? 'disabled' : 'enabled'}`);
+  };
+
   if (!showSummaryPopup) {
     return (
       <div className="min-h-screen bg-gray-50">
         <TopNavigation />
 
         {/* Main content area */}
-        <div className="flex h-[calc(100vh-60px)] pt-[60px] relative">
-          {/* Trip Summary Slide Panel */}
-          <div
-            className={`absolute left-0 top-0 h-full bg-white shadow-lg transition-transform duration-300 ease-in-out transform ${showTripSummary ? 'translate-x-0' : '-translate-x-full'
-              } z-20`}
-          >
-            <div className="w-64 h-full">
-              <div className="p-4 h-full">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg destination-name">Trip Summary</h2>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setShowTripSummaryEdit(true)}
-                      className="p-2 text-gray-500 hover:text-[#00C48C] rounded-lg transition-colors"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setShowTripSummary(false)}
-                      className="p-2 text-gray-500 hover:text-[#00C48C] rounded-lg transition-colors"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm destination-subtitle mb-1">Trip Name</label>
-                    <input
-                      type="text"
-                      id="tripName"
-                      name="tripName"
-                      value={tripSummary.tripName}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
-                      placeholder="Enter trip name"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm destination-subtitle mb-1">Country</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={tripSummary.country || countrySearch}
-                        onChange={(e) => {
-                          setCountrySearch(e.target.value);
-                          setShowCountries(true);
-                          if (tripSummary.country) {
-                            setTripSummary(prev => ({ ...prev, country: '' }));
-                          }
-                        }}
-                        onFocus={() => setShowCountries(true)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
-                        placeholder="Select a country"
-                        required
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-2 top-1/2 -translate-y-1/2"
-                        onClick={() => setShowCountries(!showCountries)}
-                      >
-                        <ChevronDown className="h-4 w-4 text-[#00C48C]" />
-                      </button>
-                    </div>
-
-                    {/* Countries dropdown */}
-                    {showCountries && (
-                      <div className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base overflow-auto">
-                        {filteredCountries.map((country, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors font-['Inter_var']"
-                            onClick={() => handleCountrySelect(country)}
-                          >
-                            {country}
-                          </button>
-                        ))}
-                        {filteredCountries.length === 0 && (
-                          <div className="px-4 py-2 text-sm text-gray-500 font-['Inter_var']">
-                            No countries found
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm destination-subtitle mb-1">Duration</label>
-                      <div className="flex items-center">
-                        <Calendar className="w-5 h-5 text-[#00C48C] mr-2" />
-                        <input
-                          type="number"
-                          id="duration"
-                          name="duration"
-                          min="1"
-                          value={tripSummary.duration}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm destination-subtitle mb-1">Travelers</label>
-                      <div className="flex items-center">
-                        <Users className="w-5 h-5 text-[#00C48C] mr-2" />
-                        <input
-                          type="number"
-                          id="passengers"
-                          name="passengers"
-                          min="1"
-                          value={tripSummary.passengers}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
-                          required
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm destination-subtitle mb-1">Start Date</label>
-                    <div className="flex items-center">
-                      <Calendar className="w-5 h-5 text-[#00C48C] mr-2" />
-                      <input
-                        type="date"
-                        id="startDate"
-                        name="startDate"
-                        value={tripSummary.startDate}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
-                        min={new Date().toISOString().split('T')[0]}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <label className="flex items-center justify-between text-sm destination-subtitle">
-                      <span>Privacy</span>
-                      <button
-                        type="button"
-                        onClick={() => setTripSummary(prev => ({ ...prev, isPrivate: !prev.isPrivate }))}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${tripSummary.isPrivate ? 'bg-[#00C48C]' : 'bg-gray-200'}`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${tripSummary.isPrivate ? 'translate-x-6' : 'translate-x-1'}`}
-                        />
-                      </button>
-                    </label>
-                    <p className="text-sm destination-subtitle mt-1">
-                      {tripSummary.isPrivate ? 'Only you can view this itinerary' : 'Anyone with the link can view this itinerary'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Toggle Trip Summary Button */}
-          <button
-            onClick={() => setShowTripSummary(true)}
-            className={`absolute left-4 top-4 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-50 transition-all ${showTripSummary ? 'opacity-0' : 'opacity-100'
-              }`}
-          >
-            <Menu className="w-5 h-5 text-gray-600" />
-          </button>
-
+        <div className="flex h-[calc(100vh-60px)] pt-[60px] relative overflow-hidden">
           {/* Left side - Form */}
-          <div className={`${isMapCollapsed ? 'w-[90%]' : 'w-[55%]'} h-full transition-all duration-300`}>
+          <div className={`${isMapCollapsed ? 'w-[15%]' : 'w-[50%]'} h-full transition-all duration-300`}>
             <div className="h-full">
               <div className="h-full">
                 <div className="bg-white h-full flex flex-col">
@@ -2401,7 +2171,7 @@ const CreateItinerary: React.FC = () => {
                           </h1>
                           <button
                             onClick={() => setShowTripSummaryEdit(true)}
-                            className="p-2 text-gray-500 hover:text-[#00C48C] rounded-lg transition-colors"
+                            className="p-2 text-[#00C48C] hover:text-[#00B380] rounded-lg transition-colors"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
@@ -2486,83 +2256,60 @@ const CreateItinerary: React.FC = () => {
                       </div>
                     ) : (
                       <div className="py-4 px-4">
-                        {!hasSyncedHotelDescriptions && itineraryId && (
-                          <div className="mb-4 flex justify-end">
-                            <button
-                              onClick={handleManualSync}
-                              className="px-3 py-1 text-sm bg-[#00C48C] text-white rounded hover:bg-[#00B380] transition-colors"
-                            >
-                              Sync Hotels
-                            </button>
-                          </div>
-                        )}
                         <DayByDayGrid
                           tripStartDate={tripSummary.startDate}
                           destinations={itineraryDays}
-                          onDestinationsUpdate={handleDestinationsUpdate}
-                          dayAttractions={dayAttractions}
-                          onDayAttractionsUpdate={handleDayAttractionsUpdate}
-                          dayHotels={dayHotels}
-                          onDayHotelsUpdate={handleDayHotelsUpdate}
-                          dayNotes={dayNotes}
-                          onDayNotesUpdate={handleDayNotesUpdate}
-                          onHotelClick={(destination, dayIndex) => {
-                            console.log(`Hotel click for day ${dayIndex}, destination: ${destination}`);
-
-                            // Get hotel info without API calls first
-                            (async () => {
-                              const { hotel, description } = await getHotelInfoFromState(dayIndex);
-
-                              // Set the description and open the popup right away
-                              setDayHotelDesc(description);
-                              setCurrentDestinationForHotel(cleanDestination(destination));
-                              setCurrentDestinationIndexForHotel(dayIndex);
-                              setIsDayHotelSearchOpen(true);
-                            })();
+                          onDestinationsUpdate={(destinations) => setItineraryDays(destinations)}
+                          dayAttractions={dayByDayData.dayAttractions}
+                          onDayAttractionsUpdate={(dayIndex, attractions) => {
+                            setDayByDayData(prev => ({
+                              ...prev,
+                              dayAttractions: prev.dayAttractions.map(da =>
+                                da.dayIndex === dayIndex
+                                  ? { ...da, selectedAttractions: attractions }
+                                  : da
+                              )
+                            }));
                           }}
-                          onFoodClick={handleDayFoodSelect}
-                          dayFoods={dayFoods.map(df => df.foodItems)}
+                          dayHotels={dayHotels}
+                          onDayHotelsUpdate={setDayHotels}
+                          dayNotes={dayNotes}
+                          onDayNotesUpdate={setDayNotes}
+                          onHotelClick={(destination, dayIndex) => {
+                            setCurrentDestinationForHotel(destination);
+                            setCurrentDestinationIndexForHotel(dayIndex);
+                            setIsDayHotelSearchOpen(true);
+                          }}
+                          onFoodSelect={(destination, dayIndex) => {
+                            setCurrentDestinationForFood(destination);
+                            setCurrentDestinationIndexForFood(dayIndex);
+                            setShowFoodPopup(true);
+                          }}
+                          dayFoods={dayByDayData.dayFoodOptions}
+                          onFoodClick={(destination, dayIndex) => {
+                            setCurrentDestinationForHotel(destination);
+                            setCurrentDestinationIndexForHotel(dayIndex);
+                            setShowFoodPopup(true);
+                          }}
                           onNotesClick={(destination, dayIndex) => {
                             const currentNotes = dayNotes.find(n => n.dayIndex === dayIndex)?.notes || '';
-                            const updatedNotes = [...dayNotes];
-                            const noteIndex = updatedNotes.findIndex(n => n.dayIndex === dayIndex);
-                            if (noteIndex !== -1) {
-                              updatedNotes[noteIndex].notes = currentNotes;
-                            } else {
-                              updatedNotes.push({ dayIndex, notes: currentNotes });
-                            }
-                            handleDayNotesUpdate(updatedNotes);
+                            setSelectedDayForNotes({
+                              dayIndex,
+                              notes: currentNotes
+                            });
+                            setShowNotesPopup(true);
                           }}
                           itineraryId={itineraryId || ''}
+                          className="text-sm font-['Inter_var']"
+                          iconSize="w-4 h-4"
+                          spacing="gap-2"
+                          padding="p-2"
+                          buttonSize="text-sm"
+                          headingSize="text-sm"
+                          subheadingSize="text-xs"
                         />
                       </div>
                     )}
-                  </div>
-
-                  {/* Action Buttons - Fixed at bottom */}
-                  <div className="border-t border-gray-200 p-4">
-                    <div className="flex justify-end gap-4">
-                      <button
-                        onClick={() => navigate('/dashboard')}
-                        className="px-6 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleSave}
-                        disabled={loading}
-                        className="px-6 py-2 bg-[#00C48C] text-white rounded-lg hover:bg-[#00B380] transition-colors shadow-sm flex items-center gap-2"
-                      >
-                        {loading ? (
-                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        ) : (
-                          <>
-                            <span>{saveButtonText}</span>
-                            <ChevronRight className="w-4 h-4" />
-                          </>
-                        )}
-                      </button>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -2570,12 +2317,12 @@ const CreateItinerary: React.FC = () => {
           </div>
 
           {/* Right side - Map */}
-          <div className={`${isMapCollapsed ? 'w-[10%]' : 'w-[45%]'} h-full relative transition-all duration-300`}>
+          <div className={`${isMapCollapsed ? 'w-[85%]' : 'w-[50%]'} h-full relative transition-all duration-300`}>
             <button
               onClick={() => setIsMapCollapsed(!isMapCollapsed)}
               className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center hover:bg-gray-50 transition-all"
             >
-              <ChevronRight className={`w-5 h-5 text-gray-600 transition-transform duration-300 ${isMapCollapsed ? 'rotate-180' : ''}`} />
+              <ChevronLeft className={`w-5 h-5 text-gray-600 transition-transform duration-300 ${isMapCollapsed ? 'rotate-180' : ''}`} />
             </button>
             <MapboxMap
               destinations={itineraryDays.filter(day => day.destination !== '')}

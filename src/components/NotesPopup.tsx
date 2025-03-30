@@ -16,10 +16,22 @@ const NotesPopup: React.FC<NotesPopupProps> = ({
   initialNotes = '',
   dayNumber
 }) => {
-  const [notes, setNotes] = useState(initialNotes);
+  const [notes, setNotes] = useState('');
 
   useEffect(() => {
-    setNotes(initialNotes);
+    // Convert escaped newlines to actual newlines and ensure bullet points
+    if (initialNotes) {
+      const processedNotes = initialNotes
+        .replace(/\\n/g, '\n')
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line)
+        .map(line => line.startsWith('•') ? line : `• ${line}`)
+        .join('\n');
+      setNotes(processedNotes);
+    } else {
+      setNotes('');
+    }
   }, [initialNotes]);
 
   if (!isOpen) return null;
@@ -30,11 +42,11 @@ const NotesPopup: React.FC<NotesPopupProps> = ({
   };
 
   const addBulletPoint = () => {
-    // If notes is empty or ends with bullet point, just add a new bullet point
+    // If notes is empty or ends with newline, just add a bullet point
     if (notes === '' || notes.endsWith('\n')) {
       setNotes(notes + '• ');
     } else {
-      // Otherwise, add a new line and then a bullet point
+      // Otherwise, add a newline and then a bullet point
       setNotes(notes + '\n• ');
     }
   };

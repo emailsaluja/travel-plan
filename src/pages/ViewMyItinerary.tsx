@@ -144,6 +144,19 @@ const ViewMyItinerary: React.FC = () => {
     const map = useRef<mapboxgl.Map | null>(null);
     const [heroImage, setHeroImage] = useState<string>('');
 
+    // New state variables for preloaded data
+    const [preloadedData, setPreloadedData] = useState<{
+        allAttractions: { [key: string]: any[] };
+        allFoodOptions: { [key: string]: any[] };
+        dayHotels: { [key: string]: string };
+        dayNotes: { [key: string]: string };
+    }>({
+        allAttractions: {},
+        allFoodOptions: {},
+        dayHotels: {},
+        dayNotes: {}
+    });
+
     const formatDate = (date: string) => {
         const options: Intl.DateTimeFormatOptions = {
             month: 'short',
@@ -431,6 +444,148 @@ const ViewMyItinerary: React.FC = () => {
         loadHeroImage();
     }, [itinerary?.trip_name, itinerary?.country]);
 
+    // Preload all data when itinerary changes
+    useEffect(() => {
+        if (!itinerary) return;
+
+        const preloadAllData = () => {
+            const attractions: { [key: string]: any[] } = {};
+            const foodOptions: { [key: string]: any[] } = {};
+            const hotels: { [key: string]: string } = {};
+            const notes: { [key: string]: string } = {};
+
+            let dayCount = 0;
+            itinerary.destinations.forEach((destination, destIndex) => {
+                for (let dayIndex = 0; dayIndex < destination.nights; dayIndex++) {
+                    const currentDayNumber = getDayNumber(destIndex, dayIndex);
+                    const key = `${destIndex}-${dayIndex}`;
+
+                    // Load attractions
+                    const dayAttractions = itinerary.day_attractions?.[currentDayNumber - 1]?.attractions || [];
+                    const discoverItems = destination.manual_discover?.split(',').filter(Boolean) || [];
+                    const discoverDescriptions = destination.manual_discover_desc?.split(',').filter(Boolean) || [];
+
+                    attractions[key] = [
+                        ...dayAttractions.map(attraction => ({
+                            name: typeof attraction === 'string' ? attraction : attraction.name || '',
+                            description: typeof attraction === 'string' ? '' : attraction.description || '',
+                            isDiscover: false
+                        })),
+                        ...discoverItems.map((item: string, index: number) => ({
+                            name: item,
+                            description: discoverDescriptions[index] || '',
+                            isDiscover: true
+                        }))
+                    ];
+
+                    // Load food options
+                    const dayFoodOptions = itinerary.day_food_options?.find(
+                        d => d.day_index === currentDayNumber - 1
+                    )?.food_options || [];
+                    foodOptions[key] = dayFoodOptions;
+
+                    // Load hotels
+                    const hotel = itinerary.day_hotels?.find(d => d.day_index === currentDayNumber - 1)?.hotel;
+                    if (hotel) {
+                        hotels[key] = hotel;
+                    }
+
+                    // Load notes
+                    const note = itinerary.day_notes?.find(d => d.day_index === currentDayNumber - 1)?.notes;
+                    if (note) {
+                        notes[key] = note;
+                    }
+
+                    dayCount++;
+                }
+            });
+
+            setPreloadedData({
+                allAttractions: attractions,
+                allFoodOptions: foodOptions,
+                dayHotels: hotels,
+                dayNotes: notes
+            });
+        };
+
+        preloadAllData();
+    }, [itinerary]);
+
+    // Update the data access to use preloaded data
+    const currentKey = `${selectedDestIndex}-${selectedDayIndex}`;
+    const currentAttractions = preloadedData.allAttractions[currentKey] || [];
+    const currentFoodOptions = preloadedData.allFoodOptions[currentKey] || [];
+    const currentHotel = preloadedData.dayHotels[currentKey];
+    const currentNotes = preloadedData.dayNotes[currentKey];
+
+    // Update the renderFoodOptions function to use preloaded data
+    const renderFoodOptions = (dayIndex: number) => {
+        const key = `${selectedDestIndex}-${dayIndex}`;
+        const dayFoodOptions = preloadedData.allFoodOptions[key] || [];
+
+        if (!dayFoodOptions || dayFoodOptions.length === 0) {
+            return <p className="text-gray-500 py-4">No dining options added for this day.</p>;
+        }
+
+        return (
+            <div className="divide-y divide-[#E2E8F0]">
+                {dayFoodOptions.map((food: any, index: number) => (
+                    <div key={food.id || index} className="grid grid-cols-[2fr,1.5fr,2.5fr] py-4">
+                        <div className="flex flex-col gap-1">
+                            <div className="text-[#0F172A] text-sm font-medium">{food.name}</div>
+                        </div>
+                        <div className="text-[#64748B] text-sm">{food.cuisine}</div>
+                        <div className="text-[#64748B] text-sm">{food.description}</div>
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
+    // First, add the renderNotesWithLinks function at the top level of the component
+    const renderNotesWithLinks = (notes: string): React.ReactNode => {
+        const urlPattern = /(https?:\/\/[^\s]+)/g;
+        if (!notes) return null;
+
+        // Handle both escaped and unescaped newlines, then split into lines
+        const normalizedNotes = notes.replace(/\\n/g, '\n');
+        const lines = normalizedNotes.split('\n').filter(line => line.trim());
+
+        return (
+            <ul className="list-disc pl-5 space-y-2">
+                {lines.map((line, index) => {
+                    // Process URLs in the line
+                    const parts = line.split(urlPattern);
+                    const matches = Array.from(line.matchAll(urlPattern)).map(match => match[0]);
+
+                    // Clean up the line by removing the bullet point if it exists
+                    const cleanLine = line.replace(/^[•\s]+/, '').trim();
+
+                    return (
+                        <li key={index} className="text-gray-700">
+                            {parts.map((part: string, partIndex: number): React.ReactNode => {
+                                if (matches.includes(part)) {
+                                    return (
+                                        <a
+                                            key={partIndex}
+                                            href={part}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:underline break-words"
+                                        >
+                                            {part}
+                                        </a>
+                                    );
+                                }
+                                return <span key={partIndex}>{partIndex === 0 ? cleanLine : part}</span>;
+                            })}
+                        </li>
+                    );
+                })}
+            </ul>
+        );
+    };
+
     if (loading) {
         return <div className="container mx-auto px-4 py-8 mt-16">Loading...</div>;
     }
@@ -499,75 +654,6 @@ const ViewMyItinerary: React.FC = () => {
         dayIndex: dayFood.day_index,
         foodItems: transformFoodOptions(dayFood.food_options || [])
     }));
-
-    // Update the renderFoodOptions function to handle the raw food options data
-    const renderFoodOptions = (dayIndex: number) => {
-        const dayFoodOptions = itinerary?.day_food_options?.find(
-            (day) => day.day_index === dayIndex
-        )?.food_options || [];
-
-        if (!dayFoodOptions || dayFoodOptions.length === 0) {
-            return <p className="text-gray-500 py-4">No dining options added for this day.</p>;
-        }
-
-        return (
-            <div className="divide-y divide-[#E2E8F0]">
-                {dayFoodOptions.map((food: any, index: number) => (
-                    <div key={food.id || index} className="grid grid-cols-[2fr,1.5fr,2.5fr] py-4">
-                        <div className="flex flex-col gap-1">
-                            <div className="text-[#0F172A] text-sm font-medium">{food.name}</div>
-                        </div>
-                        <div className="text-[#64748B] text-sm">{food.cuisine}</div>
-                        <div className="text-[#64748B] text-sm">{food.description}</div>
-                    </div>
-                ))}
-            </div>
-        );
-    };
-
-    // First, add the renderNotesWithLinks function at the top level of the component
-    const renderNotesWithLinks = (notes: string): React.ReactNode => {
-        const urlPattern = /(https?:\/\/[^\s]+)/g;
-        if (!notes) return null;
-
-        // Handle both escaped and unescaped newlines, then split into lines
-        const normalizedNotes = notes.replace(/\\n/g, '\n');
-        const lines = normalizedNotes.split('\n').filter(line => line.trim());
-
-        return (
-            <ul className="list-disc pl-5 space-y-2">
-                {lines.map((line, index) => {
-                    // Process URLs in the line
-                    const parts = line.split(urlPattern);
-                    const matches = Array.from(line.matchAll(urlPattern)).map(match => match[0]);
-
-                    // Clean up the line by removing the bullet point if it exists
-                    const cleanLine = line.replace(/^[•\s]+/, '').trim();
-
-                    return (
-                        <li key={index} className="text-gray-700">
-                            {parts.map((part: string, partIndex: number): React.ReactNode => {
-                                if (matches.includes(part)) {
-                                    return (
-                                        <a
-                                            key={partIndex}
-                                            href={part}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-blue-600 hover:underline break-words"
-                                        >
-                                            {part}
-                                        </a>
-                                    );
-                                }
-                                return <span key={partIndex}>{partIndex === 0 ? cleanLine : part}</span>;
-                            })}
-                        </li>
-                    );
-                })}
-            </ul>
-        );
-    };
 
     return (
         <section className="relative">
@@ -698,12 +784,12 @@ const ViewMyItinerary: React.FC = () => {
                                                             <Calendar className="w-4 h-4" />
                                                             {formatDate(calculateStartDate(destIndex, selectedDayIndex).toISOString())}
                                                         </div>
-                                                        {dayHotel && (
+                                                        {currentHotel && (
                                                             <div className="flex items-center gap-2 text-[#64748B] text-sm mt-0.5">
                                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                                                                 </svg>
-                                                                <span className="font-medium">{dayHotel}</span>
+                                                                <span className="font-medium">{currentHotel}</span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -723,7 +809,7 @@ const ViewMyItinerary: React.FC = () => {
                                                     </div>
 
                                                     <div className="space-y-4 p-6 pt-2">
-                                                        {allAttractions.map((attraction, index) => (
+                                                        {currentAttractions.map((attraction, index) => (
                                                             <div key={index} className="flex items-start justify-between p-4 border border-[#E2E8F0] rounded-lg">
                                                                 <div className="flex items-start gap-3">
                                                                     <div className="mt-1">
@@ -765,7 +851,7 @@ const ViewMyItinerary: React.FC = () => {
                                                                 })()}
                                                             </div>
                                                         ))}
-                                                        {dayAttractions.length === 0 && (
+                                                        {currentAttractions.length === 0 && (
                                                             <div className="p-6 text-[#64748B] text-sm">
                                                                 No activities scheduled for this day.
                                                             </div>
@@ -803,7 +889,7 @@ const ViewMyItinerary: React.FC = () => {
                                                             <h3 className="text-[#0F172A] text-lg font-semibold">Notes</h3>
                                                         </div>
                                                         <div className="text-[#64748B] text-sm mt-4">
-                                                            {dayNotes ? renderNotesWithLinks(dayNotes) : 'No notes added for this day.'}
+                                                            {currentNotes ? renderNotesWithLinks(currentNotes) : 'No notes added for this day.'}
                                                         </div>
                                                     </div>
                                                 </div>

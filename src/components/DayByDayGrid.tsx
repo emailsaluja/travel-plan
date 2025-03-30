@@ -641,7 +641,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
 
       return (
         <div className="border-t-2 border-b-2 border-gray-200">
-          <div className="grid grid-cols-[180px,200px,200px,120px,120px] gap-0 px-4 py-2 bg-gray-50">
+          <div className="grid grid-cols-[180px,200px,200px,120px,120px,120px] gap-0 px-4 py-2 bg-gray-50">
             <div className="col-span-full flex items-center justify-center gap-3">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-pink-500/10 flex items-center justify-center">
@@ -669,7 +669,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   };
 
   return (
-    <div className="space-y-4 [&_.destination-name]:font-['Inter_var'] [&_.destination-name]:text-[14px] [&_.destination-name]:font-[600] [&_.destination-name]:text-[#1E293B] [&_.destination-subtitle]:font-['Inter_var'] [&_.destination-subtitle]:text-[13px] [&_.destination-subtitle]:text-[#64748B] [&_.destination-subtitle]:mt-1">
+    <div className="space-y-4 [&_.destination-name]:font-['Inter_var'] [&_.destination-name]:text-sm [&_.destination-name]:font-[600] [&_.destination-name]:text-[#1E293B] [&_.destination-subtitle]:font-['Inter_var'] [&_.destination-subtitle]:text-xs [&_.destination-subtitle]:text-[#64748B] [&_.destination-subtitle]:mt-1">
       {/* Column Headers */}
       <div className="grid grid-cols-[180px,200px,200px,120px,120px,120px] gap-0 px-4 py-2 text-xs text-[#0f3e4a] border-b border-gray-200">
         <div className="flex items-center gap-2">
@@ -722,30 +722,21 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
               <div className="flex items-center">
                 {renderDestinationCell(day, index)}
               </div>
-              <div className="flex items-center">
+              <div className="flex items-center justify-center">
                 {dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel ? (
                   <button
                     onClick={() => handleHotelClick(day)}
-                    className="flex flex-col text-left hover:text-[#F59E0B] transition-colors"
+                    className="destination-name hover:text-[#F59E0B] transition-colors"
                   >
-                    <span className="destination-name">
-                      {(dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel || '').length > 22
-                        ? `${dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel?.slice(0, 22)}...`
-                        : dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel}
-                    </span>
-                    <span className="destination-subtitle">
-                      Booked
-                    </span>
+                    {dayHotels.find(h => h.dayIndex === day.dayIndex)?.hotel}
                   </button>
                 ) : (
-                  <div className="flex items-center justify-start">
-                    <button
-                      onClick={() => handleHotelClick(day)}
-                      className="sleeping-action column-action"
-                    >
-                      <Plus className="w-4 h-4" strokeWidth={2.5} />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleHotelClick(day)}
+                    className="sleeping-action column-action"
+                  >
+                    <Plus className="w-4 h-4" strokeWidth={2.5} />
+                  </button>
                 )}
               </div>
               <div className="flex items-center justify-center">
