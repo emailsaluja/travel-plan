@@ -209,7 +209,7 @@ const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
 
     try {
       const response = await fetch(
-        `https://api.locationiq.com/v1/autocomplete?key=${LOCATIONIQ_API_KEY}&q=${encodeURIComponent(input)}&countrycodes=${countryCode}&limit=5&tag=place:city,place:town&dedupe=1`
+        `https://api.locationiq.com/v1/autocomplete?key=${LOCATIONIQ_API_KEY}&q=${encodeURIComponent(input)}&countrycodes=${countryCode}&limit=5`
       );
 
       if (!response.ok) {

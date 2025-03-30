@@ -23,25 +23,12 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ destinations, className = '' }) =
     const previousDestinations = useRef<string>('');
     const updateTimeout = useRef<NodeJS.Timeout | null>(null);
 
-    // Clear cache for New Zealand locations on mount
-    useEffect(() => {
-        const clearNZCache = async () => {
-            const nzLocations = destinations
-                .filter(d => d.destination)
-                .map(d => d.destination);
-            if (nzLocations.length > 0) {
-                await mapboxCacheService.clearGeocodingCache(nzLocations);
-            }
-        };
-        clearNZCache();
-    }, [destinations]);
-
     // Clean up route layers and sources
     const cleanupRoutes = useCallback(() => {
         if (!map.current) return;
 
         // Get all layers
-        const layers = map.current.getStyle().layers;
+        const layers = map.current.getStyle()?.layers;
         if (layers) {
             // Remove all route layers
             layers.forEach(layer => {
@@ -52,7 +39,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ destinations, className = '' }) =
         }
 
         // Remove all route sources
-        const sources = map.current.getStyle().sources;
+        const sources = map.current.getStyle()?.sources;
         if (sources) {
             Object.keys(sources).forEach(sourceId => {
                 if (sourceId.startsWith('route-segment-')) {
@@ -118,9 +105,9 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ destinations, className = '' }) =
                 const batch = uncachedDestinations.slice(i, i + batchSize);
                 const promises = batch.map(async (dest) => {
                     try {
-                        // Add country context for better accuracy
+                        // Add country context for better accuracy but don't restrict types
                         const response = await fetch(
-                            `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(dest)}.json?country=nz&types=place&access_token=${mapboxgl.accessToken}`
+                            `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(dest)}.json?country=nz&access_token=${mapboxgl.accessToken}`
                         );
                         const data = await response.json();
                         if (data.features && data.features[0]) {
