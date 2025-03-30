@@ -158,22 +158,27 @@ const ViewMyItinerary: React.FC = () => {
     };
 
     // Function to fetch coordinates for a destination
-    const fetchCoordinates = async (destination: string): Promise<[number, number]> => {
+    const fetchCoordinates = async (destination: string): Promise<[number, number] | null> => {
         try {
             // Add ", New Zealand" to the search query for better results
             const searchQuery = `${destination}, New Zealand`;
 
-            const params = new URLSearchParams();
-            params.append('access_token', config.mapbox.accessToken);
-            params.append('types', 'place,region,district,locality,neighborhood');
-            params.append('country', 'nz');
-            params.append('language', 'en');
-            params.append('limit', '1');
-            params.append('proximity', `${config.map.newZealand.center.lng},${config.map.newZealand.center.lat}`);
+            const params = new URLSearchParams({
+                access_token: config.mapbox.accessToken,
+                types: 'place,region,district,locality,neighborhood',
+                country: 'nz',
+                language: 'en',
+                limit: '1',
+                proximity: `${config.map.newZealand.center.lng},${config.map.newZealand.center.lat}`
+            });
 
             const response = await fetch(
                 `${config.mapbox.apiBaseUrl}/geocoding/v5/mapbox.places/${encodeURIComponent(searchQuery)}.json?${params}`
             );
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
             const data = await response.json();
 
@@ -190,10 +195,10 @@ const ViewMyItinerary: React.FC = () => {
             }
 
             console.warn(`No coordinates found for: ${destination}`);
-            return [0, 0];
+            return null;
         } catch (error) {
             console.error('Error fetching coordinates:', error);
-            return [0, 0];
+            return null;
         }
     };
 
@@ -315,10 +320,18 @@ const ViewMyItinerary: React.FC = () => {
             const allCoords = await Promise.all(
                 itinerary.destinations.map(dest => fetchCoordinates(dest.destination))
             );
-            setCoordinates(allCoords);
+
+            // Filter out null coordinates and set only valid ones
+            const validCoords = allCoords.filter((coord): coord is [number, number] => coord !== null);
+            setCoordinates(validCoords);
+
+            if (validCoords.length === 0) {
+                console.warn('No valid coordinates found for any destination');
+                return;
+            }
 
             const bounds = new mapboxgl.LngLatBounds();
-            allCoords.forEach(coord => bounds.extend(coord as mapboxgl.LngLatLike));
+            validCoords.forEach(coord => bounds.extend(coord as mapboxgl.LngLatLike));
 
             map.current = new mapboxgl.Map({
                 container: mapContainer.current,
@@ -328,35 +341,22 @@ const ViewMyItinerary: React.FC = () => {
             });
 
             // Add markers for each destination
-            allCoords.forEach((coord, index) => {
-                const marker = document.createElement('div');
-                marker.className = 'destination-marker';
-                marker.innerHTML = `
-                    <div class="w-8 h-8 bg-[#00B8A9] text-white rounded-full flex items-center justify-center text-sm font-medium shadow-lg">
-                        ${index + 1}
-                    </div>
-                `;
+            validCoords.forEach((coord, index) => {
+                // Create marker element
+                const el = document.createElement('div');
+                el.className = 'marker';
+                el.innerHTML = `<div class="marker-number">${index + 1}</div>`;
 
-                const popup = new mapboxgl.Popup({
-                    offset: 25,
-                    closeButton: false,
-                    className: 'destination-popup'
-                }).setHTML(`
-                    <div class="bg-white px-3 py-2 rounded-lg shadow-lg border border-gray-100">
-                        <p class="font-medium text-gray-900">${itinerary.destinations[index].destination}</p>
-                        <p class="text-sm text-gray-500">${itinerary.destinations[index].nights} ${itinerary.destinations[index].nights === 1 ? 'night' : 'nights'}</p>
-                    </div>
-                `);
-
-                new mapboxgl.Marker({ element: marker })
+                // Add marker to map
+                new mapboxgl.Marker(el)
                     .setLngLat(coord)
-                    .setPopup(popup)
                     .addTo(map.current!);
             });
 
-            map.current.on('load', () => {
-                drawRoute(allCoords);
-            });
+            // Draw route between destinations if we have more than one coordinate
+            if (validCoords.length > 1) {
+                await drawRoute(validCoords);
+            }
         };
 
         initializeMap();
@@ -449,6 +449,50 @@ const ViewMyItinerary: React.FC = () => {
             };
         })
     ];
+
+    // First, add the renderNotesWithLinks function at the top level of the component
+    const renderNotesWithLinks = (notes: string): React.ReactNode => {
+        const urlPattern = /(https?:\/\/[^\s]+)/g;
+        if (!notes) return null;
+
+        // Handle both escaped and unescaped newlines, then split into lines
+        const normalizedNotes = notes.replace(/\\n/g, '\n');
+        const lines = normalizedNotes.split('\n').filter(line => line.trim());
+
+        return (
+            <ul className="list-disc pl-5 space-y-2">
+                {lines.map((line, index) => {
+                    // Process URLs in the line
+                    const parts = line.split(urlPattern);
+                    const matches = Array.from(line.matchAll(urlPattern)).map(match => match[0]);
+
+                    // Clean up the line by removing the bullet point if it exists
+                    const cleanLine = line.replace(/^[•\s]+/, '').trim();
+
+                    return (
+                        <li key={index} className="text-gray-700">
+                            {parts.map((part: string, partIndex: number): React.ReactNode => {
+                                if (matches.includes(part)) {
+                                    return (
+                                        <a
+                                            key={partIndex}
+                                            href={part}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:underline break-words"
+                                        >
+                                            {part}
+                                        </a>
+                                    );
+                                }
+                                return <span key={partIndex}>{partIndex === 0 ? cleanLine : part}</span>;
+                            })}
+                        </li>
+                    );
+                })}
+            </ul>
+        );
+    };
 
     return (
         <section className="relative">
@@ -709,9 +753,9 @@ const ViewMyItinerary: React.FC = () => {
                                                             </svg>
                                                             <h3 className="text-[#0F172A] text-lg font-semibold">Notes</h3>
                                                         </div>
-                                                        <p className="text-[#64748B] text-sm mt-4">
-                                                            {dayNotes || 'No notes added for this day.'}
-                                                        </p>
+                                                        <div className="text-[#64748B] text-sm mt-4">
+                                                            {dayNotes ? renderNotesWithLinks(dayNotes) : 'No notes added for this day.'}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>

@@ -99,25 +99,43 @@ const UserDayByDayView: React.FC<UserDayByDayViewProps> = ({
     const urlPattern = /(https?:\/\/[^\s]+)/g;
     if (!notes) return null;
 
-    const parts = notes.split(urlPattern);
-    const matches = Array.from(notes.matchAll(urlPattern)).map(match => match[0]);
+    // Handle both escaped and unescaped newlines, then split into lines
+    const normalizedNotes = notes.replace(/\\n/g, '\n');
+    const lines = normalizedNotes.split('\n').filter(line => line.trim());
 
-    return parts.map((part: string, index: number): React.ReactNode => {
-      if (matches.includes(part)) {
-        return (
-          <a
-            key={index}
-            href={part}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:underline break-words"
-          >
-            {part}
-          </a>
-        );
-      }
-      return <span key={index}>{part}</span>;
-    });
+    return (
+      <ul className="list-disc pl-5 space-y-2">
+        {lines.map((line, index) => {
+          // Process URLs in the line
+          const parts = line.split(urlPattern);
+          const matches = Array.from(line.matchAll(urlPattern)).map(match => match[0]);
+
+          // Clean up the line by removing the bullet point if it exists
+          const cleanLine = line.replace(/^[•\s]+/, '').trim();
+
+          return (
+            <li key={index} className="text-gray-700">
+              {parts.map((part: string, partIndex: number): React.ReactNode => {
+                if (matches.includes(part)) {
+                  return (
+                    <a
+                      key={partIndex}
+                      href={part}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline break-words"
+                    >
+                      {part}
+                    </a>
+                  );
+                }
+                return <span key={partIndex}>{partIndex === 0 ? cleanLine : part}</span>;
+              })}
+            </li>
+          );
+        })}
+      </ul>
+    );
   };
 
   const getTransportIcon = (transport: string) => {

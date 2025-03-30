@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, List } from 'lucide-react';
 
 interface NotesPopupProps {
   isOpen: boolean;
@@ -29,6 +29,23 @@ const NotesPopup: React.FC<NotesPopupProps> = ({
     onClose();
   };
 
+  const addBulletPoint = () => {
+    // If notes is empty or ends with bullet point, just add a new bullet point
+    if (notes === '' || notes.endsWith('\n')) {
+      setNotes(notes + '• ');
+    } else {
+      // Otherwise, add a new line and then a bullet point
+      setNotes(notes + '\n• ');
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addBulletPoint();
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl w-[600px] max-h-[600px] overflow-auto">
@@ -47,12 +64,25 @@ const NotesPopup: React.FC<NotesPopupProps> = ({
 
         {/* Content */}
         <div className="p-6">
+          <div className="mb-4">
+            <button
+              onClick={addBulletPoint}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+            >
+              <List className="w-4 h-4" />
+              Add Bullet Point
+            </button>
+          </div>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="Add your notes for this day..."
-            className="w-full h-64 p-4 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 resize-none"
+            className="w-full h-64 p-4 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 resize-none font-mono"
           />
+          <p className="mt-2 text-sm text-gray-500">
+            Press Enter to add a new bullet point automatically
+          </p>
         </div>
 
         {/* Footer */}
