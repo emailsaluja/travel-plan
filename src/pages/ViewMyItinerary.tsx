@@ -11,6 +11,15 @@ import { config } from '../config/config';
 // Initialize Mapbox with the token
 mapboxgl.accessToken = config.mapbox.accessToken;
 
+interface FoodItem {
+    id: string;
+    name: {
+        text: string;
+        cuisine: string;
+        known_for: string;
+    };
+}
+
 const getHeroImage = async (tripName: string, country: string): Promise<string> => {
     // Curated images for New Zealand's most popular tourist destinations
     const newZealandDestinations: Record<string, string[]> = {
@@ -160,16 +169,14 @@ const ViewMyItinerary: React.FC = () => {
     // Function to fetch coordinates for a destination
     const fetchCoordinates = async (destination: string): Promise<[number, number] | null> => {
         try {
-            // Add ", New Zealand" to the search query for better results
-            const searchQuery = `${destination}, New Zealand`;
+            // Add country name to the search query for better results
+            const searchQuery = `${destination}, ${itinerary?.country}`;
 
             const params = new URLSearchParams({
                 access_token: config.mapbox.accessToken,
                 types: 'place,region,district,locality,neighborhood',
-                country: 'nz',
                 language: 'en',
-                limit: '1',
-                proximity: `${config.map.newZealand.center.lng},${config.map.newZealand.center.lat}`
+                limit: '1'
             });
 
             const response = await fetch(
@@ -202,116 +209,6 @@ const ViewMyItinerary: React.FC = () => {
         }
     };
 
-    // Function to draw route between destinations
-    const drawRoute = async (coordinates: [number, number][]) => {
-        if (!map.current || coordinates.length < 2) return;
-
-        try {
-            // Create waypoints from coordinates
-            const waypoints = coordinates.map(coord => ({
-                coordinates: coord
-            }));
-
-            // Function to get route between two points
-            const getRouteBetweenPoints = async (start: [number, number], end: [number, number]) => {
-                const response = await fetch(
-                    `${config.mapbox.apiBaseUrl}/directions/v5/mapbox/driving/${start.join(',')};${end.join(',')}?geometries=geojson&overview=full&access_token=${config.mapbox.accessToken}`
-                );
-                const data = await response.json();
-                return data.routes?.[0]?.geometry?.coordinates || null;
-            };
-
-            // Get routes between consecutive points
-            const routeSegments = [];
-            for (let i = 0; i < coordinates.length - 1; i++) {
-                const segmentCoords = await getRouteBetweenPoints(coordinates[i], coordinates[i + 1]);
-                if (segmentCoords) {
-                    routeSegments.push(...segmentCoords);
-                } else {
-                    // Fallback to direct line if no route found
-                    routeSegments.push(coordinates[i], coordinates[i + 1]);
-                }
-            }
-
-            const lineGeometry: GeoJSON.LineString = {
-                type: 'LineString',
-                coordinates: routeSegments
-            };
-
-            if (map.current.getSource('route')) {
-                (map.current.getSource('route') as mapboxgl.GeoJSONSource).setData({
-                    type: 'Feature',
-                    properties: {},
-                    geometry: lineGeometry
-                });
-            } else {
-                map.current.addSource('route', {
-                    type: 'geojson',
-                    data: {
-                        type: 'Feature',
-                        properties: {},
-                        geometry: lineGeometry
-                    }
-                });
-
-                map.current.addLayer({
-                    id: 'route',
-                    type: 'line',
-                    source: 'route',
-                    layout: {
-                        'line-join': 'round',
-                        'line-cap': 'round'
-                    },
-                    paint: {
-                        'line-color': '#EC4899',
-                        'line-width': 4,
-                        'line-opacity': 0.8
-                    }
-                });
-            }
-        } catch (error) {
-            console.error('Error drawing route:', error);
-
-            // Fallback to direct lines if the directions API fails
-            const lineGeometry: GeoJSON.LineString = {
-                type: 'LineString',
-                coordinates: coordinates
-            };
-
-            if (map.current.getSource('route')) {
-                (map.current.getSource('route') as mapboxgl.GeoJSONSource).setData({
-                    type: 'Feature',
-                    properties: {},
-                    geometry: lineGeometry
-                });
-            } else {
-                map.current.addSource('route', {
-                    type: 'geojson',
-                    data: {
-                        type: 'Feature',
-                        properties: {},
-                        geometry: lineGeometry
-                    }
-                });
-
-                map.current.addLayer({
-                    id: 'route',
-                    type: 'line',
-                    source: 'route',
-                    layout: {
-                        'line-join': 'round',
-                        'line-cap': 'round'
-                    },
-                    paint: {
-                        'line-color': '#EC4899',
-                        'line-width': 4,
-                        'line-opacity': 0.8
-                    }
-                });
-            }
-        }
-    };
-
     // Initialize map and fetch coordinates
     useEffect(() => {
         const initializeMap = async () => {
@@ -330,36 +227,181 @@ const ViewMyItinerary: React.FC = () => {
                 return;
             }
 
+            // Calculate bounds for Switzerland
             const bounds = new mapboxgl.LngLatBounds();
             validCoords.forEach(coord => bounds.extend(coord as mapboxgl.LngLatLike));
 
+            // Initialize the map
             map.current = new mapboxgl.Map({
                 container: mapContainer.current,
-                style: config.mapbox.defaultMapStyle,
+                style: 'mapbox://styles/mapbox/streets-v12',
                 bounds: bounds,
-                fitBoundsOptions: { padding: 50 }
+                fitBoundsOptions: {
+                    padding: { top: 50, bottom: 50, left: 50, right: 50 },
+                    maxZoom: 10 // Prevent over-zooming
+                }
             });
 
             // Add markers for each destination
             validCoords.forEach((coord, index) => {
-                // Create marker element
+                // Create custom marker element
                 const el = document.createElement('div');
-                el.className = 'marker';
-                el.innerHTML = `<div class="marker-number">${index + 1}</div>`;
+                el.className = 'flex items-center justify-center w-8 h-8 rounded-full bg-[#00C48C] text-white text-sm font-bold border-2 border-white shadow-lg';
+                el.textContent = `${index + 1}`;
+
+                // Create popup
+                const popup = new mapboxgl.Popup({ offset: 25 })
+                    .setHTML(`<div class="p-2 text-sm font-medium">${itinerary.destinations[index].destination}</div>`);
 
                 // Add marker to map
                 new mapboxgl.Marker(el)
                     .setLngLat(coord)
+                    .setPopup(popup)
                     .addTo(map.current!);
             });
 
-            // Draw route between destinations if we have more than one coordinate
-            if (validCoords.length > 1) {
-                await drawRoute(validCoords);
-            }
+            // Wait for map to load before drawing routes
+            map.current?.on('load', async () => {
+                if (validCoords.length > 1 && map.current) {
+                    // Create a function to add a route segment
+                    const addRouteSegment = async (start: [number, number], end: [number, number], index: number) => {
+                        const sourceId = `route-${index}`;
+                        const layerId = `route-${index}`;
+                        const backgroundLayerId = `${layerId}-background`;
+
+                        // Remove existing layers and sources if they exist
+                        if (map.current?.getLayer(layerId)) {
+                            map.current.removeLayer(layerId);
+                        }
+                        if (map.current?.getLayer(backgroundLayerId)) {
+                            map.current.removeLayer(backgroundLayerId);
+                        }
+                        if (map.current?.getSource(sourceId)) {
+                            map.current.removeSource(sourceId);
+                        }
+
+                        try {
+                            // Use driving profile for more accurate routes
+                            const response = await fetch(
+                                `${config.mapbox.apiBaseUrl}/directions/v5/mapbox/driving/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&overview=full&access_token=${config.mapbox.accessToken}`
+                            );
+
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! status: ${response.status}`);
+                            }
+
+                            const data = await response.json();
+
+                            if (data.routes?.[0]?.geometry && map.current) {
+                                // Add source
+                                map.current.addSource(sourceId, {
+                                    type: 'geojson',
+                                    data: {
+                                        type: 'Feature',
+                                        properties: {},
+                                        geometry: data.routes[0].geometry
+                                    }
+                                });
+
+                                // Add background line
+                                map.current.addLayer({
+                                    id: backgroundLayerId,
+                                    type: 'line',
+                                    source: sourceId,
+                                    layout: {
+                                        'line-join': 'round',
+                                        'line-cap': 'round'
+                                    },
+                                    paint: {
+                                        'line-color': '#FFFFFF',
+                                        'line-width': 6,
+                                        'line-opacity': 0.5
+                                    }
+                                });
+
+                                // Add main line
+                                map.current.addLayer({
+                                    id: layerId,
+                                    type: 'line',
+                                    source: sourceId,
+                                    layout: {
+                                        'line-join': 'round',
+                                        'line-cap': 'round'
+                                    },
+                                    paint: {
+                                        'line-color': '#EC4899',
+                                        'line-width': 4,
+                                        'line-opacity': 0.8
+                                    }
+                                });
+
+                                return true;
+                            }
+                            return false;
+                        } catch (error) {
+                            console.error(`Error fetching route for segment ${index}:`, error);
+                            return false;
+                        }
+                    };
+
+                    // Add routes sequentially
+                    for (let i = 0; i < validCoords.length - 1; i++) {
+                        const success = await addRouteSegment(validCoords[i], validCoords[i + 1], i);
+                        if (!success) {
+                            console.warn(`Failed to add route segment ${i}`);
+                            // Add a fallback straight line
+                            if (map.current) {
+                                const sourceId = `route-${i}`;
+                                const layerId = `route-${i}`;
+
+                                map.current.addSource(sourceId, {
+                                    type: 'geojson',
+                                    data: {
+                                        type: 'Feature',
+                                        properties: {},
+                                        geometry: {
+                                            type: 'LineString',
+                                            coordinates: [validCoords[i], validCoords[i + 1]]
+                                        }
+                                    }
+                                });
+
+                                map.current.addLayer({
+                                    id: layerId,
+                                    type: 'line',
+                                    source: sourceId,
+                                    layout: {
+                                        'line-join': 'round',
+                                        'line-cap': 'round'
+                                    },
+                                    paint: {
+                                        'line-color': '#EC4899',
+                                        'line-width': 4,
+                                        'line-opacity': 0.8,
+                                        'line-dasharray': [2, 1]
+                                    }
+                                });
+                            }
+                        }
+                        // Add a small delay between requests to avoid rate limiting
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                    }
+                }
+            });
+
+            // Add navigation controls
+            map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
         };
 
         initializeMap();
+
+        // Cleanup function
+        return () => {
+            if (map.current) {
+                map.current.remove();
+                map.current = null;
+            }
+        };
     }, [itinerary]);
 
     // Fetch itinerary data
@@ -416,11 +458,16 @@ const ViewMyItinerary: React.FC = () => {
     // Combine day attractions and discover items
     const allAttractions = [
         ...dayAttractions.map(attraction => {
-            const name = typeof attraction === 'string' ? attraction : attraction.name;
-            const description = typeof attraction === 'string' ? '' : attraction.description || '';
+            if (typeof attraction === 'string') {
+                return {
+                    name: attraction,
+                    description: '',
+                    isDiscover: false
+                };
+            }
             return {
-                name,
-                description,
+                name: attraction.name || '',
+                description: attraction.description || '',
                 isDiscover: false
             };
         }),
@@ -435,20 +482,48 @@ const ViewMyItinerary: React.FC = () => {
     const destinationFoodItems = currentDestination?.food?.split(',').filter(Boolean) || [];
     const destinationFoodDescriptions = currentDestination?.food_desc?.split(',').filter(Boolean) || [];
 
+    // Transform food options to match FoodItem interface
+    const transformFoodOptions = (foodOptions: any[]): FoodItem[] => {
+        return foodOptions.map(option => ({
+            id: option.id,
+            name: {
+                text: option.name,
+                cuisine: option.cuisine,
+                known_for: option.description
+            }
+        }));
+    };
+
     // Combine day food options with destination food items
-    const allFoodOptions = [
-        ...dayFoodOptions,
-        ...destinationFoodItems.map((item: string, index: number) => {
-            const [cuisine = '', knownFor = ''] = (destinationFoodDescriptions[index] || '').split('-').map((s: string) => s.trim());
-            return {
-                id: `dest-${index}`,
-                name: item.trim(),
-                cuisine: cuisine || 'Local Cuisine',
-                description: knownFor || '-',
-                isDestinationFood: true
-            };
-        })
-    ];
+    const allFoodOptions = dayFoodOptions.map((dayFood: any) => ({
+        dayIndex: dayFood.day_index,
+        foodItems: transformFoodOptions(dayFood.food_options || [])
+    }));
+
+    // Update the renderFoodOptions function to handle the raw food options data
+    const renderFoodOptions = (dayIndex: number) => {
+        const dayFoodOptions = itinerary?.day_food_options?.find(
+            (day) => day.day_index === dayIndex
+        )?.food_options || [];
+
+        if (!dayFoodOptions || dayFoodOptions.length === 0) {
+            return <p className="text-gray-500 py-4">No dining options added for this day.</p>;
+        }
+
+        return (
+            <div className="divide-y divide-[#E2E8F0]">
+                {dayFoodOptions.map((food: any, index: number) => (
+                    <div key={food.id || index} className="grid grid-cols-[2fr,1.5fr,2.5fr] py-4">
+                        <div className="flex flex-col gap-1">
+                            <div className="text-[#0F172A] text-sm font-medium">{food.name}</div>
+                        </div>
+                        <div className="text-[#64748B] text-sm">{food.cuisine}</div>
+                        <div className="text-[#64748B] text-sm">{food.description}</div>
+                    </div>
+                ))}
+            </div>
+        );
+    };
 
     // First, add the renderNotesWithLinks function at the top level of the component
     const renderNotesWithLinks = (notes: string): React.ReactNode => {
@@ -661,11 +736,6 @@ const ViewMyItinerary: React.FC = () => {
                                                                         {attraction.description && (
                                                                             <p className="text-[#64748B] text-sm mt-1">{attraction.description}</p>
                                                                         )}
-                                                                        {attraction.isDiscover && (
-                                                                            <span className="inline-block mt-1 text-xs px-2 py-0.5 bg-[#0EA5E9]/10 text-[#0EA5E9] rounded-full">
-                                                                                Not scheduled
-                                                                            </span>
-                                                                        )}
                                                                     </div>
                                                                 </div>
                                                                 {(() => {
@@ -695,7 +765,7 @@ const ViewMyItinerary: React.FC = () => {
                                                                 })()}
                                                             </div>
                                                         ))}
-                                                        {allAttractions.length === 0 && (
+                                                        {dayAttractions.length === 0 && (
                                                             <div className="p-6 text-[#64748B] text-sm">
                                                                 No activities scheduled for this day.
                                                             </div>
@@ -719,28 +789,7 @@ const ViewMyItinerary: React.FC = () => {
                                                             <div className="pb-2">Cuisine</div>
                                                             <div className="pb-2">Known For</div>
                                                         </div>
-
-                                                        <div className="divide-y divide-[#E2E8F0]">
-                                                            {allFoodOptions.map((food, index) => (
-                                                                <div key={food.id || index} className="grid grid-cols-[2fr,1.5fr,2.5fr] py-4">
-                                                                    <div className="flex flex-col gap-1">
-                                                                        <div className="text-[#0F172A] text-sm font-medium">{food.name}</div>
-                                                                        {food.isDestinationFood && (
-                                                                            <span className="inline-block text-xs px-2 py-0.5 bg-[#0EA5E9]/10 text-[#0EA5E9] rounded-full w-fit">
-                                                                                Not scheduled
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="text-[#64748B] text-sm">{food.cuisine || 'Local Cuisine'}</div>
-                                                                    <div className="text-[#64748B] text-sm">{food.description || '-'}</div>
-                                                                </div>
-                                                            ))}
-                                                            {allFoodOptions.length === 0 && (
-                                                                <div className="py-4 text-[#64748B] text-sm">
-                                                                    No dining options added for this day.
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                        {renderFoodOptions(selectedDayIndex)}
                                                     </div>
                                                 </div>
 

@@ -117,6 +117,17 @@ class MapboxCacheService {
             console.error('Error clearing geocoding cache:', error);
         }
     }
+
+    async deleteGeocodingResult(key: string): Promise<void> {
+        try {
+            await supabase
+                .from('mapbox_geocoding_cache')
+                .delete()
+                .eq('key', key);
+        } catch (error) {
+            console.error('Error deleting geocoding result from cache:', error);
+        }
+    }
 }
 
 export const mapboxCacheService = MapboxCacheService.getInstance(); 

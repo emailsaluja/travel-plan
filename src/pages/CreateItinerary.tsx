@@ -1360,147 +1360,54 @@ const CreateItinerary: React.FC = () => {
   };
 
   const handleDayFoodSelect = (destination: string, index: number) => {
-    // Find the correct destination index based on the day index
-    let currentDayCount = 0;
-    let destinationIndex = 0;
-
-    for (let i = 0; i < itineraryDays.length; i++) {
-      const nextDayCount = currentDayCount + itineraryDays[i].nights;
-      if (index >= currentDayCount && index < nextDayCount) {
-        destinationIndex = i;
-        break;
-      }
-      currentDayCount = nextDayCount;
-    }
-
-    // Initialize an empty array to store food items
-    const existingFoodItems: FoodItem[] = [];
-
-    // Collect all food items for this destination
-    const dayFood = dayFoods.find(f => f.dayIndex === index);
-    if (dayFood?.foodItems) {
-      dayFood.foodItems.forEach(item => {
-        // Only add if not already in the array
-        if (!existingFoodItems.some(existing => existing.id === item.id)) {
-          existingFoodItems.push({
-            id: item.id || Math.random().toString(36).substring(7),
-            name: {
-              text: item.name?.text || '',
-              cuisine: item.name?.cuisine || '',
-              known_for: item.name?.known_for || ''
-            }
-          });
-        }
-      });
-    }
-
-    // If there are no food items but there's a food string in itineraryDays, create food items from it
-    if (existingFoodItems.length === 0 && itineraryDays[destinationIndex].food) {
-      const foodNames = itineraryDays[destinationIndex].food.split(',').map(f => f.trim()).filter(Boolean);
-      const foodDescs = itineraryDays[destinationIndex].food_desc?.split(',').map(f => f.trim()) || [];
-
-      foodNames.forEach((foodName, idx) => {
-        const [cuisine = '', known_for = ''] = (foodDescs[idx] || '').split('-').map(s => s.trim());
-        existingFoodItems.push({
-          id: Math.random().toString(36).substring(7),
-          name: {
-            text: foodName,
-            cuisine,
-            known_for
-          }
-        });
-      });
-    }
-
     console.log('Setting food for destination:', {
       destination,
-      destinationIndex,
-      dayIndex: index,
-      existingFoodItems
+      index
     });
 
     // Set both state variables to the same index
-    setCurrentDestinationIndexForFood(destinationIndex);
-    setActiveDestinationIndexForFood(destinationIndex);
-    setCurrentDestinationForFood(cleanDestination(destination));
+    setCurrentDestinationIndexForFood(index);
+    setActiveDestinationIndexForFood(index);
+    setCurrentDestinationForFood(destination);
     setShowFoodPopup(true);
   };
 
   const handleFoodSelect = async (foodItems: FoodItem[]) => {
-    console.log('Handling food select:', { foodItems });
-
-    if (currentDestinationIndexForFood === null) return;
+    if (!itineraryId || currentDestinationIndexForFood === null) return;
 
     try {
-      // Extract text and descriptions from food items
-      const cleanedFoodItems = foodItems.map(item => item.name.text).filter(Boolean);
-      const descriptions = foodItems.map(item =>
-        [item.name.cuisine, item.name.known_for].filter(Boolean).join(' - ')
-      ).filter(Boolean);
+      // Delete existing food entries for this destination's days
+      const startDayIndex = itineraryDays
+        .slice(0, currentDestinationIndexForFood)
+        .reduce((sum, day) => sum + day.nights, 0);
 
-      // Update the itineraryDays state with the food items and description
-      const updatedItineraryDays = [...itineraryDays];
-      updatedItineraryDays[currentDestinationIndexForFood] = {
-        ...updatedItineraryDays[currentDestinationIndexForFood],
-        food: cleanedFoodItems.join(', '),
-        food_desc: descriptions.join(', ')
-      };
-
-      // If we have an itineraryId, update the database first
-      if (itineraryId) {
-        console.log('Updating food in database:', {
-          destination: updatedItineraryDays[currentDestinationIndexForFood].destination,
-          food: cleanedFoodItems.join(', '),
-          food_desc: descriptions.join(', ')
-        });
-
-        const { error: updateError } = await supabase
-          .from('user_itinerary_destinations')
-          .update({
-            food: cleanedFoodItems.join(', '),
-            food_desc: descriptions.join(', ')
-          })
-          .eq('itinerary_id', itineraryId)
-          .eq('order_index', currentDestinationIndexForFood);
-
-        if (updateError) {
-          console.error('Error updating food in database:', updateError);
-          throw updateError;
-        }
-
-        // Verify the update was successful
-        const { data: verifyData, error: verifyError } = await supabase
-          .from('user_itinerary_destinations')
-          .select('food, food_desc')
-          .eq('itinerary_id', itineraryId)
-          .eq('order_index', currentDestinationIndexForFood)
-          .single();
-
-        if (verifyError) {
-          console.error('Error verifying food update:', verifyError);
-        } else {
-          console.log('Verified database update:', verifyData);
-        }
-      }
-
-      // Calculate start day index for this destination
-      let startDayIndex = 0;
-      for (let i = 0; i < currentDestinationIndexForFood; i++) {
-        startDayIndex += itineraryDays[i].nights;
-      }
-
-      // Update dayFoods for this destination's days
-      const updatedDayFoods = [...dayFoods];
       const nights = itineraryDays[currentDestinationIndexForFood].nights;
 
-      // Remove any existing food entries for this destination's days
-      for (let i = 0; i < nights; i++) {
-        const currentDayIndex = startDayIndex + i;
-        const existingIndex = updatedDayFoods.findIndex(f => f.dayIndex === currentDayIndex);
-        if (existingIndex !== -1) {
-          updatedDayFoods.splice(existingIndex, 1);
-        }
+      // Delete existing food entries for this destination's days
+      await supabase
+        .from('user_itinerary_day_food_options')
+        .delete()
+        .eq('itinerary_id', itineraryId)
+        .gte('day_index', startDayIndex)
+        .lt('day_index', startDayIndex + nights);
+
+      // Add new food entries for this destination's days
+      if (foodItems.length > 0) {
+        const { error } = await supabase
+          .from('user_itinerary_day_food_options')
+          .insert({
+            itinerary_id: itineraryId,
+            day_index: startDayIndex,
+            name: foodItems
+          });
+
+        if (error) throw error;
       }
+
+      // Update local state
+      const updatedDayFoods = dayFoods.filter(
+        df => df.dayIndex < startDayIndex || df.dayIndex >= startDayIndex + nights
+      );
 
       // Add new food entries for this destination's days
       for (let i = 0; i < nights; i++) {
@@ -1508,7 +1415,7 @@ const CreateItinerary: React.FC = () => {
         updatedDayFoods.push({
           dayIndex: currentDayIndex,
           foodItems: foodItems,
-          foodDesc: descriptions.join(', ')
+          foodDesc: foodItems.map(item => item.name.text).join(', ')
         });
       }
 
@@ -1517,16 +1424,10 @@ const CreateItinerary: React.FC = () => {
 
       // Update states
       setDayFoods(updatedDayFoods);
-      setItineraryDays(updatedItineraryDays);
       setShowFoodPopup(false);
+      setCurrentDestinationIndexForFood(null);
+      setActiveDestinationIndexForFood(null);
 
-      console.log('Updated food data:', {
-        destination: updatedItineraryDays[currentDestinationIndexForFood].destination,
-        foodItems,
-        descriptions,
-        updatedDay: updatedItineraryDays[currentDestinationIndexForFood],
-        dayFoods: updatedDayFoods
-      });
     } catch (error) {
       console.error('Error handling food selection:', error);
     }
@@ -2679,6 +2580,7 @@ const CreateItinerary: React.FC = () => {
             <MapboxMap
               destinations={itineraryDays.filter(day => day.destination !== '')}
               className="h-full w-full"
+              country={tripSummary.country}
             />
           </div>
         </div>
@@ -2721,9 +2623,19 @@ const CreateItinerary: React.FC = () => {
               onClose={() => {
                 setShowFoodPopup(false);
                 setActiveDestinationIndexForFood(null);
+                setCurrentDestinationIndexForFood(null);
               }}
-              date={formatDate(new Date(tripSummary.startDate))}
-              destination={cleanDestination(itineraryDays[activeDestinationIndexForFood].destination) || ''}
+              date={(() => {
+                const startDate = new Date(tripSummary.startDate);
+                let daysToAdd = 0;
+                for (let i = 0; i < activeDestinationIndexForFood; i++) {
+                  daysToAdd += itineraryDays[i].nights;
+                }
+                const destinationDate = new Date(startDate);
+                destinationDate.setDate(startDate.getDate() + daysToAdd);
+                return formatDate(destinationDate);
+              })()}
+              destination={currentDestinationForFood}
               selectedFoodItems={(() => {
                 let startDayIndex = 0;
                 for (let i = 0; i < activeDestinationIndexForFood; i++) {
