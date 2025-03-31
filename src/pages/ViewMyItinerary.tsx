@@ -7,6 +7,7 @@ import { Calendar, Utensils, MapPin, ArrowLeft } from 'lucide-react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { config } from '../config/config';
+import MapboxMap from '../components/MapboxMap';
 
 // Initialize Mapbox with the token
 mapboxgl.accessToken = config.mapbox.accessToken;
@@ -139,9 +140,6 @@ const ViewMyItinerary: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [selectedDestIndex, setSelectedDestIndex] = useState(0);
     const [selectedDayIndex, setSelectedDayIndex] = useState(0);
-    const [coordinates, setCoordinates] = useState<[number, number][]>([]);
-    const mapContainer = useRef<HTMLDivElement>(null);
-    const map = useRef<mapboxgl.Map | null>(null);
     const [heroImage, setHeroImage] = useState<string>('');
 
     // New state variables for preloaded data
@@ -178,244 +176,6 @@ const ViewMyItinerary: React.FC = () => {
         newDate.setDate(startDate.getDate() + daysToAdd);
         return newDate;
     };
-
-    // Function to fetch coordinates for a destination
-    const fetchCoordinates = async (destination: string): Promise<[number, number] | null> => {
-        try {
-            // Add country name to the search query for better results
-            const searchQuery = `${destination}, ${itinerary?.country}`;
-
-            const params = new URLSearchParams({
-                access_token: config.mapbox.accessToken,
-                types: 'place,region,district,locality,neighborhood',
-                language: 'en',
-                limit: '1'
-            });
-
-            const response = await fetch(
-                `${config.mapbox.apiBaseUrl}/geocoding/v5/mapbox.places/${encodeURIComponent(searchQuery)}.json?${params}`
-            );
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            if (data.features && data.features.length > 0) {
-                // Log the found place for debugging
-                console.log('Found place:', {
-                    name: data.features[0].place_name,
-                    coordinates: data.features[0].center,
-                    type: data.features[0].place_type,
-                    context: data.features[0].context
-                });
-
-                return data.features[0].center as [number, number];
-            }
-
-            console.warn(`No coordinates found for: ${destination}`);
-            return null;
-        } catch (error) {
-            console.error('Error fetching coordinates:', error);
-            return null;
-        }
-    };
-
-    // Initialize map and fetch coordinates
-    useEffect(() => {
-        const initializeMap = async () => {
-            if (!itinerary || !mapContainer.current || map.current) return;
-
-            const allCoords = await Promise.all(
-                itinerary.destinations.map(dest => fetchCoordinates(dest.destination))
-            );
-
-            // Filter out null coordinates and set only valid ones
-            const validCoords = allCoords.filter((coord): coord is [number, number] => coord !== null);
-            setCoordinates(validCoords);
-
-            if (validCoords.length === 0) {
-                console.warn('No valid coordinates found for any destination');
-                return;
-            }
-
-            // Calculate bounds for Switzerland
-            const bounds = new mapboxgl.LngLatBounds();
-            validCoords.forEach(coord => bounds.extend(coord as mapboxgl.LngLatLike));
-
-            // Initialize the map
-            map.current = new mapboxgl.Map({
-                container: mapContainer.current,
-                style: 'mapbox://styles/mapbox/streets-v12',
-                bounds: bounds,
-                fitBoundsOptions: {
-                    padding: { top: 50, bottom: 50, left: 50, right: 50 },
-                    maxZoom: 10 // Prevent over-zooming
-                }
-            });
-
-            // Add markers for each destination
-            validCoords.forEach((coord, index) => {
-                // Create custom marker element
-                const el = document.createElement('div');
-                el.className = 'flex items-center justify-center w-8 h-8 rounded-full bg-[#00C48C] text-white text-sm font-bold border-2 border-white shadow-lg';
-                el.textContent = `${index + 1}`;
-
-                // Create popup
-                const popup = new mapboxgl.Popup({ offset: 25 })
-                    .setHTML(`<div class="p-2 text-sm font-medium">${itinerary.destinations[index].destination}</div>`);
-
-                // Add marker to map
-                new mapboxgl.Marker(el)
-                    .setLngLat(coord)
-                    .setPopup(popup)
-                    .addTo(map.current!);
-            });
-
-            // Wait for map to load before drawing routes
-            map.current?.on('load', async () => {
-                if (validCoords.length > 1 && map.current) {
-                    // Create a function to add a route segment
-                    const addRouteSegment = async (start: [number, number], end: [number, number], index: number) => {
-                        const sourceId = `route-${index}`;
-                        const layerId = `route-${index}`;
-                        const backgroundLayerId = `${layerId}-background`;
-
-                        // Remove existing layers and sources if they exist
-                        if (map.current?.getLayer(layerId)) {
-                            map.current.removeLayer(layerId);
-                        }
-                        if (map.current?.getLayer(backgroundLayerId)) {
-                            map.current.removeLayer(backgroundLayerId);
-                        }
-                        if (map.current?.getSource(sourceId)) {
-                            map.current.removeSource(sourceId);
-                        }
-
-                        try {
-                            // Use driving profile for more accurate routes
-                            const response = await fetch(
-                                `${config.mapbox.apiBaseUrl}/directions/v5/mapbox/driving/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&overview=full&access_token=${config.mapbox.accessToken}`
-                            );
-
-                            if (!response.ok) {
-                                throw new Error(`HTTP error! status: ${response.status}`);
-                            }
-
-                            const data = await response.json();
-
-                            if (data.routes?.[0]?.geometry && map.current) {
-                                // Add source
-                                map.current.addSource(sourceId, {
-                                    type: 'geojson',
-                                    data: {
-                                        type: 'Feature',
-                                        properties: {},
-                                        geometry: data.routes[0].geometry
-                                    }
-                                });
-
-                                // Add background line
-                                map.current.addLayer({
-                                    id: backgroundLayerId,
-                                    type: 'line',
-                                    source: sourceId,
-                                    layout: {
-                                        'line-join': 'round',
-                                        'line-cap': 'round'
-                                    },
-                                    paint: {
-                                        'line-color': '#FFFFFF',
-                                        'line-width': 6,
-                                        'line-opacity': 0.5
-                                    }
-                                });
-
-                                // Add main line
-                                map.current.addLayer({
-                                    id: layerId,
-                                    type: 'line',
-                                    source: sourceId,
-                                    layout: {
-                                        'line-join': 'round',
-                                        'line-cap': 'round'
-                                    },
-                                    paint: {
-                                        'line-color': '#EC4899',
-                                        'line-width': 4,
-                                        'line-opacity': 0.8
-                                    }
-                                });
-
-                                return true;
-                            }
-                            return false;
-                        } catch (error) {
-                            console.error(`Error fetching route for segment ${index}:`, error);
-                            return false;
-                        }
-                    };
-
-                    // Add routes sequentially
-                    for (let i = 0; i < validCoords.length - 1; i++) {
-                        const success = await addRouteSegment(validCoords[i], validCoords[i + 1], i);
-                        if (!success) {
-                            console.warn(`Failed to add route segment ${i}`);
-                            // Add a fallback straight line
-                            if (map.current) {
-                                const sourceId = `route-${i}`;
-                                const layerId = `route-${i}`;
-
-                                map.current.addSource(sourceId, {
-                                    type: 'geojson',
-                                    data: {
-                                        type: 'Feature',
-                                        properties: {},
-                                        geometry: {
-                                            type: 'LineString',
-                                            coordinates: [validCoords[i], validCoords[i + 1]]
-                                        }
-                                    }
-                                });
-
-                                map.current.addLayer({
-                                    id: layerId,
-                                    type: 'line',
-                                    source: sourceId,
-                                    layout: {
-                                        'line-join': 'round',
-                                        'line-cap': 'round'
-                                    },
-                                    paint: {
-                                        'line-color': '#EC4899',
-                                        'line-width': 4,
-                                        'line-opacity': 0.8,
-                                        'line-dasharray': [2, 1]
-                                    }
-                                });
-                            }
-                        }
-                        // Add a small delay between requests to avoid rate limiting
-                        await new Promise(resolve => setTimeout(resolve, 300));
-                    }
-                }
-            });
-
-            // Add navigation controls
-            map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-        };
-
-        initializeMap();
-
-        // Cleanup function
-        return () => {
-            if (map.current) {
-                map.current.remove();
-                map.current = null;
-            }
-        };
-    }, [itinerary]);
 
     // Fetch itinerary data
     useEffect(() => {
@@ -527,15 +287,32 @@ const ViewMyItinerary: React.FC = () => {
             return <p className="text-gray-500 py-4">No dining options added for this day.</p>;
         }
 
+        // Deduplicate food options based on restaurant name
+        const uniqueFoodOptions = dayFoodOptions.reduce((acc: FoodItem[], current: any) => {
+            // Safely check if the current item has the expected structure
+            const currentName = current?.name?.text;
+            if (!currentName) return acc;
+
+            const exists = acc.find(item => {
+                const itemName = item?.name?.text;
+                return itemName && itemName.toLowerCase() === currentName.toLowerCase();
+            });
+
+            if (!exists) {
+                acc.push(current);
+            }
+            return acc;
+        }, [] as FoodItem[]);
+
         return (
             <div className="divide-y divide-[#E2E8F0]">
-                {dayFoodOptions.map((food: any, index: number) => (
+                {uniqueFoodOptions.map((food: FoodItem, index: number) => (
                     <div key={food.id || index} className="grid grid-cols-[2fr,1.5fr,2.5fr] py-4">
                         <div className="flex flex-col gap-1">
-                            <div className="text-[#0F172A] text-sm font-medium">{food.name}</div>
+                            <div className="text-[#0F172A] text-sm font-medium">{food.name?.text || 'N/A'}</div>
                         </div>
-                        <div className="text-[#64748B] text-sm">{food.cuisine}</div>
-                        <div className="text-[#64748B] text-sm">{food.description}</div>
+                        <div className="text-[#64748B] text-sm">{food.name?.cuisine || 'N/A'}</div>
+                        <div className="text-[#64748B] text-sm">{food.name?.known_for || 'N/A'}</div>
                     </div>
                 ))}
             </div>
@@ -610,28 +387,70 @@ const ViewMyItinerary: React.FC = () => {
     const discoverItems = currentDestination?.manual_discover?.split(',').filter(Boolean) || [];
     const discoverDescriptions = currentDestination?.manual_discover_desc?.split(',').filter(Boolean) || [];
 
+    // Add type for time of day
+    type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night' | 'all day';
+
+    // Add type for attraction
+    interface Attraction {
+        name: string;
+        description: string;
+        isDiscover: boolean;
+        timeOfDay: TimeOfDay;
+    }
+
     // Combine day attractions and discover items
-    const allAttractions = [
+    const allAttractions: Attraction[] = [
         ...dayAttractions.map(attraction => {
             if (typeof attraction === 'string') {
                 return {
-                    name: attraction,
+                    name: attraction.trim(),
                     description: '',
-                    isDiscover: false
+                    isDiscover: false,
+                    timeOfDay: 'all day' as TimeOfDay
                 };
             }
+            let timeOfDay: TimeOfDay = 'all day';
+            const desc = attraction.description?.toLowerCase() || '';
+            if (desc.includes('morning')) timeOfDay = 'morning';
+            else if (desc.includes('afternoon')) timeOfDay = 'afternoon';
+            else if (desc.includes('evening')) timeOfDay = 'evening';
+            else if (desc.includes('night')) timeOfDay = 'night';
+
             return {
-                name: attraction.name || '',
+                name: (attraction.name || '').trim(),
                 description: attraction.description || '',
-                isDiscover: false
+                isDiscover: false,
+                timeOfDay
             };
         }),
         ...discoverItems.map((item: string, index: number) => ({
-            name: item,
+            name: item.trim(),
             description: discoverDescriptions[index] || '',
-            isDiscover: true
+            isDiscover: true,
+            timeOfDay: 'all day' as TimeOfDay
         }))
     ];
+
+    // Create a map to store unique attractions by name (case-insensitive)
+    const uniqueAttractionsMap = new Map<string, Attraction>();
+    allAttractions.forEach(attraction => {
+        const normalizedName = attraction.name.toLowerCase();
+        // Only store the first occurrence of each attraction name
+        if (!uniqueAttractionsMap.has(normalizedName)) {
+            uniqueAttractionsMap.set(normalizedName, attraction);
+        }
+    });
+
+    // Convert map back to array and sort by time of day
+    const uniqueAttractions = Array.from(uniqueAttractionsMap.values());
+    const timeOrder: Record<TimeOfDay, number> = {
+        'morning': 0,
+        'afternoon': 1,
+        'evening': 2,
+        'night': 3,
+        'all day': 4
+    };
+    uniqueAttractions.sort((a, b) => timeOrder[a.timeOfDay] - timeOrder[b.timeOfDay]);
 
     // Get food items from the current destination
     const destinationFoodItems = currentDestination?.food?.split(',').filter(Boolean) || [];
@@ -784,12 +603,12 @@ const ViewMyItinerary: React.FC = () => {
                                                             <Calendar className="w-4 h-4" />
                                                             {formatDate(calculateStartDate(destIndex, selectedDayIndex).toISOString())}
                                                         </div>
-                                                        {currentHotel && (
+                                                        {dayHotel && (
                                                             <div className="flex items-center gap-2 text-[#64748B] text-sm mt-0.5">
                                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                                                                 </svg>
-                                                                <span className="font-medium">{currentHotel}</span>
+                                                                <span className="font-medium">{dayHotel}</span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -809,7 +628,7 @@ const ViewMyItinerary: React.FC = () => {
                                                     </div>
 
                                                     <div className="space-y-4 p-6 pt-2">
-                                                        {currentAttractions.map((attraction, index) => (
+                                                        {uniqueAttractions.map((attraction, index) => (
                                                             <div key={index} className="flex items-start justify-between p-4 border border-[#E2E8F0] rounded-lg">
                                                                 <div className="flex items-start gap-3">
                                                                     <div className="mt-1">
@@ -900,7 +719,11 @@ const ViewMyItinerary: React.FC = () => {
                             </div>
 
                             <div className="lg:sticky lg:top-[72px] h-[calc(100vh-72px)]">
-                                <div ref={mapContainer} className="w-full h-full rounded-2xl overflow-hidden border border-[#E2E8F0]" />
+                                <MapboxMap
+                                    destinations={itinerary?.destinations || []}
+                                    className="w-full h-full rounded-2xl overflow-hidden border border-[#E2E8F0]"
+                                    country={itinerary?.country || ''}
+                                />
                             </div>
                         </div>
                     </Tabs>
