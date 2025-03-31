@@ -207,6 +207,19 @@ const UserPublicDashboard = () => {
     const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
     const [selectedBlogCategory, setSelectedBlogCategory] = useState<'all' | BlogPost['category']>('all');
     const [loadingBlogPosts, setLoadingBlogPosts] = useState(true);
+    // Add new state for blog creation
+    const [isCreateBlogOpen, setIsCreateBlogOpen] = useState(false);
+    const [isEditBlogOpen, setIsEditBlogOpen] = useState(false);
+    const [editingBlogPost, setEditingBlogPost] = useState<BlogPost | null>(null);
+    const [newBlogPost, setNewBlogPost] = useState({
+        title: '',
+        excerpt: '',
+        category: 'tips' as BlogPost['category'],
+        featured_image_url: '',
+        content: '',
+        reading_time_minutes: 5
+    });
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Add this constant for regions
     const REGIONS: Record<RegionKey, string> = {
@@ -488,6 +501,119 @@ const UserPublicDashboard = () => {
     useEffect(() => {
         loadBlogPosts();
     }, []);
+
+    // Add this function to handle blog post creation
+    const handleCreateBlogPost = async () => {
+        if (!profile) return;
+
+        try {
+            setIsSubmitting(true);
+
+            // Create a slug from the title
+            const slug = newBlogPost.title
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/(^-|-$)/g, '');
+
+            const blogPost = {
+                ...newBlogPost,
+                slug,
+                user_id: profile.user_id,
+                published_at: new Date().toISOString(),
+                comment_count: 0,
+                is_editors_pick: false
+            };
+
+            const { data, error } = await supabase
+                .from('blog_posts')
+                .insert([blogPost])
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            // Add the new blog post to the state
+            setBlogPosts(prev => [data, ...prev]);
+
+            // Reset the form and close modal
+            setNewBlogPost({
+                title: '',
+                excerpt: '',
+                category: 'tips',
+                featured_image_url: '',
+                content: '',
+                reading_time_minutes: 5
+            });
+            setIsCreateBlogOpen(false);
+        } catch (error) {
+            console.error('Error creating blog post:', error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // Add this function to handle blog post editing
+    const handleEditBlogPost = async () => {
+        if (!editingBlogPost || !profile) return;
+
+        try {
+            setIsSubmitting(true);
+
+            const updatedBlogPost = {
+                ...editingBlogPost,
+                title: newBlogPost.title,
+                excerpt: newBlogPost.excerpt,
+                category: newBlogPost.category,
+                featured_image_url: newBlogPost.featured_image_url,
+                content: newBlogPost.content,
+                reading_time_minutes: newBlogPost.reading_time_minutes
+            };
+
+            const { data, error } = await supabase
+                .from('blog_posts')
+                .update(updatedBlogPost)
+                .eq('id', editingBlogPost.id)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            // Update the blog post in the state
+            setBlogPosts(prev => prev.map(post =>
+                post.id === editingBlogPost.id ? data : post
+            ));
+
+            // Reset the form and close modal
+            setEditingBlogPost(null);
+            setNewBlogPost({
+                title: '',
+                excerpt: '',
+                category: 'tips',
+                featured_image_url: '',
+                content: '',
+                reading_time_minutes: 5
+            });
+            setIsEditBlogOpen(false);
+        } catch (error) {
+            console.error('Error updating blog post:', error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // Add this function to open the edit modal
+    const openEditModal = (blogPost: BlogPost) => {
+        setEditingBlogPost(blogPost);
+        setNewBlogPost({
+            title: blogPost.title,
+            excerpt: blogPost.excerpt,
+            category: blogPost.category,
+            featured_image_url: blogPost.featured_image_url,
+            content: blogPost.content,
+            reading_time_minutes: blogPost.reading_time_minutes
+        });
+        setIsEditBlogOpen(true);
+    };
 
     if (loading) {
         return (
@@ -975,7 +1101,18 @@ const UserPublicDashboard = () => {
 
                 {/* Travel Blog Section */}
                 <div className="mb-16">
-                    <h2 className="text-[32px] text-[#1e293b] font-medium mb-3">Travel Blog</h2>
+                    <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-[32px] text-[#1e293b] font-medium">Travel Blog</h2>
+                        <button
+                            onClick={() => setIsCreateBlogOpen(true)}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#00C48C] text-white text-[15px] font-medium rounded-xl hover:bg-[#00B380] transition-colors"
+                        >
+                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 4v16m8-8H4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                            </svg>
+                            Create Blog Post
+                        </button>
+                    </div>
                     <p className="text-[#64748b] text-lg mb-8">
                         Stories, insights, and reflections from journeys around the world.
                     </p>
@@ -1012,7 +1149,7 @@ const UserPublicDashboard = () => {
                         <div className="grid grid-cols-1 lg:grid-cols-[1fr,400px] gap-8">
                             {/* Main Featured Blog Post */}
                             {blogPosts[0] && (
-                                <Link to={`/blog/${blogPosts[0].slug}`} className="group">
+                                <div className="group">
                                     <div className="relative h-[400px] rounded-2xl overflow-hidden mb-6">
                                         <img
                                             src={blogPosts[0].featured_image_url}
@@ -1027,42 +1164,68 @@ const UserPublicDashboard = () => {
                                                 </span>
                                             </div>
                                         )}
+                                        <button
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                openEditModal(blogPosts[0]);
+                                            }}
+                                            className="absolute top-6 right-6 p-2 bg-white/90 backdrop-blur-sm rounded-full text-gray-700 hover:bg-white transition-colors"
+                                        >
+                                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+                                            </svg>
+                                        </button>
                                     </div>
-                                    <h3 className="text-[28px] font-medium text-[#1e293b] mb-4 group-hover:text-[#00C48C] transition-colors">
-                                        {blogPosts[0].title}
-                                    </h3>
-                                    <p className="text-[#64748b] text-[17px] mb-5">
-                                        {blogPosts[0].excerpt}
-                                    </p>
-                                    <div className="flex items-center gap-6 text-[15px] text-[#64748b]">
-                                        <div className="flex items-center gap-2">
-                                            <Calendar className="w-[18px] h-[18px] text-[#00C48C]" />
-                                            {formatDate(blogPosts[0].published_at)}
+                                    <Link to={`/blog/${blogPosts[0].slug}`} className="block">
+                                        <h3 className="text-[28px] font-medium text-[#1e293b] mb-4 group-hover:text-[#00C48C] transition-colors">
+                                            {blogPosts[0].title}
+                                        </h3>
+                                        <p className="text-[#64748b] text-[17px] mb-5">
+                                            {blogPosts[0].excerpt}
+                                        </p>
+                                        <div className="flex items-center gap-6 text-[15px] text-[#64748b]">
+                                            <div className="flex items-center gap-2">
+                                                <Calendar className="w-[18px] h-[18px] text-[#00C48C]" />
+                                                {formatDate(blogPosts[0].published_at)}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Clock className="w-[18px] h-[18px] text-[#00C48C]" />
+                                                {blogPosts[0].reading_time_minutes} min read
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <MessageCircle className="w-[18px] h-[18px] text-[#00C48C]" />
+                                                {blogPosts[0].comment_count} comments
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <Clock className="w-[18px] h-[18px] text-[#00C48C]" />
-                                            {blogPosts[0].reading_time_minutes} min read
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <MessageCircle className="w-[18px] h-[18px] text-[#00C48C]" />
-                                            {blogPosts[0].comment_count} comments
-                                        </div>
-                                    </div>
-                                </Link>
+                                    </Link>
+                                </div>
                             )}
 
                             {/* Side Blog Posts */}
                             <div className="space-y-6">
                                 {blogPosts.slice(1, 4).map(post => (
-                                    <Link key={post.id} to={`/blog/${post.slug}`} className="flex gap-5 group">
+                                    <div key={post.id} className="flex gap-5 group">
                                         <div className="relative w-32 h-32 rounded-xl overflow-hidden flex-shrink-0">
                                             <img
                                                 src={post.featured_image_url}
                                                 alt={post.title}
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                             />
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    openEditModal(post);
+                                                }}
+                                                className="absolute top-2 right-2 p-1.5 bg-white/90 backdrop-blur-sm rounded-full text-gray-700 hover:bg-white transition-colors"
+                                            >
+                                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+                                                </svg>
+                                            </button>
                                         </div>
-                                        <div className="flex-1 py-2">
+                                        <Link to={`/blog/${post.slug}`} className="flex-1 py-2">
                                             <div className="text-[#4B83FB] text-[13px] font-semibold mb-2">
                                                 {post.category.charAt(0).toUpperCase() + post.category.slice(1)}
                                             </div>
@@ -1079,8 +1242,8 @@ const UserPublicDashboard = () => {
                                                     {post.comment_count}
                                                 </div>
                                             </div>
-                                        </div>
-                                    </Link>
+                                        </Link>
+                                    </div>
                                 ))}
                             </div>
                         </div>
@@ -1446,6 +1609,197 @@ const UserPublicDashboard = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* Create Blog Post Modal */}
+                {isCreateBlogOpen && (
+                    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+                        <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col animate-in fade-in duration-200">
+                            <div className="p-6 border-b border-gray-100">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-xl font-semibold text-gray-900">Create New Blog Post</h2>
+                                    <button
+                                        onClick={() => setIsCreateBlogOpen(false)}
+                                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="p-6 flex-1 overflow-y-auto">
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                                        <input
+                                            type="text"
+                                            value={newBlogPost.title}
+                                            onChange={(e) => setNewBlogPost(prev => ({ ...prev, title: e.target.value }))}
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                            placeholder="Enter blog post title"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Excerpt</label>
+                                        <textarea
+                                            value={newBlogPost.excerpt}
+                                            onChange={(e) => setNewBlogPost(prev => ({ ...prev, excerpt: e.target.value }))}
+                                            rows={3}
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all resize-none"
+                                            placeholder="Write a brief excerpt for your blog post"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                                        <select
+                                            value={newBlogPost.category}
+                                            onChange={(e) => setNewBlogPost(prev => ({ ...prev, category: e.target.value as BlogPost['category'] }))}
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                        >
+                                            <option value="tips">Tips</option>
+                                            <option value="guides">Guides</option>
+                                            <option value="stories">Stories</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Featured Image URL</label>
+                                        <input
+                                            type="url"
+                                            value={newBlogPost.featured_image_url}
+                                            onChange={(e) => setNewBlogPost(prev => ({ ...prev, featured_image_url: e.target.value }))}
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                            placeholder="Enter image URL"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
+                                        <textarea
+                                            value={newBlogPost.content}
+                                            onChange={(e) => setNewBlogPost(prev => ({ ...prev, content: e.target.value }))}
+                                            rows={10}
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all resize-none"
+                                            placeholder="Write your blog post content"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Reading Time (minutes)</label>
+                                        <input
+                                            type="number"
+                                            value={newBlogPost.reading_time_minutes}
+                                            onChange={(e) => setNewBlogPost(prev => ({ ...prev, reading_time_minutes: parseInt(e.target.value) }))}
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                            min="1"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="p-6 border-t border-gray-100">
+                                <button
+                                    onClick={handleCreateBlogPost}
+                                    disabled={isSubmitting || !newBlogPost.title || !newBlogPost.content}
+                                    className="w-full py-3 bg-[#00C48C] text-white rounded-xl text-sm font-medium hover:bg-[#00B380] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isSubmitting ? 'Creating...' : 'Create Blog Post'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Edit Blog Post Modal */}
+                {isEditBlogOpen && (
+                    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+                        <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col animate-in fade-in duration-200">
+                            <div className="p-6 border-b border-gray-100">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-xl font-semibold text-gray-900">Edit Blog Post</h2>
+                                    <button
+                                        onClick={() => {
+                                            setIsEditBlogOpen(false);
+                                            setEditingBlogPost(null);
+                                        }}
+                                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="p-6 flex-1 overflow-y-auto">
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                                        <input
+                                            type="text"
+                                            value={newBlogPost.title}
+                                            onChange={(e) => setNewBlogPost(prev => ({ ...prev, title: e.target.value }))}
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                            placeholder="Enter blog post title"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Excerpt</label>
+                                        <textarea
+                                            value={newBlogPost.excerpt}
+                                            onChange={(e) => setNewBlogPost(prev => ({ ...prev, excerpt: e.target.value }))}
+                                            rows={3}
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all resize-none"
+                                            placeholder="Write a brief excerpt for your blog post"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                                        <select
+                                            value={newBlogPost.category}
+                                            onChange={(e) => setNewBlogPost(prev => ({ ...prev, category: e.target.value as BlogPost['category'] }))}
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                        >
+                                            <option value="tips">Tips</option>
+                                            <option value="guides">Guides</option>
+                                            <option value="stories">Stories</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Featured Image URL</label>
+                                        <input
+                                            type="url"
+                                            value={newBlogPost.featured_image_url}
+                                            onChange={(e) => setNewBlogPost(prev => ({ ...prev, featured_image_url: e.target.value }))}
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                            placeholder="Enter image URL"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
+                                        <textarea
+                                            value={newBlogPost.content}
+                                            onChange={(e) => setNewBlogPost(prev => ({ ...prev, content: e.target.value }))}
+                                            rows={10}
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all resize-none"
+                                            placeholder="Write your blog post content"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Reading Time (minutes)</label>
+                                        <input
+                                            type="number"
+                                            value={newBlogPost.reading_time_minutes}
+                                            onChange={(e) => setNewBlogPost(prev => ({ ...prev, reading_time_minutes: parseInt(e.target.value) }))}
+                                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                            min="1"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="p-6 border-t border-gray-100">
+                                <button
+                                    onClick={handleEditBlogPost}
+                                    disabled={isSubmitting || !newBlogPost.title || !newBlogPost.content}
+                                    className="w-full py-3 bg-[#00C48C] text-white rounded-xl text-sm font-medium hover:bg-[#00B380] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isSubmitting ? 'Saving...' : 'Save Changes'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -56,6 +56,12 @@ const Navigation1: React.FC = () => {
                 >
                   Discover
                 </Link>
+                <Link
+                  to="/blog"
+                  className="text-gray-500 hover:text-[#1e293b] px-3 py-2 text-[15px] font-medium"
+                >
+                  Blog
+                </Link>
               </>
             ) : (
               <>
@@ -148,6 +154,12 @@ const Navigation1: React.FC = () => {
                   className="block px-3 py-2 rounded-md text-base font-medium text-gray-500 hover:text-[#1e293b]"
                 >
                   Discover
+                </Link>
+                <Link
+                  to="/blog"
+                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-500 hover:text-[#1e293b]"
+                >
+                  Blog
                 </Link>
                 <button
                   onClick={handleSignOut}
