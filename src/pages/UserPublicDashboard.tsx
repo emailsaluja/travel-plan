@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { MapPin, Calendar, Clock, Users, Search, X, Globe, MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -153,6 +153,10 @@ interface UserProfile {
     hero_banner_url?: string;
     profile_picture_url?: string;
     user_id: string;
+    bio?: string;
+    website_url?: string;
+    youtube_url?: string;
+    instagram_url?: string;
 }
 
 interface Itinerary {
@@ -169,6 +173,9 @@ interface Itinerary {
     }[];
 }
 
+// Add type for region keys
+type RegionKey = 'all' | 'asia' | 'europe' | 'namerica' | 'samerica' | 'africa' | 'oceania' | 'other';
+
 const UserPublicDashboard = () => {
     const { username } = useParams<{ username: string }>();
     const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -180,6 +187,44 @@ const UserPublicDashboard = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [isCountrySelectOpen, setIsCountrySelectOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+    const [isRegionFilterOpen, setIsRegionFilterOpen] = useState(false);
+    const [selectedRegion, setSelectedRegion] = useState<RegionKey>('all');
+
+    // Add this constant for regions
+    const REGIONS: Record<RegionKey, string> = {
+        all: 'All Regions',
+        asia: 'Asia',
+        europe: 'Europe',
+        namerica: 'North America',
+        samerica: 'South America',
+        africa: 'Africa',
+        oceania: 'Oceania',
+        other: 'Other Regions'
+    };
+
+    // Add this function to filter itineraries by region
+    const getRegionForCountry = (country: string): RegionKey => {
+        const asianCountries = ['China', 'Japan', 'Thailand', 'Vietnam', 'India', 'Singapore', 'Malaysia', 'Indonesia', 'Philippines', 'South Korea'];
+        const europeanCountries = ['France', 'Italy', 'Spain', 'Germany', 'United Kingdom', 'Greece', 'Netherlands', 'Switzerland'];
+        const northAmericanCountries = ['United States', 'Canada', 'Mexico'];
+        const southAmericanCountries = ['Brazil', 'Argentina', 'Peru', 'Colombia', 'Chile'];
+        const africanCountries = ['South Africa', 'Egypt', 'Morocco', 'Kenya', 'Tanzania'];
+        const oceaniaCountries = ['Australia', 'New Zealand', 'Fiji'];
+
+        if (asianCountries.includes(country)) return 'asia';
+        if (europeanCountries.includes(country)) return 'europe';
+        if (northAmericanCountries.includes(country)) return 'namerica';
+        if (southAmericanCountries.includes(country)) return 'samerica';
+        if (africanCountries.includes(country)) return 'africa';
+        if (oceaniaCountries.includes(country)) return 'oceania';
+        return 'other';
+    };
+
+    const filteredItineraries = useMemo(() => {
+        if (selectedRegion === 'all') return itineraries;
+        return itineraries.filter(itinerary => getRegionForCountry(itinerary.country) === selectedRegion);
+    }, [itineraries, selectedRegion]);
 
     // Get unique visited countries and their ISO codes
     const visitedCountries = React.useMemo(() => {
@@ -386,6 +431,23 @@ const UserPublicDashboard = () => {
         });
     };
 
+    // Add this near other useMemo hooks
+    const upcomingAdventures = useMemo(() => {
+        const today = new Date();
+        return itineraries
+            .filter(itinerary => new Date(itinerary.start_date) > today)
+            .sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime())
+            .slice(0, 2); // Show only next 2 upcoming trips
+    }, [itineraries]);
+
+    const getDaysUntilTrip = (startDate: string) => {
+        const today = new Date();
+        const tripDate = new Date(startDate);
+        const diffTime = tripDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays;
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -412,120 +474,114 @@ const UserPublicDashboard = () => {
                 <StaticWorldMap
                     visitedCountries={visitedCountries}
                 />
-                {/* Profile Card */}
-                <div className="absolute bottom-6 right-6 w-80 bg-white/90 backdrop-blur-xl rounded-2xl shadow-lg overflow-hidden border border-gray-100">
-                    <div className="p-5">
-                        <div className="flex items-center gap-4 mb-5">
-                            <div className="w-16 h-16 rounded-full bg-white shadow-sm overflow-hidden ring-2 ring-white">
-                                <img
-                                    src={profile.profile_picture_url || '/images/profile-icon.svg'}
-                                    alt={profile.full_name}
-                                    className="w-full h-full object-cover"
-                                />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <h1 className="text-xl font-medium text-gray-900 tracking-tight truncate mb-2">
-                                    {profile.full_name}
-                                </h1>
-                                <div className="flex items-center gap-4 text-sm">
-                                    <div className="flex items-center gap-1.5 text-gray-600">
-                                        <MapPin className="w-4 h-4 text-[#00C48C]" />
-                                        <span className="font-medium">{visitedCountries.length}</span>
-                                        <span className="text-gray-500">countries</span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 text-gray-600">
-                                        <Calendar className="w-4 h-4 text-[#00C48C]" />
-                                        <span className="font-medium">{itineraries.length}</span>
-                                        <span className="text-gray-500">trips</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setIsCountrySelectOpen(true)}
-                                className="flex-1 py-2.5 px-4 rounded-xl bg-gray-50 text-gray-700 text-sm font-medium hover:bg-gray-100 transition-colors border border-gray-100"
-                            >
-                                Countries
-                            </button>
-                            <button
-                                onClick={() => setIsEditing(!isEditing)}
-                                className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${isEditing
-                                    ? 'bg-[#00C48C] text-white hover:bg-[#00B380] shadow-lg shadow-[#00C48C]/20'
-                                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-100'
-                                    }`}
-                            >
-                                {isEditing ? 'Done' : 'Edit Map'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             {/* Content Section */}
             <div className="max-w-[1400px] mx-auto px-6">
-                {/* Journey in Figures */}
-                <div className="-mt-8 relative z-10 bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-12">
-                    <h2 className="text-xl font-semibold text-[#1e293b] mb-6">Journey in Figures</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-                        {/* Countries Visited */}
-                        <div className="text-center bg-[#EEF2FF] rounded-2xl p-6">
-                            <div className="flex items-center justify-center w-14 h-14 mx-auto bg-[#4B83FB]/10 rounded-2xl mb-4">
-                                <svg className="w-7 h-7 text-[#4B83FB]" viewBox="0 0 24 24" fill="none">
-                                    <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                    <path d="M3.6001 9H20.4001" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                    <path d="M3.6001 15H20.4001" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                    <path d="M12 3C14.0683 5.35774 15.2075 8.27771 15.2001 11.3C15.2075 14.3223 14.0683 17.2423 12 19.6C9.93174 17.2423 8.79253 14.3223 8.8001 11.3C8.79253 8.27771 9.93174 5.35774 12 3Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
+                {/* Profile and Journey Stats Section */}
+                <div className="-mt-8 relative z-10">
+                    <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-6 mb-16">
+                        {/* Profile Card */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                            <div className="flex flex-col items-center text-center">
+                                <div className="w-20 h-20 rounded-full bg-white shadow-sm overflow-hidden ring-4 ring-white mb-4">
+                                    <img
+                                        src={profile.profile_picture_url || '/images/profile-icon.svg'}
+                                        alt={profile.full_name}
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <h1 className="text-xl font-medium text-gray-900 tracking-tight mb-2">
+                                    {profile.full_name}
+                                </h1>
+                                <div className="flex items-center gap-2 text-gray-500 mb-4">
+                                    <Globe className="w-4 h-4 text-[#00C48C]" />
+                                    <span>@{profile.username}</span>
+                                </div>
+                                <div className="flex flex-col gap-2 w-full">
+                                    <button
+                                        onClick={() => setIsEditProfileOpen(true)}
+                                        className="w-full py-2 px-4 rounded-lg bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors border border-gray-200 flex items-center justify-center gap-2"
+                                    >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+                                        </svg>
+                                        Edit Profile
+                                    </button>
+                                    <button
+                                        onClick={() => setIsCountrySelectOpen(true)}
+                                        className="w-full py-2 px-4 rounded-lg bg-gray-50 text-gray-700 text-sm font-medium hover:bg-gray-100 transition-colors border border-gray-100"
+                                    >
+                                        Countries
+                                    </button>
+                                </div>
                             </div>
-                            <div className="text-3xl font-bold text-[#4B83FB] mb-1.5">{visitedCountries.length}</div>
-                            <div className="text-[15px] text-[#64748b] font-medium">Countries Visited</div>
                         </div>
 
-                        {/* Cities Explored */}
-                        <div className="text-center bg-[#FEF9C3] rounded-2xl p-6">
-                            <div className="flex items-center justify-center w-14 h-14 mx-auto bg-[#CA8A04]/10 rounded-2xl mb-4">
-                                <svg className="w-7 h-7 text-[#CA8A04]" viewBox="0 0 24 24" fill="none">
-                                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1116 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                    <circle cx="12" cy="10" r="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                            </div>
-                            <div className="text-3xl font-bold text-[#CA8A04] mb-1.5">
-                                {Array.from(new Set(itineraries.flatMap(i =>
-                                    i.destinations?.map(d => d.destination) || []
-                                ))).length}
-                            </div>
-                            <div className="text-[15px] text-[#64748b] font-medium">Cities Explored</div>
-                        </div>
+                        {/* Journey in Figures */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                            <h2 className="text-lg font-semibold text-[#1e293b] mb-4">Journey in Figures</h2>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                {/* Countries Visited */}
+                                <div className="text-center bg-[#EEF2FF] rounded-xl p-4">
+                                    <div className="flex items-center justify-center w-12 h-12 mx-auto bg-[#4B83FB]/10 rounded-xl mb-3">
+                                        <svg className="w-6 h-6 text-[#4B83FB]" viewBox="0 0 24 24" fill="none">
+                                            <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            <path d="M3.6001 9H20.4001" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            <path d="M3.6001 15H20.4001" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            <path d="M12 3C14.0683 5.35774 15.2075 8.27771 15.2001 11.3C15.2075 14.3223 14.0683 17.2423 12 19.6C9.93174 17.2423 8.79253 14.3223 8.8001 11.3C8.79253 8.27771 9.93174 5.35774 12 3Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                    </div>
+                                    <div className="text-2xl font-bold text-[#4B83FB] mb-1">{visitedCountries.length}</div>
+                                    <div className="text-sm text-[#64748b] font-medium">Countries Visited</div>
+                                </div>
 
-                        {/* Total Trip Days */}
-                        <div className="text-center bg-[#FEE2E2] rounded-2xl p-6">
-                            <div className="flex items-center justify-center w-14 h-14 mx-auto bg-[#E11D48]/10 rounded-2xl mb-4">
-                                <svg className="w-7 h-7 text-[#E11D48]" viewBox="0 0 24 24" fill="none">
-                                    <path d="M8 7V3m8 4V3M3 21h18M3 10h18M3 7v14h18V7H3z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                            </div>
-                            <div className="text-3xl font-bold text-[#E11D48] mb-1.5">
-                                {itineraries.reduce((total, curr) => total + (curr.duration || 0), 0)}
-                            </div>
-                            <div className="text-[15px] text-[#64748b] font-medium">Trip Days</div>
-                        </div>
+                                {/* Cities Explored */}
+                                <div className="text-center bg-[#FEF9C3] rounded-xl p-4">
+                                    <div className="flex items-center justify-center w-12 h-12 mx-auto bg-[#CA8A04]/10 rounded-xl mb-3">
+                                        <svg className="w-6 h-6 text-[#CA8A04]" viewBox="0 0 24 24" fill="none">
+                                            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1116 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            <circle cx="12" cy="10" r="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                    </div>
+                                    <div className="text-2xl font-bold text-[#CA8A04] mb-1">
+                                        {Array.from(new Set(itineraries.flatMap(i =>
+                                            i.destinations?.map(d => d.destination) || []
+                                        ))).length}
+                                    </div>
+                                    <div className="text-sm text-[#64748b] font-medium">Cities Explored</div>
+                                </div>
 
-                        {/* Average Trip Duration */}
-                        <div className="text-center bg-[#DCFCE7] rounded-2xl p-6">
-                            <div className="flex items-center justify-center w-14 h-14 mx-auto bg-[#16A34A]/10 rounded-2xl mb-4">
-                                <svg className="w-7 h-7 text-[#16A34A]" viewBox="0 0 24 24" fill="none">
-                                    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                    <path d="M12 6V12L16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
+                                {/* Total Trip Days */}
+                                <div className="text-center bg-[#FEE2E2] rounded-xl p-4">
+                                    <div className="flex items-center justify-center w-12 h-12 mx-auto bg-[#E11D48]/10 rounded-xl mb-3">
+                                        <svg className="w-6 h-6 text-[#E11D48]" viewBox="0 0 24 24" fill="none">
+                                            <path d="M8 7V3m8 4V3M3 21h18M3 10h18M3 7v14h18V7H3z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                    </div>
+                                    <div className="text-2xl font-bold text-[#E11D48] mb-1">
+                                        {itineraries.reduce((total, curr) => total + (curr.duration || 0), 0)}
+                                    </div>
+                                    <div className="text-sm text-[#64748b] font-medium">Trip Days</div>
+                                </div>
+
+                                {/* Average Trip Duration */}
+                                <div className="text-center bg-[#DCFCE7] rounded-xl p-4">
+                                    <div className="flex items-center justify-center w-12 h-12 mx-auto bg-[#16A34A]/10 rounded-xl mb-3">
+                                        <svg className="w-6 h-6 text-[#16A34A]" viewBox="0 0 24 24" fill="none">
+                                            <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            <path d="M12 6V12L16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                    </div>
+                                    <div className="text-2xl font-bold text-[#16A34A] mb-1">
+                                        {Math.round(
+                                            itineraries.reduce((acc, curr) => acc + (curr.duration || 0), 0) /
+                                            (itineraries.length || 1)
+                                        )}
+                                    </div>
+                                    <div className="text-sm text-[#64748b] font-medium">Continents</div>
+                                </div>
                             </div>
-                            <div className="text-3xl font-bold text-[#16A34A] mb-1.5">
-                                {Math.round(
-                                    itineraries.reduce((acc, curr) => acc + (curr.duration || 0), 0) /
-                                    (itineraries.length || 1)
-                                )}
-                            </div>
-                            <div className="text-[15px] text-[#64748b] font-medium">Continents</div>
                         </div>
                     </div>
                 </div>
@@ -535,19 +591,45 @@ const UserPublicDashboard = () => {
                     <div className="text-[#00C48C] text-sm font-semibold tracking-wide mb-2">SHARE YOUR ADVENTURES</div>
                     <div className="flex items-center justify-between mb-3">
                         <h2 className="text-[32px] text-[#1e293b] font-medium">Travel Itineraries</h2>
-                        <button className="inline-flex items-center gap-2 px-4 py-2.5 bg-white rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                <path d="M2 4H14M2 8H14M2 12H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                            </svg>
-                            Filter By Region
-                        </button>
+                        <div className="relative">
+                            <button
+                                onClick={() => setIsRegionFilterOpen(!isRegionFilterOpen)}
+                                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path d="M2 4H14M2 8H14M2 12H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                </svg>
+                                {REGIONS[selectedRegion]}
+                            </button>
+
+                            {/* Region Filter Dropdown */}
+                            {isRegionFilterOpen && (
+                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-10">
+                                    {Object.entries(REGIONS).map(([key, value]) => (
+                                        <button
+                                            key={key}
+                                            onClick={() => {
+                                                setSelectedRegion(key as RegionKey);
+                                                setIsRegionFilterOpen(false);
+                                            }}
+                                            className={`w-full px-4 py-2 text-left text-sm transition-colors ${selectedRegion === key
+                                                ? 'bg-[#00C48C]/5 text-[#00C48C]'
+                                                : 'text-gray-700 hover:bg-gray-50'
+                                                }`}
+                                        >
+                                            {value}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                     <p className="text-[#64748b] text-lg mb-8">
                         Detailed guides from past adventures that you can explore and use for your own journeys.
                     </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {itineraries.slice(0, 6).map((itinerary) => (
+                        {filteredItineraries.slice(0, 6).map((itinerary) => (
                             <div
                                 key={itinerary.id}
                                 className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all overflow-hidden"
@@ -610,7 +692,7 @@ const UserPublicDashboard = () => {
                                 <p className="text-sm text-gray-500 mt-2">Travel itineraries will appear here once created</p>
                             </div>
                         </div>
-                    ) : itineraries.length > 6 && (
+                    ) : filteredItineraries.length > 6 && (
                         <div className="mt-8 flex justify-center">
                             <Link
                                 to="/itineraries"
@@ -630,107 +712,83 @@ const UserPublicDashboard = () => {
                         Trips I'm planning and preparing for in the near future.
                     </p>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {/* African Safari Adventure Card */}
-                        <div className="bg-[#E6A44E] rounded-2xl overflow-hidden">
-                            <div className="relative h-[280px]">
-                                <img
-                                    src="https://images.unsplash.com/photo-1516426122078-c23e76319801?q=80&w=2048&auto=format&fit=crop"
-                                    alt="African Safari"
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute top-5 left-5 right-5 flex justify-between items-start">
-                                    <div className="bg-white rounded-full px-4 py-2 flex items-center gap-2">
-                                        <Clock className="w-4 h-4 text-[#00C48C]" />
-                                        <span className="text-[15px] font-medium">In 45 days</span>
+                    {upcomingAdventures.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {upcomingAdventures.map((adventure) => (
+                                <div key={adventure.id} className="bg-[#4B956F] rounded-2xl overflow-hidden">
+                                    <div className="relative h-[280px]">
+                                        <img
+                                            src={selectedImages[adventure.id] || '/images/empty-state.svg'}
+                                            alt={adventure.trip_name}
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <div className="absolute top-5 left-5 right-5 flex justify-between items-start">
+                                            <div className="bg-white rounded-full px-4 py-2 flex items-center gap-2">
+                                                <Clock className="w-4 h-4 text-[#00C48C]" />
+                                                <span className="text-[15px] font-medium">
+                                                    In {getDaysUntilTrip(adventure.start_date)} days
+                                                </span>
+                                            </div>
+                                            <div className="bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
+                                                <MapPin className="w-4 h-4 text-[#00C48C]" />
+                                                <span className="text-[15px] font-medium">{adventure.country}</span>
+                                            </div>
+                                        </div>
+                                        <div className="absolute bottom-5 left-5">
+                                            <h3 className="text-[28px] font-medium text-white mb-6">{adventure.trip_name}</h3>
+                                            <div className="flex items-center gap-6 text-white/90">
+                                                <div className="flex items-center gap-2">
+                                                    <Calendar className="w-5 h-5" />
+                                                    <span className="text-[15px]">{formatDate(adventure.start_date)}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Clock className="w-5 h-5" />
+                                                    <span className="text-[15px]">{adventure.duration} days</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
-                                        <MapPin className="w-4 h-4 text-[#00C48C]" />
-                                        <span className="text-[15px] font-medium">Kenya, Tanzania</span>
-                                    </div>
-                                </div>
-                                <div className="absolute bottom-5 left-5">
-                                    <h3 className="text-[28px] font-medium text-white mb-6">African Safari Adventure</h3>
-                                    <div className="flex items-center gap-6 text-white/90">
-                                        <div className="flex items-center gap-2">
+                                    <div className="p-5 flex gap-3">
+                                        <Link
+                                            to={`/preparations/${adventure.id}`}
+                                            className="flex-1 py-2.5 bg-white/20 hover:bg-white/30 text-white text-[15px] font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="stroke-current">
+                                                <path d="M7 2v2m6 0V2M3 8h14M3 6v9a2 2 0 002 2h10a2 2 0 002-2V6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                            </svg>
+                                            View Preparations
+                                        </Link>
+                                        <Link
+                                            to={`/view-itinerary/${adventure.id}`}
+                                            className="flex-1 py-2.5 bg-white text-[#1e293b] text-[15px] font-medium rounded-xl hover:bg-white/90 transition-colors flex items-center justify-center gap-2"
+                                        >
                                             <Calendar className="w-5 h-5" />
-                                            <span className="text-[15px]">September 10 - September 24, 2023</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Clock className="w-5 h-5" />
-                                            <span className="text-[15px]">14 days</span>
-                                        </div>
+                                            View Itinerary
+                                        </Link>
                                     </div>
                                 </div>
-                            </div>
-                            <div className="p-5 flex gap-3">
-                                <button className="flex-1 py-2.5 bg-white/20 hover:bg-white/30 text-white text-[15px] font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
-                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="stroke-current">
-                                        <path d="M7 2v2m6 0V2M3 8h14M3 6v9a2 2 0 002 2h10a2 2 0 002-2V6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                    View Preparations
-                                </button>
-                                <button className="flex-1 py-2.5 bg-white text-[#1e293b] text-[15px] font-medium rounded-xl hover:bg-white/90 transition-colors flex items-center justify-center gap-2">
-                                    <Calendar className="w-5 h-5" />
-                                    Calendar
-                                </button>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
+                            <div className="max-w-sm mx-auto">
+                                <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                                <p className="text-gray-600 font-medium">No upcoming adventures</p>
+                                <p className="text-sm text-gray-500 mt-2">Plan your next trip to see it here</p>
                             </div>
                         </div>
-
-                        {/* South American Expedition Card */}
-                        <div className="bg-[#4B956F] rounded-2xl overflow-hidden">
-                            <div className="relative h-[280px]">
-                                <img
-                                    src="https://images.unsplash.com/photo-1526392060635-9d6019884377?q=80&w=2048&auto=format&fit=crop"
-                                    alt="South American Expedition"
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute top-5 left-5 right-5 flex justify-between items-start">
-                                    <div className="bg-white rounded-full px-4 py-2 flex items-center gap-2">
-                                        <Clock className="w-4 h-4 text-[#00C48C]" />
-                                        <span className="text-[15px] font-medium">In 148 days</span>
-                                    </div>
-                                    <div className="bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
-                                        <MapPin className="w-4 h-4 text-[#00C48C]" />
-                                        <span className="text-[15px] font-medium">Peru, Bolivia, Chile</span>
-                                    </div>
-                                </div>
-                                <div className="absolute bottom-5 left-5">
-                                    <h3 className="text-[28px] font-medium text-white mb-6">South American Expedition</h3>
-                                    <div className="flex items-center gap-6 text-white/90">
-                                        <div className="flex items-center gap-2">
-                                            <Calendar className="w-5 h-5" />
-                                            <span className="text-[15px]">January 5 - January 22, 2024</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Clock className="w-5 h-5" />
-                                            <span className="text-[15px]">17 days</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="p-5 flex gap-3">
-                                <button className="flex-1 py-2.5 bg-white/20 hover:bg-white/30 text-white text-[15px] font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
-                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="stroke-current">
-                                        <path d="M7 2v2m6 0V2M3 8h14M3 6v9a2 2 0 002 2h10a2 2 0 002-2V6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                    View Preparations
-                                </button>
-                                <button className="flex-1 py-2.5 bg-white text-[#1e293b] text-[15px] font-medium rounded-xl hover:bg-white/90 transition-colors flex items-center justify-center gap-2">
-                                    <Calendar className="w-5 h-5" />
-                                    Calendar
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                    )}
 
                     <div className="mt-8 flex justify-center">
-                        <button className="inline-flex items-center gap-2 px-6 py-3 bg-white rounded-xl border border-gray-200 text-[15px] font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                        <Link
+                            to="/create-itinerary"
+                            className="inline-flex items-center gap-2 px-6 py-3 bg-white rounded-xl border border-gray-200 text-[15px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
                             <svg className="w-5 h-5 text-[#00C48C]" viewBox="0 0 24 24" fill="none">
                                 <path d="M12 4v16m8-8H4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                             </svg>
                             Plan a New Trip
-                        </button>
+                        </Link>
                     </div>
                 </div>
 
@@ -1201,6 +1259,135 @@ const UserPublicDashboard = () => {
                                         </button>
                                     ))}
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Edit Profile Modal */}
+                {isEditProfileOpen && (
+                    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+                        <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col animate-in fade-in duration-200">
+                            <div className="p-6 border-b border-gray-100">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-xl font-semibold text-gray-900">Profile Settings</h2>
+                                    <button
+                                        onClick={() => setIsEditProfileOpen(false)}
+                                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="p-6 flex-1 overflow-y-auto">
+                                <div className="grid grid-cols-2 gap-8">
+                                    {/* Left Column */}
+                                    <div className="space-y-6">
+                                        <div>
+                                            <h3 className="text-base font-medium text-gray-900 mb-4">Profile Picture</h3>
+                                            <div className="flex flex-col items-center gap-4">
+                                                <div className="w-32 h-32 rounded-full bg-gray-100 overflow-hidden">
+                                                    <img
+                                                        src={profile.profile_picture_url || '/images/profile-icon.svg'}
+                                                        alt={profile.full_name}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                </div>
+                                                <button className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+                                                    </svg>
+                                                    Upload Picture
+                                                </button>
+                                                <p className="text-xs text-gray-500">Recommended: 400x400px, max 2MB</p>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                                            <input
+                                                type="text"
+                                                defaultValue={profile.username}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                                placeholder="Choose a username"
+                                                disabled
+                                            />
+                                            <p className="text-xs text-gray-500 mt-1">Username cannot be changed once set</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                                            <input
+                                                type="text"
+                                                defaultValue={profile.full_name}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                                placeholder="Enter your full name"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
+                                            <textarea
+                                                defaultValue={profile.bio || ''}
+                                                rows={3}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all resize-none"
+                                                placeholder="Tell us about yourself"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Right Column */}
+                                    <div className="space-y-6">
+                                        <div>
+                                            <h3 className="text-base font-medium text-gray-900 mb-4">Hero Banner</h3>
+                                            <div className="flex flex-col gap-4">
+                                                <div className="aspect-[16/6] rounded-xl bg-gray-100 overflow-hidden">
+                                                    <img
+                                                        src={profile.hero_banner_url || '/images/default-banner.jpg'}
+                                                        alt="Hero Banner"
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                </div>
+                                                <button className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+                                                    </svg>
+                                                    Upload Banner
+                                                </button>
+                                                <p className="text-xs text-gray-500">Recommended: 1920x1080px, max 5MB</p>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Website URL</label>
+                                            <input
+                                                type="url"
+                                                defaultValue={profile.website_url || ''}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                                placeholder="https://your-website.com"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">YouTube Channel</label>
+                                            <input
+                                                type="url"
+                                                defaultValue={profile.youtube_url || ''}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                                placeholder="https://youtube.com/@yourchannel"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Instagram Profile</label>
+                                            <input
+                                                type="url"
+                                                defaultValue={profile.instagram_url || ''}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                                placeholder="https://instagram.com/yourusername"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="p-6 border-t border-gray-100">
+                                <button className="w-full py-3 bg-[#00C48C] text-white rounded-xl text-sm font-medium hover:bg-[#00B380] transition-colors">
+                                    Save Changes
+                                </button>
                             </div>
                         </div>
                     </div>
