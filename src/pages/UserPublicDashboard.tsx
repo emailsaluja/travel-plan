@@ -176,6 +176,20 @@ interface Itinerary {
 // Add type for region keys
 type RegionKey = 'all' | 'asia' | 'europe' | 'namerica' | 'samerica' | 'africa' | 'oceania' | 'other';
 
+// Add these interfaces near the top with other interfaces
+interface BlogPost {
+    id: string;
+    title: string;
+    slug: string;
+    excerpt: string;
+    category: 'tips' | 'guides' | 'stories';
+    featured_image_url: string;
+    reading_time_minutes: number;
+    comment_count: number;
+    is_editors_pick: boolean;
+    published_at: string;
+}
+
 const UserPublicDashboard = () => {
     const { username } = useParams<{ username: string }>();
     const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -190,6 +204,9 @@ const UserPublicDashboard = () => {
     const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
     const [isRegionFilterOpen, setIsRegionFilterOpen] = useState(false);
     const [selectedRegion, setSelectedRegion] = useState<RegionKey>('all');
+    const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+    const [selectedBlogCategory, setSelectedBlogCategory] = useState<'all' | BlogPost['category']>('all');
+    const [loadingBlogPosts, setLoadingBlogPosts] = useState(true);
 
     // Add this constant for regions
     const REGIONS: Record<RegionKey, string> = {
@@ -447,6 +464,30 @@ const UserPublicDashboard = () => {
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays;
     };
+
+    // Add this function to load blog posts
+    const loadBlogPosts = async () => {
+        try {
+            setLoadingBlogPosts(true);
+            const { data, error } = await supabase
+                .from('blog_posts')
+                .select('*')
+                .order('published_at', { ascending: false })
+                .limit(4);
+
+            if (error) throw error;
+            setBlogPosts(data || []);
+        } catch (error) {
+            console.error('Error loading blog posts:', error);
+        } finally {
+            setLoadingBlogPosts(false);
+        }
+    };
+
+    // Add this useEffect to load blog posts
+    useEffect(() => {
+        loadBlogPosts();
+    }, []);
 
     if (loading) {
         return (
@@ -940,134 +981,118 @@ const UserPublicDashboard = () => {
                     </p>
 
                     <div className="flex items-center gap-3 mb-8">
-                        <button className="px-4 py-2 bg-[#F8FAFC] text-[#1e293b] text-[15px] font-medium rounded-full">All</button>
-                        <button className="px-4 py-2 text-[#64748b] text-[15px] font-medium rounded-full hover:bg-[#F8FAFC] transition-colors">Tips</button>
-                        <button className="px-4 py-2 text-[#64748b] text-[15px] font-medium rounded-full hover:bg-[#F8FAFC] transition-colors">Guides</button>
-                        <button className="px-4 py-2 text-[#64748b] text-[15px] font-medium rounded-full hover:bg-[#F8FAFC] transition-colors">Stories</button>
+                        <button
+                            onClick={() => setSelectedBlogCategory('all')}
+                            className={`px-4 py-2 text-[15px] font-medium rounded-full transition-colors ${selectedBlogCategory === 'all'
+                                ? 'bg-[#F8FAFC] text-[#1e293b]'
+                                : 'text-[#64748b] hover:bg-[#F8FAFC]'
+                                }`}
+                        >
+                            All
+                        </button>
+                        {['tips', 'guides', 'stories'].map((category) => (
+                            <button
+                                key={category}
+                                onClick={() => setSelectedBlogCategory(category as BlogPost['category'])}
+                                className={`px-4 py-2 text-[15px] font-medium rounded-full transition-colors ${selectedBlogCategory === category
+                                    ? 'bg-[#F8FAFC] text-[#1e293b]'
+                                    : 'text-[#64748b] hover:bg-[#F8FAFC]'
+                                    }`}
+                            >
+                                {category.charAt(0).toUpperCase() + category.slice(1)}
+                            </button>
+                        ))}
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-[1fr,400px] gap-8">
-                        {/* Main Blog Post */}
-                        <Link to="/blog/slow-travel" className="group">
-                            <div className="relative h-[400px] rounded-2xl overflow-hidden mb-6">
-                                <img
-                                    src="https://images.unsplash.com/photo-1499346030926-9a72daac6c63?q=80&w=2048&auto=format&fit=crop"
-                                    alt="Cinque Terre"
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-                                <div className="absolute top-6 left-6">
-                                    <span className="px-3 py-1.5 bg-[#3B82F6] text-white text-[13px] font-medium rounded-full">
-                                        Editor's Pick
-                                    </span>
-                                </div>
-                            </div>
-                            <h3 className="text-[28px] font-medium text-[#1e293b] mb-4 group-hover:text-[#00C48C] transition-colors">
-                                A Year of Slow Travel: What I Learned Living Like a Local
-                            </h3>
-                            <p className="text-[#64748b] text-[17px] mb-5">
-                                After spending a full year living in different cities around the world, I've gained insights into how slow travel can transform your experience and connection with a place.
-                            </p>
-                            <div className="flex items-center gap-6 text-[15px] text-[#64748b]">
-                                <div className="flex items-center gap-2">
-                                    <Calendar className="w-[18px] h-[18px] text-[#00C48C]" />
-                                    August 12, 2023
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Clock className="w-[18px] h-[18px] text-[#00C48C]" />
-                                    15 min read
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <MessageCircle className="w-[18px] h-[18px] text-[#00C48C]" />
-                                    32 comments
-                                </div>
-                            </div>
-                        </Link>
-
-                        {/* Side Blog Posts */}
-                        <div className="space-y-6">
-                            {/* Hidden Gems of Paris */}
-                            <Link to="/blog/paris-gems" className="flex gap-5 group">
-                                <div className="relative w-32 h-32 rounded-xl overflow-hidden flex-shrink-0">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=1000&auto=format&fit=crop"
-                                        alt="Paris"
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                    />
-                                </div>
-                                <div className="flex-1 py-2">
-                                    <div className="text-[#4B83FB] text-[13px] font-semibold mb-2">City Guides</div>
-                                    <h3 className="text-[17px] font-medium text-[#1e293b] mb-2 group-hover:text-[#00C48C] transition-colors">
-                                        Hidden Gems of Paris
-                                    </h3>
-                                    <p className="text-[#64748b] text-[15px] line-clamp-2 mb-3">
-                                        Discover the lesser-known spots that most tourists miss...
-                                    </p>
-                                    <div className="flex items-center justify-between text-[13px]">
-                                        <div className="text-[#64748b]">8 min read</div>
-                                        <div className="flex items-center gap-1 text-[#94A3B8]">
-                                            <MessageCircle className="w-4 h-4" />
-                                            24
-                                        </div>
-                                    </div>
-                                </div>
-                            </Link>
-
-                            {/* Budget Travel Europe */}
-                            <Link to="/blog/budget-europe" className="flex gap-5 group">
-                                <div className="relative w-32 h-32 rounded-xl overflow-hidden flex-shrink-0">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1513622470522-26c3c8a854bc?q=80&w=1000&auto=format&fit=crop"
-                                        alt="Amsterdam"
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                    />
-                                </div>
-                                <div className="flex-1 py-2">
-                                    <div className="text-[#4B83FB] text-[13px] font-semibold mb-2">Budget Travel</div>
-                                    <h3 className="text-[17px] font-medium text-[#1e293b] mb-2 group-hover:text-[#00C48C] transition-colors">
-                                        Budget Travel: Europe on $50/day
-                                    </h3>
-                                    <p className="text-[#64748b] text-[15px] line-clamp-2 mb-3">
-                                        How I explored 5 European countries without breaking the bank...
-                                    </p>
-                                    <div className="flex items-center justify-between text-[13px]">
-                                        <div className="text-[#64748b]">12 min read</div>
-                                        <div className="flex items-center gap-1 text-[#94A3B8]">
-                                            <MessageCircle className="w-4 h-4" />
-                                            37
-                                        </div>
-                                    </div>
-                                </div>
-                            </Link>
-
-                            {/* Solo Female Travel */}
-                            <Link to="/blog/solo-female-travel" className="flex gap-5 group">
-                                <div className="relative w-32 h-32 rounded-xl overflow-hidden flex-shrink-0">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1580766777561-87a8f85dd2dd?q=80&w=1000&auto=format&fit=crop"
-                                        alt="Solo Travel"
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                    />
-                                </div>
-                                <div className="flex-1 py-2">
-                                    <div className="text-[#4B83FB] text-[13px] font-semibold mb-2">Travel Tips</div>
-                                    <h3 className="text-[17px] font-medium text-[#1e293b] mb-2 group-hover:text-[#00C48C] transition-colors">
-                                        Solo Female Travel Safety Tips
-                                    </h3>
-                                    <p className="text-[#64748b] text-[15px] line-clamp-2 mb-3">
-                                        Essential advice for women traveling alone based on my experience...
-                                    </p>
-                                    <div className="flex items-center justify-between text-[13px]">
-                                        <div className="text-[#64748b]">10 min read</div>
-                                        <div className="flex items-center gap-1 text-[#94A3B8]">
-                                            <MessageCircle className="w-4 h-4" />
-                                            45
-                                        </div>
-                                    </div>
-                                </div>
-                            </Link>
+                    {loadingBlogPosts ? (
+                        <div className="flex items-center justify-center py-12">
+                            <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#00C48C] border-t-transparent"></div>
                         </div>
-                    </div>
+                    ) : blogPosts.length > 0 ? (
+                        <div className="grid grid-cols-1 lg:grid-cols-[1fr,400px] gap-8">
+                            {/* Main Featured Blog Post */}
+                            {blogPosts[0] && (
+                                <Link to={`/blog/${blogPosts[0].slug}`} className="group">
+                                    <div className="relative h-[400px] rounded-2xl overflow-hidden mb-6">
+                                        <img
+                                            src={blogPosts[0].featured_image_url}
+                                            alt={blogPosts[0].title}
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                                        {blogPosts[0].is_editors_pick && (
+                                            <div className="absolute top-6 left-6">
+                                                <span className="px-3 py-1.5 bg-[#3B82F6] text-white text-[13px] font-medium rounded-full">
+                                                    Editor's Pick
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <h3 className="text-[28px] font-medium text-[#1e293b] mb-4 group-hover:text-[#00C48C] transition-colors">
+                                        {blogPosts[0].title}
+                                    </h3>
+                                    <p className="text-[#64748b] text-[17px] mb-5">
+                                        {blogPosts[0].excerpt}
+                                    </p>
+                                    <div className="flex items-center gap-6 text-[15px] text-[#64748b]">
+                                        <div className="flex items-center gap-2">
+                                            <Calendar className="w-[18px] h-[18px] text-[#00C48C]" />
+                                            {formatDate(blogPosts[0].published_at)}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Clock className="w-[18px] h-[18px] text-[#00C48C]" />
+                                            {blogPosts[0].reading_time_minutes} min read
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <MessageCircle className="w-[18px] h-[18px] text-[#00C48C]" />
+                                            {blogPosts[0].comment_count} comments
+                                        </div>
+                                    </div>
+                                </Link>
+                            )}
+
+                            {/* Side Blog Posts */}
+                            <div className="space-y-6">
+                                {blogPosts.slice(1, 4).map(post => (
+                                    <Link key={post.id} to={`/blog/${post.slug}`} className="flex gap-5 group">
+                                        <div className="relative w-32 h-32 rounded-xl overflow-hidden flex-shrink-0">
+                                            <img
+                                                src={post.featured_image_url}
+                                                alt={post.title}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                            />
+                                        </div>
+                                        <div className="flex-1 py-2">
+                                            <div className="text-[#4B83FB] text-[13px] font-semibold mb-2">
+                                                {post.category.charAt(0).toUpperCase() + post.category.slice(1)}
+                                            </div>
+                                            <h3 className="text-[17px] font-medium text-[#1e293b] mb-2 group-hover:text-[#00C48C] transition-colors">
+                                                {post.title}
+                                            </h3>
+                                            <p className="text-[#64748b] text-[15px] line-clamp-2 mb-3">
+                                                {post.excerpt}
+                                            </p>
+                                            <div className="flex items-center justify-between text-[13px]">
+                                                <div className="text-[#64748b]">{post.reading_time_minutes} min read</div>
+                                                <div className="flex items-center gap-1 text-[#94A3B8]">
+                                                    <MessageCircle className="w-4 h-4" />
+                                                    {post.comment_count}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
+                            <div className="max-w-sm mx-auto">
+                                <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                                <p className="text-gray-600 font-medium">No blog posts yet</p>
+                                <p className="text-sm text-gray-500 mt-2">Blog posts will appear here once published</p>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="mt-8 flex justify-center">
                         <Link

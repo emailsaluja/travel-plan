@@ -222,8 +222,8 @@ const TripPreparations = () => {
                             key={key}
                             onClick={() => setSelectedCategory(key as TripPreparation['category'])}
                             className={`p-4 rounded-xl border transition-all ${selectedCategory === key
-                                    ? 'border-[#00C48C] bg-[#00C48C]/5'
-                                    : 'border-gray-100 bg-white hover:border-[#00C48C]/30'
+                                ? 'border-[#00C48C] bg-[#00C48C]/5'
+                                : 'border-gray-100 bg-white hover:border-[#00C48C]/30'
                                 }`}
                         >
                             <div className="flex items-center gap-3">
@@ -290,15 +290,15 @@ const TripPreparations = () => {
                                 <div
                                     key={prep.id}
                                     className={`flex items-center gap-4 p-4 rounded-lg border ${prep.is_completed
-                                            ? 'bg-gray-50 border-gray-100'
-                                            : 'bg-white border-gray-200'
+                                        ? 'bg-gray-50 border-gray-100'
+                                        : 'bg-white border-gray-200'
                                         }`}
                                 >
                                     <button
                                         onClick={() => toggleItemCompletion(prep.id, prep.is_completed)}
                                         className={`w-5 h-5 rounded-full flex items-center justify-center border transition-colors ${prep.is_completed
-                                                ? 'bg-[#00C48C] border-[#00C48C]'
-                                                : 'border-gray-300 hover:border-[#00C48C]'
+                                            ? 'bg-[#00C48C] border-[#00C48C]'
+                                            : 'border-gray-300 hover:border-[#00C48C]'
                                             }`}
                                     >
                                         {prep.is_completed && (
