@@ -157,6 +157,14 @@ interface UserProfile {
     website_url?: string;
     youtube_url?: string;
     instagram_url?: string;
+    youtube_subscribers?: number;
+    youtube_videos?: number;
+    youtube_views?: number;
+    youtube_thumbnail_url?: string;
+    instagram_followers?: number;
+    instagram_posts?: number;
+    instagram_featured_location?: string;
+    instagram_thumbnail_urls?: string[];
 }
 
 interface Itinerary {
@@ -613,6 +621,74 @@ const UserPublicDashboard = () => {
             reading_time_minutes: blogPost.reading_time_minutes
         });
         setIsEditBlogOpen(true);
+    };
+
+    // Add this state for the edit profile form
+    const [editProfileData, setEditProfileData] = useState({
+        full_name: '',
+        bio: '',
+        website_url: '',
+        youtube_url: '',
+        instagram_url: '',
+        youtube_subscribers: 0,
+        youtube_videos: 0,
+        youtube_views: 0,
+        youtube_thumbnail_url: '',
+        instagram_followers: 0,
+        instagram_posts: 0,
+        instagram_featured_location: '',
+        instagram_thumbnail_urls: [] as string[]
+    });
+
+    // Add this useEffect to initialize editProfileData when modal opens
+    useEffect(() => {
+        if (isEditProfileOpen && profile) {
+            setEditProfileData({
+                full_name: profile.full_name,
+                bio: profile.bio || '',
+                website_url: profile.website_url || '',
+                youtube_url: profile.youtube_url || '',
+                instagram_url: profile.instagram_url || '',
+                youtube_subscribers: profile.youtube_subscribers || 0,
+                youtube_videos: profile.youtube_videos || 0,
+                youtube_views: profile.youtube_views || 0,
+                youtube_thumbnail_url: profile.youtube_thumbnail_url || '',
+                instagram_followers: profile.instagram_followers || 0,
+                instagram_posts: profile.instagram_posts || 0,
+                instagram_featured_location: profile.instagram_featured_location || '',
+                instagram_thumbnail_urls: profile.instagram_thumbnail_urls || []
+            });
+        }
+    }, [isEditProfileOpen, profile]);
+
+    // Add this function to handle profile updates
+    const handleSaveProfileChanges = async () => {
+        if (!profile) return;
+
+        try {
+            const { data, error } = await supabase
+                .from('user_profiles')
+                .update({
+                    full_name: editProfileData.full_name,
+                    bio: editProfileData.bio,
+                    website_url: editProfileData.website_url,
+                    youtube_url: editProfileData.youtube_url,
+                    instagram_url: editProfileData.instagram_url
+                })
+                .eq('user_id', profile.user_id)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            // Update the profile state with new data
+            if (data) {
+                setProfile(prev => prev ? { ...prev, ...data } : null);
+                setIsEditProfileOpen(false);
+            }
+        } catch (error) {
+            console.error('Error updating profile:', error);
+        }
     };
 
     if (loading) {
@@ -1277,123 +1353,178 @@ const UserPublicDashboard = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {/* YouTube Section */}
-                        <div className="space-y-6">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-full bg-[#FF0000]/10 flex items-center justify-center">
-                                    <svg className="w-6 h-6 text-[#FF0000]" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <div className="text-[#1e293b] text-lg font-medium mb-1">YouTube</div>
-                                    <div className="text-[#64748b] text-[15px]">@TravelWithAlex</div>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-3 gap-4">
-                                <div className="text-center">
-                                    <div className="text-[#1e293b] text-lg font-medium mb-1">24.5K</div>
-                                    <div className="text-[#64748b] text-[13px]">Subscribers</div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-[#1e293b] text-lg font-medium mb-1">78</div>
-                                    <div className="text-[#64748b] text-[13px]">Videos</div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-[#1e293b] text-lg font-medium mb-1">1.2M</div>
-                                    <div className="text-[#64748b] text-[13px]">Views</div>
-                                </div>
-                            </div>
-                            <div className="relative aspect-video rounded-xl overflow-hidden">
-                                <img
-                                    src="https://images.unsplash.com/photo-1506929562872-bb421503ef21?q=80&w=1000&auto=format&fit=crop"
-                                    alt="Thailand Beaches"
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                                    <div className="text-white">
-                                        <div className="text-sm font-medium mb-1">14:22</div>
-                                        <div className="text-lg font-medium mb-1">Top 10 Hidden Beaches in Thailand</div>
-                                        <div className="text-sm">45K views</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <button className="w-full py-2.5 bg-[#FF0000] text-white text-[15px] font-medium rounded-xl hover:bg-[#E50000] transition-colors">
-                                Subscribe to Channel
-                            </button>
-                        </div>
-
-                        {/* Instagram Section */}
-                        <div className="space-y-6">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-[#FF3366] via-[#FF00FF] to-[#FF9933] p-[2px]">
-                                    <div className="w-full h-full rounded-full bg-white flex items-center justify-center">
-                                        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none">
-                                            <path fillRule="evenodd" clipRule="evenodd" d="M12 7a5 5 0 100 10 5 5 0 000-10zm-3 5a3 3 0 106 0 3 3 0 00-6 0z" fill="url(#instagram-gradient)" />
-                                            <path fillRule="evenodd" clipRule="evenodd" d="M17 2H7a5 5 0 00-5 5v10a5 5 0 005 5h10a5 5 0 005-5V7a5 5 0 00-5-5zm3 15a3 3 0 01-3 3H7a3 3 0 01-3-3V7a3 3 0 013-3h10a3 3 0 013 3v10z" fill="url(#instagram-gradient)" />
-                                            <circle cx="17.5" cy="6.5" r="1.5" fill="url(#instagram-gradient)" />
-                                            <defs>
-                                                <linearGradient id="instagram-gradient" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-                                                    <stop stopColor="#FF3366" />
-                                                    <stop offset="0.5" stopColor="#FF00FF" />
-                                                    <stop offset="1" stopColor="#FF9933" />
-                                                </linearGradient>
-                                            </defs>
+                        {profile.youtube_url && (
+                            <div className="space-y-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-full bg-[#FF0000]/10 flex items-center justify-center">
+                                        <svg className="w-6 h-6 text-[#FF0000]" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
                                         </svg>
                                     </div>
+                                    <div>
+                                        <div className="text-[#1e293b] text-lg font-medium mb-1">YouTube</div>
+                                        <div className="text-[#64748b] text-[15px]">
+                                            {profile.youtube_url.split('@')[1] || profile.youtube_url}
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <div className="text-[#1e293b] text-lg font-medium mb-1">Instagram</div>
-                                    <div className="text-[#64748b] text-[15px]">@alex_travels</div>
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="text-center">
+                                        <div className="text-[#1e293b] text-lg font-medium mb-1">
+                                            {profile.youtube_subscribers?.toLocaleString() || '0'}
+                                        </div>
+                                        <div className="text-[#64748b] text-[13px]">Subscribers</div>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="text-[#1e293b] text-lg font-medium mb-1">
+                                            {profile.youtube_videos?.toLocaleString() || '0'}
+                                        </div>
+                                        <div className="text-[#64748b] text-[13px]">Videos</div>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="text-[#1e293b] text-lg font-medium mb-1">
+                                            {profile.youtube_views?.toLocaleString() || '0'}
+                                        </div>
+                                        <div className="text-[#64748b] text-[13px]">Views</div>
+                                    </div>
+                                </div>
+                                <div className="relative aspect-video rounded-xl overflow-hidden">
+                                    <img
+                                        src={profile.youtube_thumbnail_url || "https://images.unsplash.com/photo-1506929562872-bb421503ef21?q=80&w=1000&auto=format&fit=crop"}
+                                        alt="Latest Video Thumbnail"
+                                        className="w-full h-full object-cover"
+                                    />
+                                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                                        <div className="text-white">
+                                            <div className="text-sm font-medium mb-1">Latest Video</div>
+                                            <div className="text-lg font-medium mb-1">Check out my channel</div>
+                                            <div className="text-sm">{profile.youtube_views?.toLocaleString() || '0'} views</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <a
+                                    href={profile.youtube_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="w-full py-2.5 bg-[#FF0000] text-white text-[15px] font-medium rounded-xl hover:bg-[#E50000] transition-colors text-center block"
+                                >
+                                    Subscribe to Channel
+                                </a>
+                            </div>
+                        )}
+
+                        {/* Instagram Section */}
+                        {profile.instagram_url && (
+                            <div className="space-y-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-[#FF3366] via-[#FF00FF] to-[#FF9933] p-[2px]">
+                                        <div className="w-full h-full rounded-full bg-white flex items-center justify-center">
+                                            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none">
+                                                <path fillRule="evenodd" clipRule="evenodd" d="M12 7a5 5 0 100 10 5 5 0 000-10zm-3 5a3 3 0 106 0 3 3 0 00-6 0z" fill="url(#instagram-gradient)" />
+                                                <path fillRule="evenodd" clipRule="evenodd" d="M17 2H7a5 5 0 00-5 5v10a5 5 0 005 5h10a5 5 0 005-5V7a5 5 0 00-5-5zm3 15a3 3 0 01-3 3H7a3 3 0 01-3-3V7a3 3 0 013-3h10a3 3 0 013 3v10z" fill="url(#instagram-gradient)" />
+                                                <circle cx="17.5" cy="6.5" r="1.5" fill="url(#instagram-gradient)" />
+                                                <defs>
+                                                    <linearGradient id="instagram-gradient" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                                                        <stop stopColor="#FF3366" />
+                                                        <stop offset="0.5" stopColor="#FF00FF" />
+                                                        <stop offset="1" stopColor="#FF9933" />
+                                                    </linearGradient>
+                                                </defs>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="text-[#1e293b] text-lg font-medium mb-1">Instagram</div>
+                                        <div className="text-[#64748b] text-[15px]">
+                                            {profile.instagram_url.split('instagram.com/')[1] || profile.instagram_url}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="text-center">
+                                        <div className="text-[#1e293b] text-lg font-medium mb-1">
+                                            {profile.instagram_followers?.toLocaleString() || '0'}
+                                        </div>
+                                        <div className="text-[#64748b] text-[13px]">Followers</div>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="text-[#1e293b] text-lg font-medium mb-1">
+                                            {profile.instagram_posts?.toLocaleString() || '0'}
+                                        </div>
+                                        <div className="text-[#64748b] text-[13px]">Posts</div>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="text-[#1e293b] text-lg font-medium mb-1">
+                                            {profile.instagram_featured_location || 'Featured'}
+                                        </div>
+                                        <div className="text-[#64748b] text-[13px]">Location</div>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {profile.instagram_thumbnail_urls?.slice(0, 4).map((url, index) => (
+                                        <div key={index} className="aspect-square rounded-xl overflow-hidden">
+                                            <img
+                                                src={url}
+                                                alt={`Instagram post ${index + 1}`}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                    )) || (
+                                            <>
+                                                <div className="aspect-square rounded-xl overflow-hidden">
+                                                    <img
+                                                        src="https://images.unsplash.com/photo-1580237072617-771c3ecc4a24?q=80&w=1000&auto=format&fit=crop"
+                                                        alt="Bali Temple"
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                </div>
+                                                <div className="aspect-square rounded-xl overflow-hidden">
+                                                    <img
+                                                        src="https://images.unsplash.com/photo-1522083165195-3424ed129620?q=80&w=1000&auto=format&fit=crop"
+                                                        alt="Santorini"
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                </div>
+                                                <div className="aspect-square rounded-xl overflow-hidden">
+                                                    <img
+                                                        src="https://images.unsplash.com/photo-1480796927426-f609979314bd?q=80&w=1000&auto=format&fit=crop"
+                                                        alt="Japan Street"
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                </div>
+                                                <div className="aspect-square rounded-xl overflow-hidden">
+                                                    <img
+                                                        src="https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=1000&auto=format&fit=crop"
+                                                        alt="Paris"
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
+                                </div>
+                                <a
+                                    href={profile.instagram_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="w-full py-2.5 bg-gradient-to-r from-[#FF3366] via-[#FF00FF] to-[#FF9933] text-white text-[15px] font-medium rounded-xl hover:opacity-90 transition-opacity text-center block"
+                                >
+                                    Follow on Instagram
+                                </a>
+                            </div>
+                        )}
+
+                        {/* Show message if no social media links */}
+                        {!profile.youtube_url && !profile.instagram_url && (
+                            <div className="col-span-2 text-center py-12 bg-white rounded-2xl border border-gray-100">
+                                <div className="max-w-sm mx-auto">
+                                    <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" viewBox="0 0 24 24" fill="none">
+                                        <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                    <p className="text-gray-600 font-medium">No social media links added yet</p>
+                                    <p className="text-sm text-gray-500 mt-2">Add your social media links to your profile to connect with others</p>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-3 gap-4">
-                                <div className="text-center">
-                                    <div className="text-[#1e293b] text-lg font-medium mb-1">42.8K</div>
-                                    <div className="text-[#64748b] text-[13px]">Followers</div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-[#1e293b] text-lg font-medium mb-1">342</div>
-                                    <div className="text-[#64748b] text-[13px]">Posts</div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-[#1e293b] text-lg font-medium mb-1">Santorini</div>
-                                    <div className="text-[#64748b] text-[13px]">Featured</div>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="aspect-square rounded-xl overflow-hidden">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1580237072617-771c3ecc4a24?q=80&w=1000&auto=format&fit=crop"
-                                        alt="Bali Temple"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                <div className="aspect-square rounded-xl overflow-hidden">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1522083165195-3424ed129620?q=80&w=1000&auto=format&fit=crop"
-                                        alt="Santorini"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                <div className="aspect-square rounded-xl overflow-hidden">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1480796927426-f609979314bd?q=80&w=1000&auto=format&fit=crop"
-                                        alt="Japan Street"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                <div className="aspect-square rounded-xl overflow-hidden">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=1000&auto=format&fit=crop"
-                                        alt="Paris"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                            </div>
-                            <button className="w-full py-2.5 bg-gradient-to-r from-[#FF3366] via-[#FF00FF] to-[#FF9933] text-white text-[15px] font-medium rounded-xl hover:opacity-90 transition-opacity">
-                                Follow on Instagram
-                            </button>
-                        </div>
+                        )}
                     </div>
                 </div>
 
@@ -1494,7 +1625,7 @@ const UserPublicDashboard = () => {
                                             <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
                                             <input
                                                 type="text"
-                                                defaultValue={profile.username}
+                                                value={profile.username}
                                                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
                                                 placeholder="Choose a username"
                                                 disabled
@@ -1505,7 +1636,8 @@ const UserPublicDashboard = () => {
                                             <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
                                             <input
                                                 type="text"
-                                                defaultValue={profile.full_name}
+                                                value={editProfileData.full_name}
+                                                onChange={(e) => setEditProfileData(prev => ({ ...prev, full_name: e.target.value }))}
                                                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
                                                 placeholder="Enter your full name"
                                             />
@@ -1513,7 +1645,8 @@ const UserPublicDashboard = () => {
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
                                             <textarea
-                                                defaultValue={profile.bio || ''}
+                                                value={editProfileData.bio}
+                                                onChange={(e) => setEditProfileData(prev => ({ ...prev, bio: e.target.value }))}
                                                 rows={3}
                                                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all resize-none"
                                                 placeholder="Tell us about yourself"
@@ -1546,7 +1679,8 @@ const UserPublicDashboard = () => {
                                             <label className="block text-sm font-medium text-gray-700 mb-1">Website URL</label>
                                             <input
                                                 type="url"
-                                                defaultValue={profile.website_url || ''}
+                                                value={editProfileData.website_url}
+                                                onChange={(e) => setEditProfileData(prev => ({ ...prev, website_url: e.target.value }))}
                                                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
                                                 placeholder="https://your-website.com"
                                             />
@@ -1555,25 +1689,114 @@ const UserPublicDashboard = () => {
                                             <label className="block text-sm font-medium text-gray-700 mb-1">YouTube Channel</label>
                                             <input
                                                 type="url"
-                                                defaultValue={profile.youtube_url || ''}
+                                                value={editProfileData.youtube_url}
+                                                onChange={(e) => setEditProfileData(prev => ({ ...prev, youtube_url: e.target.value }))}
                                                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
                                                 placeholder="https://youtube.com/@yourchannel"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">YouTube Subscribers</label>
+                                            <input
+                                                type="number"
+                                                value={editProfileData.youtube_subscribers}
+                                                onChange={(e) => setEditProfileData(prev => ({ ...prev, youtube_subscribers: parseInt(e.target.value) }))}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                                placeholder="Number of subscribers"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">YouTube Videos</label>
+                                            <input
+                                                type="number"
+                                                value={editProfileData.youtube_videos}
+                                                onChange={(e) => setEditProfileData(prev => ({ ...prev, youtube_videos: parseInt(e.target.value) }))}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                                placeholder="Number of videos"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">YouTube Views</label>
+                                            <input
+                                                type="number"
+                                                value={editProfileData.youtube_views}
+                                                onChange={(e) => setEditProfileData(prev => ({ ...prev, youtube_views: parseInt(e.target.value) }))}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                                placeholder="Total views"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">YouTube Thumbnail URL</label>
+                                            <input
+                                                type="url"
+                                                value={editProfileData.youtube_thumbnail_url}
+                                                onChange={(e) => setEditProfileData(prev => ({ ...prev, youtube_thumbnail_url: e.target.value }))}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                                placeholder="URL of your latest video thumbnail"
                                             />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">Instagram Profile</label>
                                             <input
                                                 type="url"
-                                                defaultValue={profile.instagram_url || ''}
+                                                value={editProfileData.instagram_url}
+                                                onChange={(e) => setEditProfileData(prev => ({ ...prev, instagram_url: e.target.value }))}
                                                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
                                                 placeholder="https://instagram.com/yourusername"
                                             />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Instagram Followers</label>
+                                            <input
+                                                type="number"
+                                                value={editProfileData.instagram_followers}
+                                                onChange={(e) => setEditProfileData(prev => ({ ...prev, instagram_followers: parseInt(e.target.value) }))}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                                placeholder="Number of followers"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Instagram Posts</label>
+                                            <input
+                                                type="number"
+                                                value={editProfileData.instagram_posts}
+                                                onChange={(e) => setEditProfileData(prev => ({ ...prev, instagram_posts: parseInt(e.target.value) }))}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                                placeholder="Number of posts"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Featured Location</label>
+                                            <input
+                                                type="text"
+                                                value={editProfileData.instagram_featured_location}
+                                                onChange={(e) => setEditProfileData(prev => ({ ...prev, instagram_featured_location: e.target.value }))}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+                                                placeholder="Featured location (e.g., Santorini)"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Instagram Thumbnail URLs</label>
+                                            <textarea
+                                                value={editProfileData.instagram_thumbnail_urls.join('\n')}
+                                                onChange={(e) => setEditProfileData(prev => ({
+                                                    ...prev,
+                                                    instagram_thumbnail_urls: e.target.value.split('\n').filter(url => url.trim())
+                                                }))}
+                                                rows={4}
+                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all resize-none"
+                                                placeholder="Enter URLs (one per line)"
+                                            />
+                                            <p className="text-xs text-gray-500 mt-1">Enter one URL per line. Up to 4 URLs will be displayed.</p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                             <div className="p-6 border-t border-gray-100">
-                                <button className="w-full py-3 bg-[#00C48C] text-white rounded-xl text-sm font-medium hover:bg-[#00B380] transition-colors">
+                                <button
+                                    onClick={handleSaveProfileChanges}
+                                    className="w-full py-3 bg-[#00C48C] text-white rounded-xl text-sm font-medium hover:bg-[#00B380] transition-colors"
+                                >
                                     Save Changes
                                 </button>
                             </div>
