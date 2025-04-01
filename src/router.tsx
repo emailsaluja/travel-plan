@@ -13,6 +13,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import SavedItineraries from './pages/SavedItineraries';
 import MyItineraries from './pages/MyItineraries';
 import CreateItinerary from './pages/CreateItinerary';
+import CreateAIItinerary from './pages/CreateAIItinerary';
 import How from './pages/How';
 import WhyTravel from './pages/WhyTravel';
 import ViewUserItinerary from './pages/ViewUserItinerary';
@@ -29,10 +30,11 @@ import TripPreparations from './pages/TripPreparations';
 import BlogPost from './pages/BlogPost';
 import BlogList from './pages/BlogList';
 import { useLocation } from 'react-router-dom';
+import ViewAIItinerary from './pages/ViewAIItinerary';
 
 const RootLayout = () => {
   const location = useLocation();
-  const useTopNav = ['/discover', '/create-itinerary'].some(path =>
+  const useTopNav = ['/discover', '/create-itinerary', '/create-ai-itinerary'].some(path =>
     location.pathname.startsWith(path)
   );
 
@@ -61,6 +63,7 @@ export const router = createBrowserRouter([
       { path: 'discover/:country', element: <Discover /> },
       { path: 'discover/onceinlife', element: <OnceInLife /> },
       { path: 'view-itinerary/:id', element: <ViewUserItinerary /> },
+      { path: 'view-ai-itinerary/:id', element: <ViewAIItinerary /> },
       { path: 'viewmyitinerary/:id', element: <ViewMyItinerary /> },
       { path: 'itineraries', element: <AllItineraries /> },
       { path: 'blog', element: <BlogList /> },
@@ -100,7 +103,15 @@ export const router = createBrowserRouter([
       {
         path: 'preparations/:id',
         element: <TripPreparations />
-      }
+      },
+      {
+        path: "/create-ai-itinerary",
+        element: (
+          <ProtectedRoute>
+            <CreateAIItinerary />
+          </ProtectedRoute>
+        ),
+      },
     ]
   }
 ]); 

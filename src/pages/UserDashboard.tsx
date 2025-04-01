@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
-import { User, Settings, LogOut, Plus } from 'lucide-react';
+import { User, Settings, LogOut, Plus, Sparkles } from 'lucide-react';
 import { cleanDestination } from '../utils/stringUtils';
+import AIItineraryGenerator from '../components/AIItineraryGenerator';
+import { AIItineraryService } from '../services/ai-itinerary.service';
 
 // This is a placeholder component for the user dashboard
 // In a real application, you would fetch the user data and their itineraries
 
 const UserDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('myItineraries');
+  const [aiGeneratedItineraries, setAiGeneratedItineraries] = useState<any[]>([]);
+  const [showAIGenerator, setShowAIGenerator] = useState(false);
 
   // Mock user data
   const userData = {
@@ -54,7 +58,18 @@ const UserDashboard: React.FC = () => {
   };
 
   const handleCreateItinerary = () => {
-    alert('Navigate to create itinerary page');
+    setShowAIGenerator(true);
+  };
+
+  const handleAIItineraryGenerated = async (itinerary: any) => {
+    setShowAIGenerator(false);
+    // Refresh the list of AI-generated itineraries
+    try {
+      const generatedItineraries = await AIItineraryService.getGeneratedItineraries();
+      setAiGeneratedItineraries(generatedItineraries);
+    } catch (error) {
+      console.error('Error fetching generated itineraries:', error);
+    }
   };
 
   const handleLogout = () => {
@@ -117,6 +132,16 @@ const UserDashboard: React.FC = () => {
                 }`}
             >
               Saved Itineraries
+            </button>
+
+            <button
+              onClick={() => setActiveTab('aiItineraries')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'aiItineraries'
+                ? 'border-rose-500 text-rose-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+            >
+              AI Itineraries
             </button>
 
             <button
@@ -205,6 +230,57 @@ const UserDashboard: React.FC = () => {
                       </button>
                       <button className="px-3 py-1 text-sm border border-rose-300 text-rose-500 rounded-md hover:bg-rose-50">
                         Unsave
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'aiItineraries' && (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold">AI-Generated Itineraries</h2>
+              <button
+                onClick={() => setShowAIGenerator(true)}
+                className="flex items-center space-x-1 px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span>Generate New Itinerary</span>
+              </button>
+            </div>
+
+            {showAIGenerator && (
+              <div className="mb-8">
+                <AIItineraryGenerator onItineraryGenerated={handleAIItineraryGenerated} />
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {aiGeneratedItineraries.map((itinerary) => (
+                <div key={itinerary.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+                  <div className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="h-4 w-4 text-amber-500" />
+                      <h3 className="font-semibold text-lg">{itinerary.country} Adventure</h3>
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      {itinerary.duration} days
+                    </p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Generated {new Date(itinerary.created_at).toLocaleDateString()}
+                    </p>
+                    <div className="mt-4 flex space-x-2">
+                      <button className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
+                        View
+                      </button>
+                      <button className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
+                        Edit
+                      </button>
+                      <button className="px-3 py-1 text-sm border border-rose-300 text-rose-500 rounded-md hover:bg-rose-50">
+                        Delete
                       </button>
                     </div>
                   </div>

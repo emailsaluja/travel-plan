@@ -645,21 +645,23 @@ const ViewMyItinerary: React.FC = () => {
                                                                 </div>
                                                                 {(() => {
                                                                     const description = (attraction.description || '').toLowerCase();
-                                                                    let timeText = 'All Day';
+                                                                    let timeText = attraction.isDiscover ? 'Not scheduled' : 'All Day';
                                                                     let colorClasses = 'bg-gray-50 text-gray-600';
 
-                                                                    if (description.includes('morning')) {
-                                                                        timeText = 'Morning';
-                                                                        colorClasses = 'bg-amber-50 text-amber-600';
-                                                                    } else if (description.includes('afternoon')) {
-                                                                        timeText = 'Afternoon';
-                                                                        colorClasses = 'bg-sky-50 text-sky-600';
-                                                                    } else if (description.includes('evening')) {
-                                                                        timeText = 'Evening';
-                                                                        colorClasses = 'bg-indigo-50 text-indigo-600';
-                                                                    } else if (description.includes('night')) {
-                                                                        timeText = 'Night';
-                                                                        colorClasses = 'bg-purple-50 text-purple-600';
+                                                                    if (!attraction.isDiscover) {
+                                                                        if (description.includes('morning')) {
+                                                                            timeText = 'Morning';
+                                                                            colorClasses = 'bg-amber-50 text-amber-600';
+                                                                        } else if (description.includes('afternoon')) {
+                                                                            timeText = 'Afternoon';
+                                                                            colorClasses = 'bg-sky-50 text-sky-600';
+                                                                        } else if (description.includes('evening')) {
+                                                                            timeText = 'Evening';
+                                                                            colorClasses = 'bg-indigo-50 text-indigo-600';
+                                                                        } else if (description.includes('night')) {
+                                                                            timeText = 'Night';
+                                                                            colorClasses = 'bg-purple-50 text-purple-600';
+                                                                        }
                                                                     }
 
                                                                     return (

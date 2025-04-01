@@ -24,7 +24,8 @@ import {
   Upload,
   Heart,
   Copy,
-  Eye
+  Eye,
+  Sparkles
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserItineraryService } from '../services/user-itinerary.service';
@@ -36,6 +37,7 @@ import { cleanDestination } from '../utils/stringUtils';
 import ItineraryTile from '../components/ItineraryTile';
 import { LikesService } from '../services/likes.service';
 import TopNavigation from '../components/TopNavigation';
+import { aiItineraryService, SavedAIItinerary } from '../services/ai-itinerary.service';
 
 interface Itinerary {
   id: string;
@@ -68,6 +70,33 @@ interface LikesState {
   userLikes: Set<string>;
 }
 
+interface AIItinerary {
+  id: string;
+  trip_name: string;
+  duration: number;
+  country: string;
+  destinations: Array<{
+    destination: string;
+  }>;
+  created_at: string;
+  generated_itinerary: {
+    destinations: Array<{
+      name: string;
+      nights: number;
+      description: string;
+    }>;
+    dailyPlans: Array<{
+      day: number;
+      activities: Array<{
+        time: string;
+        activity: string;
+        description: string;
+        type: string;
+      }>;
+    }>;
+  };
+}
+
 const Dashboard = () => {
   const { userEmail, signOut } = useAuth();
   const [userId, setUserId] = useState<string | null>(null);
@@ -76,7 +105,7 @@ const Dashboard = () => {
   const [itineraries, setItineraries] = useState<Itinerary[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [view, setView] = useState<'trips' | 'countries' | 'upcoming' | 'past' | 'liked'>('trips');
+  const [view, setView] = useState<'trips' | 'countries' | 'upcoming' | 'past' | 'liked' | 'aiItineraries'>('trips');
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [countryImages, setCountryImages] = useState<Record<string, string[]>>({});
   const [selectedImages, setSelectedImages] = useState<Record<string, string>>({});
@@ -130,6 +159,9 @@ const Dashboard = () => {
     counts: {},
     userLikes: new Set<string>()
   });
+
+  // Add state for AI itineraries
+  const [aiItineraries, setAiItineraries] = useState<SavedAIItinerary[]>([]);
 
   const stats = {
     followers: 0,
@@ -228,6 +260,9 @@ const Dashboard = () => {
         // Update cache timestamp
         dataCache.current.lastFetch = now;
       }
+
+      // Load AI itineraries
+      await loadAIItineraries();
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
@@ -247,17 +282,35 @@ const Dashboard = () => {
   // Replace existing loadLikedTrips function
   const loadLikedTrips = () => loadAllData(true);
 
-  // Optimize handleViewChange to avoid unnecessary data fetches
-  const handleViewChange = (newView: 'trips' | 'countries' | 'upcoming' | 'past' | 'liked') => {
+  // Add URL query parameter handling
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab === 'aiItineraries') {
+      setView('aiItineraries');
+    }
+  }, []);
+
+  // Update handleViewChange to handle URL updates
+  const handleViewChange = (newView: 'trips' | 'countries' | 'upcoming' | 'past' | 'liked' | 'aiItineraries') => {
     setView(newView);
     setSelectedCountry(null);
 
-    // Update URL hash
+    // Update URL hash and search params
     if (newView === 'liked') {
       window.location.hash = 'liked';
     } else if (window.location.hash === '#liked') {
       window.location.hash = '';
     }
+
+    // Update search params for AI itineraries tab
+    const params = new URLSearchParams(window.location.search);
+    if (newView === 'aiItineraries') {
+      params.set('tab', 'aiItineraries');
+    } else {
+      params.delete('tab');
+    }
+    window.history.pushState({}, '', `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`);
   };
 
   // Optimize handleUnlike with proper typing
@@ -561,6 +614,16 @@ const Dashboard = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Add function to load AI itineraries
+  const loadAIItineraries = async () => {
+    try {
+      const itineraries = await aiItineraryService.getItineraries();
+      setAiItineraries(itineraries);
+    } catch (error) {
+      console.error('Error loading AI itineraries:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen">
       <TopNavigation />
@@ -628,6 +691,19 @@ const Dashboard = () => {
                 <span className="bg-[#00C48C]/10 text-[#00C48C] px-2 py-0.5 rounded-full text-sm">
                   {itineraries.length}
                 </span>
+              </button>
+            </div>
+            <div>
+              <button
+                onClick={() => handleViewChange('aiItineraries')}
+                className={`w-full flex items-center justify-between font-[600] font-['Inter_var'] p-2 rounded-lg transition-colors ${view === 'aiItineraries' ? 'bg-[#e5f8f3] text-[#13c892]' : 'text-[#1e293b] hover:bg-[#e5f8f3] hover:text-[#13c892]'}`}
+              >
+                <div className="flex items-center gap-2">
+                  <svg viewBox="0 0 24 24" className={`w-4 h-4 ${view === 'aiItineraries' ? 'text-[#13c892]' : 'text-[#00C48C]'}`} fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
+                  </svg>
+                  <span>AI Itineraries</span>
+                </div>
               </button>
             </div>
             <div>
@@ -855,6 +931,66 @@ const Dashboard = () => {
                   </div>
                 ))}
               </div>
+            ) : view === 'aiItineraries' ? (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-lg font-medium text-[#1e293b]">
+                    AI-Generated Itineraries
+                  </h2>
+                  <button
+                    onClick={() => navigate('/create-ai-itinerary')}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#00C48C] text-white rounded-lg hover:bg-[#00B380] transition-colors"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Generate New Itinerary</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {aiItineraries.map((itinerary) => (
+                    <div
+                      key={itinerary.id}
+                      className="group relative overflow-hidden rounded-xl bg-white shadow-sm hover:shadow-md transition-all"
+                    >
+                      <div
+                        onClick={() => navigate(`/view-ai-itinerary/${itinerary.id}`)}
+                        className="cursor-pointer"
+                      >
+                        <div className="relative h-48">
+                          <img
+                            src={getRandomImageForCountry(itinerary.country)}
+                            alt={itinerary.trip_name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="p-4">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                            {itinerary.trip_name}
+                          </h3>
+                          <p className="text-sm text-gray-600 mb-2">
+                            {itinerary.duration} days in {itinerary.country}
+                          </p>
+                          <div className="space-y-2">
+                            {itinerary.generated_itinerary.destinations.slice(0, 2).map((dest: { name: string; nights: number }, index: number) => (
+                              <div key={index} className="text-sm text-gray-500">
+                                • {dest.name} ({dest.nights} nights)
+                              </div>
+                            ))}
+                            {itinerary.generated_itinerary.destinations.length > 2 && (
+                              <div className="text-sm text-gray-500">
+                                +{itinerary.generated_itinerary.destinations.length - 2} more destinations
+                              </div>
+                            )}
+                          </div>
+                          <div className="mt-4 text-xs text-gray-400">
+                            Generated {formatDate(itinerary.created_at)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             ) : (
               // Trip Grid
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -895,11 +1031,11 @@ const Dashboard = () => {
                           id={itinerary.id}
                           title={itinerary.trip_name}
                           description={`${itinerary.duration} days in ${itinerary.destinations
-                            .map(d => cleanDestination(d.destination))
+                            .map((d: { destination: string }) => cleanDestination(d.destination))
                             .join(', ')}`}
                           imageUrl={getRandomImageForCountry(itinerary.country)}
                           duration={itinerary.duration}
-                          cities={itinerary.destinations.map(d => cleanDestination(d.destination))}
+                          cities={itinerary.destinations.map((d: { destination: string }) => cleanDestination(d.destination))}
                           createdAt={itinerary.created_at}
                           loading="lazy"
                           showLike={false}
