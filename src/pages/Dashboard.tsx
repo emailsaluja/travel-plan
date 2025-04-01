@@ -881,7 +881,7 @@ const Dashboard = () => {
                     className="group relative bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all"
                   >
                     <div
-                      onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                      onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
                       className="cursor-pointer"
                     >
                       <div className="relative h-48">
@@ -1024,7 +1024,7 @@ const Dashboard = () => {
                       className="group relative overflow-hidden rounded-xl"
                     >
                       <div
-                        onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                        onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
                         className="cursor-pointer"
                       >
                         <ItineraryTile

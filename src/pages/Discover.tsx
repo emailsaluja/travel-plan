@@ -615,7 +615,7 @@ const Discover: React.FC = () => {
                         {countryData.itineraries.map((itinerary) => (
                             <div
                                 key={itinerary.id}
-                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                                onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
                                 className="cursor-pointer"
                             >
                                 <ItineraryTile
@@ -690,7 +690,7 @@ const Discover: React.FC = () => {
                         .map((itinerary) => (
                             <div
                                 key={itinerary.id}
-                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                                onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
                                 className="cursor-pointer w-[300px]"
                             >
                                 <ItineraryTile
@@ -726,7 +726,7 @@ const Discover: React.FC = () => {
                         .map((itinerary) => (
                             <div
                                 key={itinerary.id}
-                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                                onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
                                 className="cursor-pointer w-[300px]"
                             >
                                 <ItineraryTile
@@ -754,7 +754,7 @@ const Discover: React.FC = () => {
                         .map((itinerary) => (
                             <div
                                 key={itinerary.id}
-                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                                onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
                                 className="cursor-pointer w-[300px]"
                             >
                                 <ItineraryTile
@@ -782,7 +782,7 @@ const Discover: React.FC = () => {
                         .map((itinerary) => (
                             <div
                                 key={itinerary.id}
-                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                                onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
                                 className="cursor-pointer w-[300px]"
                             >
                                 <ItineraryTile
@@ -810,7 +810,7 @@ const Discover: React.FC = () => {
                         .map((itinerary) => (
                             <div
                                 key={itinerary.id}
-                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                                onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
                                 className="cursor-pointer w-[300px]"
                             >
                                 <ItineraryTile
@@ -838,7 +838,7 @@ const Discover: React.FC = () => {
                         .map((itinerary) => (
                             <div
                                 key={itinerary.id}
-                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                                onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
                                 className="cursor-pointer w-[300px]"
                             >
                                 <ItineraryTile

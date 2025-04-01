@@ -313,7 +313,7 @@ const AllItineraries = () => {
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <Link
-                                                to={`/view-itinerary/${itinerary.id}`}
+                                                to={`/viewmyitinerary/${itinerary.id}`}
                                                 className="flex-1 text-center py-2.5 bg-[#00C48C] text-white text-[15px] font-medium rounded-xl hover:bg-[#00B380] transition-colors"
                                             >
                                                 View Itinerary

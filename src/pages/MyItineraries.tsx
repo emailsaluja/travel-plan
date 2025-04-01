@@ -47,7 +47,7 @@ const MyItineraries: React.FC = () => {
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent event bubbling
-    
+
     if (window.confirm('Are you sure you want to delete this itinerary?')) {
       try {
         setLoading(true);
@@ -146,7 +146,7 @@ const MyItineraries: React.FC = () => {
                   Update →
                 </Link>
                 <Link
-                  to={`/view-itinerary/${itinerary.id}`}
+                  to={`/viewmyitinerary/${itinerary.id}`}
                   className="text-rose-500 hover:text-rose-600 text-sm font-medium"
                 >
                   View →

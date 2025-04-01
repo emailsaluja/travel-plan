@@ -189,7 +189,7 @@ const TripPreparations = () => {
                     <div className="flex items-center justify-between mb-6">
                         <h1 className="text-2xl font-semibold text-gray-900">{itinerary.trip_name}</h1>
                         <Link
-                            to={`/view-itinerary/${itinerary.id}`}
+                            to={`/viewmyitinerary/${itinerary.id}`}
                             className="text-[#00C48C] hover:text-[#00B380] transition-colors text-sm font-medium"
                         >
                             View Full Itinerary
