@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import { User, Settings, LogOut, Plus } from 'lucide-react';
+import { User, Settings, LogOut, Plus, Sparkles } from 'lucide-react';
+import { cleanDestination } from '../utils/stringUtils';
+import AIItineraryGenerator from '../components/AIItineraryGenerator';
+import { AIItineraryService } from '../services/ai-itinerary.service';
 
 // This is a placeholder component for the user dashboard
 // In a real application, you would fetch the user data and their itineraries
 
 const UserDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('myItineraries');
-  
+  const [aiGeneratedItineraries, setAiGeneratedItineraries] = useState<any[]>([]);
+  const [showAIGenerator, setShowAIGenerator] = useState(false);
+
   // Mock user data
   const userData = {
     name: 'Jane Doe',
@@ -53,7 +58,18 @@ const UserDashboard: React.FC = () => {
   };
 
   const handleCreateItinerary = () => {
-    alert('Navigate to create itinerary page');
+    setShowAIGenerator(true);
+  };
+
+  const handleAIItineraryGenerated = async (itinerary: any) => {
+    setShowAIGenerator(false);
+    // Refresh the list of AI-generated itineraries
+    try {
+      const generatedItineraries = await AIItineraryService.getGeneratedItineraries();
+      setAiGeneratedItineraries(generatedItineraries);
+    } catch (error) {
+      console.error('Error fetching generated itineraries:', error);
+    }
   };
 
   const handleLogout = () => {
@@ -67,8 +83,8 @@ const UserDashboard: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <img 
-                src={userData.profilePicture} 
+              <img
+                src={userData.profilePicture}
                 alt={userData.name}
                 className="w-16 h-16 rounded-full object-cover"
               />
@@ -77,14 +93,14 @@ const UserDashboard: React.FC = () => {
                 <p className="text-gray-600">{userData.email}</p>
               </div>
             </div>
-            
+
             <div className="flex space-x-3">
               <button className="flex items-center space-x-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
                 <Settings className="h-4 w-4" />
                 <span>Settings</span>
               </button>
-              
-              <button 
+
+              <button
                 onClick={handleLogout}
                 className="flex items-center space-x-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
               >
@@ -94,51 +110,58 @@ const UserDashboard: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Tabs */}
         <div className="border-b border-gray-200 mb-6">
           <nav className="-mb-px flex space-x-8">
             <button
               onClick={() => setActiveTab('myItineraries')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'myItineraries'
-                  ? 'border-rose-500 text-rose-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'myItineraries'
+                ? 'border-rose-500 text-rose-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               My Itineraries
             </button>
-            
+
             <button
               onClick={() => setActiveTab('savedItineraries')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'savedItineraries'
-                  ? 'border-rose-500 text-rose-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'savedItineraries'
+                ? 'border-rose-500 text-rose-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               Saved Itineraries
             </button>
-            
+
+            <button
+              onClick={() => setActiveTab('aiItineraries')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'aiItineraries'
+                ? 'border-rose-500 text-rose-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+            >
+              AI Itineraries
+            </button>
+
             <button
               onClick={() => setActiveTab('profile')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'profile'
-                  ? 'border-rose-500 text-rose-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'profile'
+                ? 'border-rose-500 text-rose-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               Profile Settings
             </button>
           </nav>
         </div>
-        
+
         {/* Tab content */}
         {activeTab === 'myItineraries' && (
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold">My Itineraries</h2>
-              <button 
+              <button
                 onClick={handleCreateItinerary}
                 className="flex items-center space-x-1 px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600"
               >
@@ -146,19 +169,19 @@ const UserDashboard: React.FC = () => {
                 <span>Create New Itinerary</span>
               </button>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {userData.myItineraries.map((itinerary) => (
                 <div key={itinerary.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
-                  <img 
-                    src={itinerary.imageUrl} 
+                  <img
+                    src={itinerary.imageUrl}
                     alt={itinerary.title}
                     className="w-full h-48 object-cover"
                   />
                   <div className="p-4">
                     <h3 className="font-semibold text-lg">{itinerary.title}</h3>
                     <p className="text-sm text-gray-500">
-                      {itinerary.duration} days - {itinerary.cities.join(', ')}
+                      {itinerary.duration} days - {itinerary.cities.map(city => cleanDestination(city)).join(', ')}
                     </p>
                     <p className="text-xs text-gray-400 mt-2">Created {itinerary.createdAt}</p>
                     <div className="mt-4 flex space-x-2">
@@ -178,23 +201,23 @@ const UserDashboard: React.FC = () => {
             </div>
           </div>
         )}
-        
+
         {activeTab === 'savedItineraries' && (
           <div>
             <h2 className="text-xl font-bold mb-6">Saved Itineraries</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {userData.savedItineraries.map((itinerary) => (
                 <div key={itinerary.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
-                  <img 
-                    src={itinerary.imageUrl} 
+                  <img
+                    src={itinerary.imageUrl}
                     alt={itinerary.title}
                     className="w-full h-48 object-cover"
                   />
                   <div className="p-4">
                     <h3 className="font-semibold text-lg">{itinerary.title}</h3>
                     <p className="text-sm text-gray-500">
-                      {itinerary.duration} days - {itinerary.cities.join(', ')}
+                      {itinerary.duration} days - {itinerary.cities.map(city => cleanDestination(city)).join(', ')}
                     </p>
                     <p className="text-xs text-gray-400 mt-1">By {itinerary.author}</p>
                     <p className="text-xs text-gray-400">Saved {itinerary.savedAt}</p>
@@ -215,19 +238,70 @@ const UserDashboard: React.FC = () => {
             </div>
           </div>
         )}
-        
+
+        {activeTab === 'aiItineraries' && (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold">AI-Generated Itineraries</h2>
+              <button
+                onClick={() => setShowAIGenerator(true)}
+                className="flex items-center space-x-1 px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span>Generate New Itinerary</span>
+              </button>
+            </div>
+
+            {showAIGenerator && (
+              <div className="mb-8">
+                <AIItineraryGenerator onItineraryGenerated={handleAIItineraryGenerated} />
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {aiGeneratedItineraries.map((itinerary) => (
+                <div key={itinerary.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+                  <div className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="h-4 w-4 text-amber-500" />
+                      <h3 className="font-semibold text-lg">{itinerary.country} Adventure</h3>
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      {itinerary.duration} days
+                    </p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Generated {new Date(itinerary.created_at).toLocaleDateString()}
+                    </p>
+                    <div className="mt-4 flex space-x-2">
+                      <button className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
+                        View
+                      </button>
+                      <button className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
+                        Edit
+                      </button>
+                      <button className="px-3 py-1 text-sm border border-rose-300 text-rose-500 rounded-md hover:bg-rose-50">
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {activeTab === 'profile' && (
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-xl font-bold mb-6">Profile Settings</h2>
-            
+
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Profile Picture
                 </label>
                 <div className="flex items-center space-x-4">
-                  <img 
-                    src={userData.profilePicture} 
+                  <img
+                    src={userData.profilePicture}
                     alt={userData.name}
                     className="w-20 h-20 rounded-full object-cover"
                   />
@@ -236,40 +310,40 @@ const UserDashboard: React.FC = () => {
                   </button>
                 </div>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Full Name
                 </label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
                   value={userData.name}
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Email
                 </label>
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
                   value={userData.email}
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Bio
                 </label>
-                <textarea 
+                <textarea
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
                   rows={4}
                   placeholder="Tell us about yourself and your travel preferences..."
                 ></textarea>
               </div>
-              
+
               <div>
                 <button className="px-4 py-2 bg-rose-500 text-white rounded-md hover:bg-rose-600">
                   Save Changes

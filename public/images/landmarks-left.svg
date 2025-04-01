@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Colosseum -->
+  <path d="M80 200 C80 150 120 100 160 100 C200 100 240 150 240 200" stroke="#FF9EAA" fill="none" stroke-width="2"/>
+  <path d="M100 200 C100 170 140 140 160 140 C180 140 220 170 220 200" stroke="#FF9EAA" fill="none" stroke-width="2"/>
+  <rect x="80" y="200" width="160" height="20" fill="#FF9EAA"/>
+  
+  <!-- Eiffel Tower -->
+  <path d="M280 80 L320 220 L240 220 Z" stroke="#FF9EAA" fill="none" stroke-width="2"/>
+  <path d="M280 120 L300 220 L260 220 Z" stroke="#FF9EAA" fill="none" stroke-width="2"/>
+  <line x1="280" y1="80" x2="280" y2="60" stroke="#FF9EAA" stroke-width="2"/>
+  
+  <!-- Big Ben -->
+  <rect x="340" y="140" width="30" height="80" fill="#FF9EAA"/>
+  <polygon points="355,120 370,140 340,140" fill="#FF9EAA"/>
+  <circle cx="355" cy="130" r="5" fill="#FF9EAA"/>
+  
+  <!-- Windmill -->
+  <rect x="20" y="160" width="20" height="60" fill="#FF9EAA"/>
+  <circle cx="30" cy="160" r="25" stroke="#FF9EAA" fill="none" stroke-width="2"/>
+  <path d="M30 160 L50 140 M30 160 L10 140 M30 160 L30 135 M30 160 L30 185" stroke="#FF9EAA" stroke-width="2"/>
+</svg> 

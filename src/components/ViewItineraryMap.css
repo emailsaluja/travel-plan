@@ -1,0 +1,62 @@
+.mapboxgl-map {
+    width: 100%;
+    height: 100%;
+}
+
+.mapboxgl-ctrl-top-right {
+    top: 12px;
+    right: 12px;
+}
+
+.mapboxgl-ctrl-group {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.mapboxgl-ctrl-group button {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background-color: transparent;
+    cursor: pointer;
+}
+
+.mapboxgl-ctrl-group button:hover {
+    background-color: #f3f4f6;
+}
+
+.mapboxgl-ctrl-group button:first-child {
+    border-radius: 8px 8px 0 0;
+}
+
+.mapboxgl-ctrl-group button:last-child {
+    border-radius: 0 0 8px 8px;
+}
+
+.mapboxgl-popup {
+    max-width: 300px;
+}
+
+.mapboxgl-popup-content {
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.mapboxgl-popup-close-button {
+    padding: 4px 8px;
+    font-size: 16px;
+    color: #6b7280;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.mapboxgl-popup-close-button:hover {
+    color: #374151;
+}

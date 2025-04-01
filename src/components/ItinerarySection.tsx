@@ -72,17 +72,18 @@ const ItinerarySection: React.FC<ItinerarySectionProps> = ({ title, country, fil
         className="flex overflow-x-auto space-x-4 pb-4 scrollbar-hide"
       >
         {itineraries.map((itinerary: Itinerary) => (
-          <ItineraryTile
-            key={itinerary.id}
-            id={itinerary.id}
-            title={itinerary.title}
-            description={itinerary.description}
-            imageUrl={itinerary.imageUrl}
-            duration={itinerary.duration}
-            cities={itinerary.cities}
-            likes={itinerary.likes}
-            createdAt={itinerary.createdAt}
-          />
+          <div key={itinerary.id} className="relative">
+            <ItineraryTile
+              id={itinerary.id}
+              title={itinerary.title}
+              description={itinerary.description}
+              imageUrl={itinerary.imageUrl}
+              duration={itinerary.duration}
+              cities={itinerary.cities}
+              likes={itinerary.likes}
+              createdAt={itinerary.createdAt}
+            />
+          </div>
         ))}
       </div>
     </div>

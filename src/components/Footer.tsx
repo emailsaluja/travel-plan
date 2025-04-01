@@ -1,8 +1,15 @@
 import React from 'react';
 import { Globe } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { Link } from 'react-router-dom';
 
 const Footer: React.FC = () => {
+  const { isAuthenticated } = useAuth();
   const currentYear = new Date().getFullYear();
+
+  if (isAuthenticated) {
+    return null;
+  }
 
   return (
     <footer className="bg-gray-100 border-t border-gray-200">
@@ -11,10 +18,10 @@ const Footer: React.FC = () => {
           <div>
             <h3 className="text-sm font-semibold text-gray-500 tracking-wider uppercase">Support</h3>
             <ul className="mt-4 space-y-4">
-              <li><a href="#" className="text-base text-gray-500 hover:text-gray-900">Help Center</a></li>
-              <li><a href="#" className="text-base text-gray-500 hover:text-gray-900">Safety information</a></li>
+              <li><Link to="/how" className="text-base text-gray-500 hover:text-gray-900">How TravelPlanner Works</Link></li>
+              <li><a href="/help" className="text-base text-gray-500 hover:text-gray-900">Help Center</a></li>
+              <li><a href="safety" className="text-base text-gray-500 hover:text-gray-900">Safety information</a></li>
               <li><a href="#" className="text-base text-gray-500 hover:text-gray-900">Cancellation options</a></li>
-              <li><a href="#" className="text-base text-gray-500 hover:text-gray-900">Our COVID-19 Response</a></li>
             </ul>
           </div>
 
@@ -31,7 +38,7 @@ const Footer: React.FC = () => {
           <div>
             <h3 className="text-sm font-semibold text-gray-500 tracking-wider uppercase">Traveling</h3>
             <ul className="mt-4 space-y-4">
-              <li><a href="#" className="text-base text-gray-500 hover:text-gray-900">Why Travel</a></li>
+              <li><Link to="/whytravel" className="text-base text-gray-500 hover:text-gray-900">Why Travel</Link></li>
               <li><a href="#" className="text-base text-gray-500 hover:text-gray-900">Explore destinations</a></li>
               <li><a href="#" className="text-base text-gray-500 hover:text-gray-900">Travel responsibly</a></li>
               <li><a href="#" className="text-base text-gray-500 hover:text-gray-900">Travel resources</a></li>
