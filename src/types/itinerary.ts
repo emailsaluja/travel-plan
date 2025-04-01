@@ -46,4 +46,33 @@ export interface SaveItineraryData {
         day_index: number;
         notes: string;
     }>;
+}
+
+export interface SavedAIItinerary {
+    id: string;
+    generated_itinerary: {
+        destinations: Destination[];
+        dailyPlans: DailyPlan[];
+    };
+    duration: number;
+    // ... other fields
+}
+
+export interface Destination {
+    name: string;
+    nights: number;
+    description: string;
+    image?: string;
+}
+
+export interface DailyPlan {
+    day: number;
+    activities: Activity[];
+}
+
+export interface Activity {
+    time: string;
+    type: string;
+    activity: string;
+    description: string;
 } 
