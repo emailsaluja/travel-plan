@@ -837,30 +837,13 @@ const ViewAIItinerary: React.FC = () => {
                     </div>
 
                     {/* New destination form */}
-                    {isEditMode && (
+                    {newDestination && (
                         <div className="p-4">
-                            <button
-                                onClick={() => setNewDestination({
-                                    name: 'New Destination',
-                                    nights: 1,
-                                    description: 'Description of this destination',
-                                    image: ''
-                                })}
-                                className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-300 hover:text-blue-600 transition-colors flex items-center justify-center gap-2"
-                            >
-                                <Plus className="h-5 w-5" />
-                                <span>Add New Destination</span>
-                            </button>
-
-                            {newDestination && (
-                                <div className="mt-4">
-                                    <DestinationEditForm
-                                        destination={newDestination}
-                                        onSave={addDestination}
-                                        onCancel={() => setNewDestination(null)}
-                                    />
-                                </div>
-                            )}
+                            <DestinationEditForm
+                                destination={newDestination}
+                                onSave={addDestination}
+                                onCancel={() => setNewDestination(null)}
+                            />
                         </div>
                     )}
 
