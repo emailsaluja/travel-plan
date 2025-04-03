@@ -824,7 +824,10 @@ const Discover: React.FC = () => {
                 <div className="mb-12">
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-2xl font-bold text-gray-900">Trending Destinations</h2>
-                        <button className="text-[#0096FF] hover:text-[#0077CC] font-medium">
+                        <button
+                            onClick={() => navigate('/itineraries?section=trending')}
+                            className="text-[#0096FF] hover:text-[#0077CC] font-medium"
+                        >
                             View all →
                         </button>
                     </div>
@@ -965,7 +968,17 @@ const Discover: React.FC = () => {
 
                 {/* Unique Experiences Section */}
                 <div className="mb-12">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Unique Experiences</h2>
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold text-gray-900">Unique Experiences</h2>
+                        <button
+                            onClick={() => navigate('/itineraries?section=unique')}
+                            className="text-[#0096FF] hover:text-[#0077CC] font-medium"
+                        >
+                            View all →
+                        </button>
+                    </div>
+
+                    {/* Unique Experiences Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {/* African Safari Card */}
                         <div className="bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer">
@@ -1477,6 +1490,143 @@ const Discover: React.FC = () => {
                     </div>
                 </div>
 
+                {/* Travellers with most Trips Section */}
+                <div className="mb-12">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold text-gray-900">Travellers with most Trips</h2>
+                        <button
+                            onClick={() => navigate('/community')}
+                            className="text-[#0096FF] hover:text-[#0077CC] font-medium"
+                        >
+                            View all →
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {/* Alex Morgan Card */}
+                        <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                            <div className="relative h-48">
+                                <img
+                                    src="https://images.unsplash.com/photo-1542909168-82c3e7fdca5c"
+                                    alt="Alex Morgan"
+                                    className="w-full h-full object-cover"
+                                />
+                                <div className="absolute top-4 left-4">
+                                    <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 text-sm font-medium">
+                                        🌍 Iceland
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="p-4">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <img
+                                        src="https://images.unsplash.com/photo-1542909168-82c3e7fdca5c"
+                                        alt="Alex Morgan"
+                                        className="w-12 h-12 rounded-full object-cover"
+                                    />
+                                    <div>
+                                        <h3 className="font-semibold">Alex Morgan</h3>
+                                        <p className="text-sm text-gray-600">Explorer</p>
+                                    </div>
+                                </div>
+                                <h4 className="font-medium mb-2">Iceland Ring Road: Essential Tips</h4>
+                                <p className="text-sm text-gray-600 mb-3">
+                                    After driving the entire Ring Road twice, here are my top recommendations for the best stops, hidden gems, and...
+                                </p>
+                                <div className="flex items-center justify-between text-sm text-gray-500">
+                                    <div className="flex items-center gap-2">
+                                        <span>28 comments</span>
+                                        <span>•</span>
+                                        <span>142 likes</span>
+                                    </div>
+                                    <button className="text-[#0096FF] hover:text-[#0077CC]">Read More</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Mia Zhang Card */}
+                        <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                            <div className="relative h-48">
+                                <img
+                                    src="https://images.unsplash.com/photo-1553701275-1d6594ac1b9b"
+                                    alt="Japan Street"
+                                    className="w-full h-full object-cover"
+                                />
+                                <div className="absolute top-4 left-4">
+                                    <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 text-sm font-medium">
+                                        🗾 Japan
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="p-4">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <img
+                                        src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80"
+                                        alt="Mia Zhang"
+                                        className="w-12 h-12 rounded-full object-cover"
+                                    />
+                                    <div>
+                                        <h3 className="font-semibold">Mia Zhang</h3>
+                                        <p className="text-sm text-gray-600">Travel Expert</p>
+                                    </div>
+                                </div>
+                                <h4 className="font-medium mb-2">Solo Female Travel in Japan</h4>
+                                <p className="text-sm text-gray-600 mb-3">
+                                    My experience traveling alone through Japan as a woman, with safety tips, cultural insights, and recommendations for...
+                                </p>
+                                <div className="flex items-center justify-between text-sm text-gray-500">
+                                    <div className="flex items-center gap-2">
+                                        <span>46 comments</span>
+                                        <span>•</span>
+                                        <span>215 likes</span>
+                                    </div>
+                                    <button className="text-[#0096FF] hover:text-[#0077CC]">Read More</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Carlos & Maria Card */}
+                        <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                            <div className="relative h-48">
+                                <img
+                                    src="https://images.unsplash.com/photo-1467269204594-9661b134dd2b"
+                                    alt="European Street"
+                                    className="w-full h-full object-cover"
+                                />
+                                <div className="absolute top-4 left-4">
+                                    <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 text-sm font-medium">
+                                        🏰 Europe
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="p-4">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <img
+                                        src="https://images.unsplash.com/photo-1469571486292-0ba58a3f068b"
+                                        alt="Carlos & Maria"
+                                        className="w-12 h-12 rounded-full object-cover"
+                                    />
+                                    <div>
+                                        <h3 className="font-semibold">Carlos & Maria</h3>
+                                        <p className="text-sm text-gray-600">Budget Travelers</p>
+                                    </div>
+                                </div>
+                                <h4 className="font-medium mb-2">How We Visited 8 European Countries on $3000</h4>
+                                <p className="text-sm text-gray-600 mb-3">
+                                    Our detailed budget breakdown, money-saving tips, and itinerary for an affordable European adventure across...
+                                </p>
+                                <div className="flex items-center justify-between text-sm text-gray-500">
+                                    <div className="flex items-center gap-2">
+                                        <span>57 comments</span>
+                                        <span>•</span>
+                                        <span>324 likes</span>
+                                    </div>
+                                    <button className="text-[#0096FF] hover:text-[#0077CC]">Read More</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Hidden Gems Section */}
                 <div className="mb-12">
                     <h2 className="text-3xl font-bold mb-2">Hidden Gems</h2>
@@ -1674,10 +1824,10 @@ const Discover: React.FC = () => {
                 <ScrollableSection title="Bucket List Experiences">
                     <div className="flex flex-col items-start mb-4">
                         <button
-                            onClick={() => navigate('/discover/onceinlife')}
+                            onClick={() => navigate('/itineraries?section=bucket-list')}
                             className="text-[#00C48C] hover:text-[#00B380] flex items-center gap-2 mb-4"
                         >
-                            View Once in a Life Experiences →
+                            View all →
                         </button>
                     </div>
                     {itineraries
@@ -1707,116 +1857,168 @@ const Discover: React.FC = () => {
                 </ScrollableSection>
 
                 {/* Family Friendly Itineraries Section */}
-                <ScrollableSection title="Family Friendly Itineraries">
-                    {itineraries
-                        .filter(itinerary => itinerary.tags?.includes('family'))
-                        .map((itinerary) => (
-                            <div
-                                key={itinerary.id}
-                                onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
-                                className="cursor-pointer w-[300px]"
-                            >
-                                <ItineraryTile
-                                    id={itinerary.id}
-                                    title={itinerary.trip_name}
-                                    description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => cleanDestination(d.destination))
-                                        .join(', ')}`}
-                                    imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
-                                    duration={itinerary.duration}
-                                    cities={itinerary.destinations.map(d =>
-                                        cleanDestination(d.destination)
-                                    )}
-                                    createdAt={itinerary.created_at}
-                                    loading="lazy"
-                                />
-                            </div>
-                        ))}
-                </ScrollableSection>
+                <div className="mb-12">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold text-gray-900">Family Friendly Itineraries</h2>
+                        <button
+                            onClick={() => navigate('/itineraries?section=family')}
+                            className="text-[#0096FF] hover:text-[#0077CC] font-medium"
+                        >
+                            View all →
+                        </button>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <div className="flex gap-4">
+                            {itineraries
+                                .filter(itinerary => itinerary.tags?.includes('family'))
+                                .map((itinerary) => (
+                                    <div
+                                        key={itinerary.id}
+                                        onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                        className="cursor-pointer w-[300px]"
+                                    >
+                                        <ItineraryTile
+                                            id={itinerary.id}
+                                            title={itinerary.trip_name}
+                                            description={`${itinerary.duration} days in ${itinerary.destinations
+                                                .map(d => cleanDestination(d.destination))
+                                                .join(', ')}`}
+                                            imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                            duration={itinerary.duration}
+                                            cities={itinerary.destinations.map(d =>
+                                                cleanDestination(d.destination)
+                                            )}
+                                            createdAt={itinerary.created_at}
+                                            loading="lazy"
+                                        />
+                                    </div>
+                                ))}
+                        </div>
+                    </div>
+                </div>
 
                 {/* Adventurous Itineraries Section */}
-                <ScrollableSection title="Adventurous Itineraries">
-                    {itineraries
-                        .filter(itinerary => itinerary.tags?.includes('adventure'))
-                        .map((itinerary) => (
-                            <div
-                                key={itinerary.id}
-                                onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
-                                className="cursor-pointer w-[300px]"
-                            >
-                                <ItineraryTile
-                                    id={itinerary.id}
-                                    title={itinerary.trip_name}
-                                    description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => cleanDestination(d.destination))
-                                        .join(', ')}`}
-                                    imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
-                                    duration={itinerary.duration}
-                                    cities={itinerary.destinations.map(d =>
-                                        cleanDestination(d.destination)
-                                    )}
-                                    createdAt={itinerary.created_at}
-                                    loading="lazy"
-                                />
-                            </div>
-                        ))}
-                </ScrollableSection>
+                <div className="mb-12">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold text-gray-900">Adventurous Itineraries</h2>
+                        <button
+                            onClick={() => navigate('/itineraries?section=adventure')}
+                            className="text-[#0096FF] hover:text-[#0077CC] font-medium"
+                        >
+                            View all →
+                        </button>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <div className="flex gap-4">
+                            {itineraries
+                                .filter(itinerary => itinerary.tags?.includes('adventure'))
+                                .map((itinerary) => (
+                                    <div
+                                        key={itinerary.id}
+                                        onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                        className="cursor-pointer w-[300px]"
+                                    >
+                                        <ItineraryTile
+                                            id={itinerary.id}
+                                            title={itinerary.trip_name}
+                                            description={`${itinerary.duration} days in ${itinerary.destinations
+                                                .map(d => cleanDestination(d.destination))
+                                                .join(', ')}`}
+                                            imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                            duration={itinerary.duration}
+                                            cities={itinerary.destinations.map(d =>
+                                                cleanDestination(d.destination)
+                                            )}
+                                            createdAt={itinerary.created_at}
+                                            loading="lazy"
+                                        />
+                                    </div>
+                                ))}
+                        </div>
+                    </div>
+                </div>
 
                 {/* Short Trips Section */}
-                <ScrollableSection title="Short Trips">
-                    {itineraries
-                        .filter(itinerary => itinerary.tags?.includes('short'))
-                        .map((itinerary) => (
-                            <div
-                                key={itinerary.id}
-                                onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
-                                className="cursor-pointer w-[300px]"
-                            >
-                                <ItineraryTile
-                                    id={itinerary.id}
-                                    title={itinerary.trip_name}
-                                    description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => cleanDestination(d.destination))
-                                        .join(', ')}`}
-                                    imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
-                                    duration={itinerary.duration}
-                                    cities={itinerary.destinations.map(d =>
-                                        cleanDestination(d.destination)
-                                    )}
-                                    createdAt={itinerary.created_at}
-                                    loading="lazy"
-                                />
-                            </div>
-                        ))}
-                </ScrollableSection>
+                <div className="mb-12">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold text-gray-900">Short Trips</h2>
+                        <button
+                            onClick={() => navigate('/itineraries?section=short')}
+                            className="text-[#0096FF] hover:text-[#0077CC] font-medium"
+                        >
+                            View all →
+                        </button>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <div className="flex gap-4">
+                            {itineraries
+                                .filter(itinerary => itinerary.tags?.includes('short'))
+                                .map((itinerary) => (
+                                    <div
+                                        key={itinerary.id}
+                                        onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                        className="cursor-pointer w-[300px]"
+                                    >
+                                        <ItineraryTile
+                                            id={itinerary.id}
+                                            title={itinerary.trip_name}
+                                            description={`${itinerary.duration} days in ${itinerary.destinations
+                                                .map(d => cleanDestination(d.destination))
+                                                .join(', ')}`}
+                                            imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                            duration={itinerary.duration}
+                                            cities={itinerary.destinations.map(d =>
+                                                cleanDestination(d.destination)
+                                            )}
+                                            createdAt={itinerary.created_at}
+                                            loading="lazy"
+                                        />
+                                    </div>
+                                ))}
+                        </div>
+                    </div>
+                </div>
 
                 {/* Multi Countries Section */}
-                <ScrollableSection title="Multi Countries">
-                    {itineraries
-                        .filter(itinerary => itinerary.tags?.includes('multi-country'))
-                        .map((itinerary) => (
-                            <div
-                                key={itinerary.id}
-                                onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
-                                className="cursor-pointer w-[300px]"
-                            >
-                                <ItineraryTile
-                                    id={itinerary.id}
-                                    title={itinerary.trip_name}
-                                    description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => cleanDestination(d.destination))
-                                        .join(', ')}`}
-                                    imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
-                                    duration={itinerary.duration}
-                                    cities={itinerary.destinations.map(d =>
-                                        cleanDestination(d.destination)
-                                    )}
-                                    createdAt={itinerary.created_at}
-                                    loading="lazy"
-                                />
-                            </div>
-                        ))}
-                </ScrollableSection>
+                <div className="mb-12">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold text-gray-900">Multi Countries</h2>
+                        <button
+                            onClick={() => navigate('/itineraries?section=multi-country')}
+                            className="text-[#0096FF] hover:text-[#0077CC] font-medium"
+                        >
+                            View all →
+                        </button>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <div className="flex gap-4">
+                            {itineraries
+                                .filter(itinerary => itinerary.tags?.includes('multi-country'))
+                                .map((itinerary) => (
+                                    <div
+                                        key={itinerary.id}
+                                        onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                        className="cursor-pointer w-[300px]"
+                                    >
+                                        <ItineraryTile
+                                            id={itinerary.id}
+                                            title={itinerary.trip_name}
+                                            description={`${itinerary.duration} days in ${itinerary.destinations
+                                                .map(d => cleanDestination(d.destination))
+                                                .join(', ')}`}
+                                            imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                            duration={itinerary.duration}
+                                            cities={itinerary.destinations.map(d =>
+                                                cleanDestination(d.destination)
+                                            )}
+                                            createdAt={itinerary.created_at}
+                                            loading="lazy"
+                                        />
+                                    </div>
+                                ))}
+                        </div>
+                    </div>
+                </div>
 
                 {/* Ready for Adventure Section */}
                 <div className="bg-[#0096FF] rounded-2xl p-12 text-center text-white mb-12">

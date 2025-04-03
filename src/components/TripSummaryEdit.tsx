@@ -32,20 +32,16 @@ interface TripSummary {
 }
 
 const AVAILABLE_TAGS = [
-  { id: 'family', icon: Users, label: 'Family Friendly' },
-  { id: 'bucket-list', icon: Star, label: 'Bucket List' },
-  { id: 'popular', icon: Sparkles, label: 'Most Popular' },
-  { id: 'adventure', icon: Footprints, label: 'Adventure' },
-  { id: 'short', icon: Clock, label: 'Short Trip' },
-  { id: 'multi-country', icon: Globe2, label: 'Multi Country' },
-  { id: 'europe', icon: Castle, label: 'Europe' },
-  { id: 'mountains', icon: Mountain, label: 'Mountains' },
-  { id: 'beach', icon: Palmtree, label: 'Beach' },
-  { id: 'city', icon: Building2, label: 'City' },
-  { id: 'hiking', icon: Navigation, label: 'Hiking' },
-  { id: 'food', icon: Utensils, label: 'Food' },
-  { id: 'museum', icon: Library, label: 'Museum' },
-  { id: 'history', icon: Landmark, label: 'History' }
+  { id: 'trending', icon: Sparkles, label: 'Trending Destinations', description: 'Popular and in-demand travel spots' },
+  { id: 'unique', icon: Star, label: 'Unique Experiences', description: 'One-of-a-kind adventures and activities' },
+  { id: 'seasonal', icon: Calendar, label: 'Seasonal Highlights', description: 'Perfect for specific times of the year' },
+  { id: 'hidden-gems', icon: Sparkles, label: 'Hidden Gems', description: 'Off-the-beaten-path destinations' },
+  { id: 'family', icon: Users, label: 'Family Friendly', description: 'Great for travelers with children' },
+  { id: 'bucket-list', icon: Star, label: 'Bucket List', description: 'Must-visit destinations and experiences' },
+  { id: 'popular', icon: Sparkles, label: 'Most Popular', description: 'Highly rated by travelers' },
+  { id: 'adventure', icon: Footprints, label: 'Adventure', description: 'For thrill-seekers and explorers' },
+  { id: 'short', icon: Clock, label: 'Short Trip', description: 'Perfect for quick getaways' },
+  { id: 'multi-country', icon: Globe2, label: 'Multi Country', description: 'Spanning multiple countries' }
 ];
 
 interface TripSummaryEditProps {
@@ -131,46 +127,46 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-8 max-w-4xl mx-auto relative">
-      <div className="flex items-center justify-between mb-8">
-        <h2 className="text-2xl font-semibold text-[#1e293b]">Edit Trip Summary</h2>
+    <div className="bg-white rounded-xl shadow-xl p-6 max-w-2xl mx-auto relative">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold text-[#1e293b]">Edit Trip Summary</h2>
         <button
           onClick={onClose}
-          className="p-2 text-gray-500 hover:text-[#00C48C] rounded-lg transition-colors"
+          className="p-1.5 text-gray-500 hover:text-[#00C48C] rounded-lg transition-colors"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
       </div>
 
       {error && (
-        <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+        <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm">
           {error}
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-8">
-        {/* Left Column */}
-        <div className="space-y-6">
+      <div className="space-y-4">
+        {/* Basic Info Section */}
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <label htmlFor="tripName" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="tripName" className="block text-sm font-medium text-gray-700 mb-1">
               Trip Name
             </label>
             <div className="flex items-center">
-              <MapPin className="w-5 h-5 text-[#00C48C] mr-2" />
+              <MapPin className="w-4 h-4 text-[#00C48C] mr-2" />
               <input
                 type="text"
                 id="tripName"
                 name="tripName"
                 value={editedSummary.tripName}
                 onChange={handleInputChange}
-                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
+                className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
                 placeholder="Enter trip name"
               />
             </div>
           </div>
 
           <div className="relative">
-            <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1">
               Country
             </label>
             <div className="relative">
@@ -185,45 +181,48 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
                   }
                 }}
                 onFocus={() => setShowCountries(true)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
+                className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
                 placeholder="Select a country"
               />
               <button
                 type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2"
+                className="absolute right-2 top-1/2 -translate-y-1/2"
                 onClick={() => setShowCountries(!showCountries)}
               >
-                <ChevronDown className="h-5 w-5 text-gray-400" />
+                <ChevronDown className="h-4 w-4 text-gray-400" />
               </button>
             </div>
 
             {showCountries && (
-              <div className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-lg py-1 text-base overflow-auto border border-gray-100">
+              <div className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-48 rounded-lg py-1 text-sm overflow-auto border border-gray-100">
                 {filteredCountries.map((country, index) => (
                   <button
                     key={index}
                     type="button"
-                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                     onClick={() => handleCountrySelect(country)}
                   >
                     {country}
                   </button>
                 ))}
                 {filteredCountries.length === 0 && (
-                  <div className="px-4 py-2.5 text-sm text-gray-500">
+                  <div className="px-3 py-1.5 text-sm text-gray-500">
                     No countries found
                   </div>
                 )}
               </div>
             )}
           </div>
+        </div>
 
+        {/* Trip Details Section */}
+        <div className="grid grid-cols-3 gap-4">
           <div>
-            <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-2">
-              Duration (days)
+            <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
+              Duration
             </label>
             <div className="flex items-center">
-              <Calendar className="w-5 h-5 text-[#00C48C] mr-2" />
+              <Calendar className="w-4 h-4 text-[#00C48C] mr-2" />
               <input
                 type="number"
                 id="duration"
@@ -231,35 +230,35 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
                 min="1"
                 value={editedSummary.duration}
                 onChange={handleInputChange}
-                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
+                className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
               Start Date
             </label>
             <div className="flex items-center">
-              <Calendar className="w-5 h-5 text-[#00C48C] mr-2" />
+              <Calendar className="w-4 h-4 text-[#00C48C] mr-2" />
               <input
                 type="date"
                 id="startDate"
                 name="startDate"
                 value={editedSummary.startDate}
                 onChange={handleInputChange}
-                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
+                className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
                 min={new Date().toISOString().split('T')[0]}
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="passengers" className="block text-sm font-medium text-gray-700 mb-2">
-              Number of Passengers
+            <label htmlFor="passengers" className="block text-sm font-medium text-gray-700 mb-1">
+              Passengers
             </label>
             <div className="flex items-center">
-              <Users className="w-5 h-5 text-[#00C48C] mr-2" />
+              <Users className="w-4 h-4 text-[#00C48C] mr-2" />
               <input
                 type="number"
                 id="passengers"
@@ -267,76 +266,78 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
                 min="1"
                 value={editedSummary.passengers}
                 onChange={handleInputChange}
-                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
+                className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all font-['Inter_var']"
               />
             </div>
           </div>
+        </div>
 
-          <div>
-            <label className="flex items-center justify-between text-sm font-medium text-gray-700 mb-2">
-              <span>Privacy</span>
-              <button
-                type="button"
-                onClick={() => setEditedSummary(prev => ({ ...prev, isPrivate: !prev.isPrivate }))}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${editedSummary.isPrivate ? 'bg-[#00C48C]' : 'bg-gray-200'
-                  }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${editedSummary.isPrivate ? 'translate-x-6' : 'translate-x-1'
+        {/* Tags Section */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Tags
+            <span className="ml-1 text-gray-500 font-normal text-xs">(Select sections to display)</span>
+          </label>
+          <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-2">
+            {AVAILABLE_TAGS.map((tag) => {
+              const Icon = tag.icon;
+              const isSelected = editedSummary.tags.includes(tag.id);
+              return (
+                <button
+                  key={tag.id}
+                  type="button"
+                  onClick={() => handleToggleTag(tag.id)}
+                  className={`flex items-center gap-2 p-2 rounded-lg border transition-all text-sm ${isSelected
+                    ? 'border-[#00C48C] bg-[#00C48C]/5 text-[#00C48C]'
+                    : 'border-gray-200 hover:border-[#00C48C] hover:bg-[#00C48C]/5'
                     }`}
-                />
-              </button>
-            </label>
-            <p className="text-sm text-gray-500">
-              {editedSummary.isPrivate ? 'Only you can view this itinerary' : 'Anyone with the link can view this itinerary'}
-            </p>
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <div className="text-left">
+                    <div className={`font-medium ${isSelected ? 'text-[#00C48C]' : 'text-gray-900'}`}>
+                      {tag.label}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Right Column - Tags */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Tags
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            {AVAILABLE_TAGS.map(({ id, icon: Icon, label }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => handleToggleTag(id)}
-                className={`flex flex-col items-center p-3 rounded-lg border transition-all duration-200 ${editedSummary.tags.includes(id)
-                  ? 'border-[#00C48C] bg-[#00C48C]/10 shadow-sm'
-                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-              >
-                <Icon className={`w-5 h-5 mb-1.5 ${editedSummary.tags.includes(id)
-                  ? 'text-[#00C48C]'
-                  : 'text-gray-500'
-                  }`} />
-                <span className={`text-xs font-medium ${editedSummary.tags.includes(id)
-                  ? 'text-[#00C48C]'
-                  : 'text-gray-600'
-                  }`}>
-                  {label}
-                </span>
-              </button>
-            ))}
+        {/* Privacy Toggle */}
+        <div className="flex items-center justify-between pt-2">
+          <div>
+            <span className="text-sm font-medium text-gray-700">Privacy</span>
+            <p className="text-xs text-gray-500">
+              {editedSummary.isPrivate ? 'Only you can view this' : 'Anyone with the link can view'}
+            </p>
           </div>
+          <button
+            type="button"
+            onClick={() => setEditedSummary(prev => ({ ...prev, isPrivate: !prev.isPrivate }))}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${editedSummary.isPrivate ? 'bg-[#00C48C]' : 'bg-gray-200'
+              }`}
+          >
+            <span
+              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${editedSummary.isPrivate ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+            />
+          </button>
         </div>
       </div>
 
-      <div className="flex justify-end space-x-4 pt-8 mt-8 border-t">
+      <div className="mt-6 flex justify-end gap-3">
         <button
           type="button"
           onClick={onClose}
-          className="px-6 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+          className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors font-medium"
         >
           Cancel
         </button>
         <button
           type="button"
           onClick={handleSubmit}
-          className="px-6 py-2.5 text-sm font-medium text-white bg-[#00C48C] rounded-lg hover:bg-[#00B37D] transition-colors"
+          className="px-4 py-2 bg-[#00C48C] text-white rounded-lg hover:bg-[#00B380] transition-colors text-sm font-medium"
         >
           Save Changes
         </button>
