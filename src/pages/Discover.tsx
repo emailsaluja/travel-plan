@@ -248,12 +248,12 @@ interface Itinerary {
 const ScrollableSection: React.FC<{
     title: string;
     children: React.ReactNode;
-}> = ({ title, children }) => {
+}> = ({ title, children }): JSX.Element => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     const scroll = (direction: 'left' | 'right') => {
         if (scrollContainerRef.current) {
-            const scrollAmount = 600; // Adjust this value to control scroll distance
+            const scrollAmount = 600;
             const newScrollLeft = scrollContainerRef.current.scrollLeft + (direction === 'left' ? -scrollAmount : scrollAmount);
             scrollContainerRef.current.scrollTo({
                 left: newScrollLeft,
@@ -642,7 +642,36 @@ const Discover: React.FC = () => {
 
     // Main discover page with country grid
     return (
-        <div className="min-h-screen bg-white pt-16">
+        <div className="container mx-auto px-4 pt-24 pb-8">
+            {/* Header Section */}
+            <div className="text-center mb-12">
+                <h1 className="text-5xl font-bold mb-4">
+                    Discover the world's<br />
+                    <span className="text-[#0096FF]">extraordinary</span> places
+                </h1>
+                <p className="text-gray-600 mb-8">
+                    Carefully curated destinations and experiences that will transform the way you see the world.
+                </p>
+                <div className="max-w-2xl mx-auto relative">
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder="Where would you like to go?"
+                            className="w-full px-6 py-4 rounded-full border border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0096FF] focus:border-transparent pl-12"
+                        />
+                        <span className="absolute left-4 top-1/2 transform -translate-y-1/2">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M11 19C15.4183 19 19 15.4183 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19Z" stroke="#71717A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d="M21 21L16.65 16.65" stroke="#71717A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </span>
+                        <button className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[#0096FF] text-white px-8 py-2 rounded-full hover:bg-[#0077CC] transition-colors">
+                            Search
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 {/* Countries Section */}
                 <ScrollableSection title="Explore these Countries">
@@ -682,6 +711,936 @@ const Discover: React.FC = () => {
                         </div>
                     ))}
                 </ScrollableSection>
+
+                {/* Featured Destinations Section */}
+                <div className="mb-12">
+                    <h2 className="text-3xl font-bold mb-8">Featured Destinations</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {/* Japan Card */}
+                        <div className="bg-white rounded-xl overflow-hidden shadow-lg">
+                            <div className="relative h-[280px]">
+                                <img
+                                    src="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e"
+                                    alt="Japan"
+                                    className="w-full h-full object-cover"
+                                />
+                                <div className="absolute top-4 right-4">
+                                    <button className="p-2 bg-white/90 hover:bg-white rounded-full">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div className="absolute bottom-4 left-4">
+                                    <span className="px-2 py-1 bg-white/90 text-gray-900 rounded text-sm">Cultural Immersion</span>
+                                </div>
+                            </div>
+                            <div className="p-6">
+                                <h3 className="text-2xl font-semibold mb-2">Japan</h3>
+                                <p className="text-gray-600 mb-4">Experience ancient traditions alongside cutting-edge technology</p>
+                                <div className="flex items-center gap-2 mb-4">
+                                    <span className="text-yellow-400">★</span>
+                                    <span className="font-medium">4.9</span>
+                                    <span className="text-gray-400">(1243)</span>
+                                    <span className="text-gray-300 mx-2">•</span>
+                                    <span className="text-gray-600">10 days</span>
+                                    <span className="text-gray-300 mx-2">•</span>
+                                    <span className="text-gray-600">$2,800</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Norway Card */}
+                        <div className="bg-white rounded-xl overflow-hidden shadow-lg">
+                            <div className="relative h-[280px]">
+                                <img
+                                    src="https://images.unsplash.com/photo-1516483638261-f4dbaf036963"
+                                    alt="Norway"
+                                    className="w-full h-full object-cover"
+                                />
+                                <div className="absolute top-4 right-4">
+                                    <button className="p-2 bg-white/90 hover:bg-white rounded-full">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div className="absolute bottom-4 left-4">
+                                    <span className="px-2 py-1 bg-white/90 text-gray-900 rounded text-sm">Natural Wonder</span>
+                                </div>
+                            </div>
+                            <div className="p-6">
+                                <h3 className="text-2xl font-semibold mb-2">Norway</h3>
+                                <p className="text-gray-600 mb-4">Northern lights, fjords, and breathtaking mountain views</p>
+                                <div className="flex items-center gap-2 mb-4">
+                                    <span className="text-yellow-400">★</span>
+                                    <span className="font-medium">4.8</span>
+                                    <span className="text-gray-400">(987)</span>
+                                    <span className="text-gray-300 mx-2">•</span>
+                                    <span className="text-gray-600">8 days</span>
+                                    <span className="text-gray-300 mx-2">•</span>
+                                    <span className="text-gray-600">$3,200</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Morocco Card */}
+                        <div className="bg-white rounded-xl overflow-hidden shadow-lg">
+                            <div className="relative h-[280px]">
+                                <img
+                                    src="https://images.unsplash.com/photo-1489493887464-892be6d1daae"
+                                    alt="Morocco"
+                                    className="w-full h-full object-cover"
+                                />
+                                <div className="absolute top-4 right-4">
+                                    <button className="p-2 bg-white/90 hover:bg-white rounded-full">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div className="absolute bottom-4 left-4">
+                                    <span className="px-2 py-1 bg-white/90 text-gray-900 rounded text-sm">Exotic</span>
+                                </div>
+                            </div>
+                            <div className="p-6">
+                                <h3 className="text-2xl font-semibold mb-2">Morocco</h3>
+                                <p className="text-gray-600 mb-4">Desert adventures and vibrant markets in ancient medinas</p>
+                                <div className="flex items-center gap-2 mb-4">
+                                    <span className="text-yellow-400">★</span>
+                                    <span className="font-medium">4.7</span>
+                                    <span className="text-gray-400">(856)</span>
+                                    <span className="text-gray-300 mx-2">•</span>
+                                    <span className="text-gray-600">7 days</span>
+                                    <span className="text-gray-300 mx-2">•</span>
+                                    <span className="text-gray-600">$1,950</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Trending Destinations Section */}
+                <div className="mb-12">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold text-gray-900">Trending Destinations</h2>
+                        <button className="text-[#0096FF] hover:text-[#0077CC] font-medium">
+                            View all →
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {/* Italy Card */}
+                        <div className="rounded-lg overflow-hidden shadow-md group cursor-pointer">
+                            <div className="relative">
+                                <img
+                                    src="https://images.unsplash.com/photo-1516483638261-f4dbaf036963"
+                                    alt="Italy"
+                                    className="w-full h-[200px] object-cover"
+                                />
+                                <div className="absolute top-3 left-3 bg-white rounded-full px-2 py-1 flex items-center gap-1">
+                                    <span className="text-yellow-400">★</span>
+                                    <span className="font-medium">4.8</span>
+                                </div>
+                                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60"></div>
+                                <div className="absolute bottom-3 left-3 text-white">
+                                    <div className="flex items-center gap-1 mb-1">
+                                        <span className="text-white">📍</span>
+                                        <span className="font-medium">Italy</span>
+                                    </div>
+                                    <p className="text-sm text-gray-200">Renaissance art, iconic architecture, and delicious cuisine</p>
+                                </div>
+                            </div>
+                            <div className="p-4 bg-white">
+                                <div className="text-sm text-gray-600 mb-2">498 trips planned</div>
+                                <div className="flex flex-wrap gap-2">
+                                    <span className="text-sm text-[#0096FF]">Rome</span>
+                                    <span className="text-gray-400">•</span>
+                                    <span className="text-sm text-[#0096FF]">Florence</span>
+                                    <span className="text-gray-400">•</span>
+                                    <span className="text-sm text-[#0096FF]">Venice</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Bali Card */}
+                        <div className="rounded-lg overflow-hidden shadow-md group cursor-pointer">
+                            <div className="relative">
+                                <img
+                                    src="https://images.unsplash.com/photo-1537996194471-e657df975ab4"
+                                    alt="Bali"
+                                    className="w-full h-[200px] object-cover"
+                                />
+                                <div className="absolute top-3 left-3 bg-white rounded-full px-2 py-1 flex items-center gap-1">
+                                    <span className="text-yellow-400">★</span>
+                                    <span className="font-medium">4.7</span>
+                                </div>
+                                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60"></div>
+                                <div className="absolute bottom-3 left-3 text-white">
+                                    <div className="flex items-center gap-1 mb-1">
+                                        <span className="text-white">📍</span>
+                                        <span className="font-medium">Bali, Indonesia</span>
+                                    </div>
+                                    <p className="text-sm text-gray-200">Tropical paradise with stunning beaches and spiritual retreats</p>
+                                </div>
+                            </div>
+                            <div className="p-4 bg-white">
+                                <div className="text-sm text-gray-600 mb-2">276 trips planned</div>
+                                <div className="flex flex-wrap gap-2">
+                                    <span className="text-sm text-[#0096FF]">Ubud</span>
+                                    <span className="text-gray-400">•</span>
+                                    <span className="text-sm text-[#0096FF]">Seminyak</span>
+                                    <span className="text-gray-400">•</span>
+                                    <span className="text-sm text-[#0096FF]">Uluwatu</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Greece Card */}
+                        <div className="rounded-lg overflow-hidden shadow-md group cursor-pointer">
+                            <div className="relative">
+                                <img
+                                    src="https://images.unsplash.com/photo-1533105079780-92b9be482077"
+                                    alt="Greece"
+                                    className="w-full h-[200px] object-cover"
+                                />
+                                <div className="absolute top-3 left-3 bg-white rounded-full px-2 py-1 flex items-center gap-1">
+                                    <span className="text-yellow-400">★</span>
+                                    <span className="font-medium">4.8</span>
+                                </div>
+                                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60"></div>
+                                <div className="absolute bottom-3 left-3 text-white">
+                                    <div className="flex items-center gap-1 mb-1">
+                                        <span className="text-white">📍</span>
+                                        <span className="font-medium">Greece</span>
+                                    </div>
+                                    <p className="text-sm text-gray-200">Ancient ruins, idyllic islands, and Mediterranean charm</p>
+                                </div>
+                            </div>
+                            <div className="p-4 bg-white">
+                                <div className="text-sm text-gray-600 mb-2">342 trips planned</div>
+                                <div className="flex flex-wrap gap-2">
+                                    <span className="text-sm text-[#0096FF]">Athens</span>
+                                    <span className="text-gray-400">•</span>
+                                    <span className="text-sm text-[#0096FF]">Santorini</span>
+                                    <span className="text-gray-400">•</span>
+                                    <span className="text-sm text-[#0096FF]">Mykonos</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* New Zealand Card */}
+                        <div className="rounded-lg overflow-hidden shadow-md group cursor-pointer">
+                            <div className="relative">
+                                <img
+                                    src="https://images.unsplash.com/photo-1507699622108-4be3abd695ad"
+                                    alt="New Zealand"
+                                    className="w-full h-[200px] object-cover"
+                                />
+                                <div className="absolute top-3 left-3 bg-white rounded-full px-2 py-1 flex items-center gap-1">
+                                    <span className="text-yellow-400">★</span>
+                                    <span className="font-medium">4.9</span>
+                                </div>
+                                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60"></div>
+                                <div className="absolute bottom-3 left-3 text-white">
+                                    <div className="flex items-center gap-1 mb-1">
+                                        <span className="text-white">📍</span>
+                                        <span className="font-medium">New Zealand</span>
+                                    </div>
+                                    <p className="text-sm text-gray-200">Stunning landscapes from mountains to beaches</p>
+                                </div>
+                            </div>
+                            <div className="p-4 bg-white">
+                                <div className="text-sm text-gray-600 mb-2">215 trips planned</div>
+                                <div className="flex flex-wrap gap-2">
+                                    <span className="text-sm text-[#0096FF]">Auckland</span>
+                                    <span className="text-gray-400">•</span>
+                                    <span className="text-sm text-[#0096FF]">Queenstown</span>
+                                    <span className="text-gray-400">•</span>
+                                    <span className="text-sm text-[#0096FF]">Wellington</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Unique Experiences Section */}
+                <div className="mb-12">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Unique Experiences</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {/* African Safari Card */}
+                        <div className="bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer">
+                            <div className="relative h-[240px]">
+                                <img
+                                    src="https://images.unsplash.com/photo-1516426122078-c23e76319801"
+                                    alt="African Safari"
+                                    className="w-full h-full object-cover"
+                                />
+                            </div>
+                            <div className="p-6">
+                                <h3 className="text-xl font-semibold mb-2">African Safari</h3>
+                                <p className="text-gray-600 mb-4">Witness the 'Big Five' in their natural habitat</p>
+                                <div className="flex items-center gap-2 text-gray-500 text-sm mb-3">
+                                    <span className="flex items-center gap-1">
+                                        <span>📍</span>
+                                        Tanzania & Kenya
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-gray-500 text-sm mb-6">
+                                    <span className="flex items-center gap-1">
+                                        <span>📅</span>
+                                        10 days
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-lg font-semibold">$4,500</span>
+                                    <button className="bg-[#111827] text-white px-6 py-2 rounded-full hover:bg-gray-800 transition-colors flex items-center gap-2">
+                                        Explore
+                                        <span>→</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Northern Lights Card */}
+                        <div className="bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer">
+                            <div className="relative h-[240px]">
+                                <img
+                                    src="https://images.unsplash.com/photo-1483347756197-71ef80e95f73"
+                                    alt="Northern Lights"
+                                    className="w-full h-full object-cover"
+                                />
+                            </div>
+                            <div className="p-6">
+                                <h3 className="text-xl font-semibold mb-2">Northern Lights</h3>
+                                <p className="text-gray-600 mb-4">Chase the aurora borealis across the Arctic Circle</p>
+                                <div className="flex items-center gap-2 text-gray-500 text-sm mb-3">
+                                    <span className="flex items-center gap-1">
+                                        <span>📍</span>
+                                        Iceland & Finland
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-gray-500 text-sm mb-6">
+                                    <span className="flex items-center gap-1">
+                                        <span>📅</span>
+                                        7 days
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-lg font-semibold">$3,200</span>
+                                    <button className="bg-[#111827] text-white px-6 py-2 rounded-full hover:bg-gray-800 transition-colors flex items-center gap-2">
+                                        Explore
+                                        <span>→</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Mayan Discovery Card */}
+                        <div className="bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer">
+                            <div className="relative h-[240px]">
+                                <img
+                                    src="https://images.unsplash.com/photo-1518638150340-f706e86654de"
+                                    alt="Mayan Discovery"
+                                    className="w-full h-full object-cover"
+                                />
+                            </div>
+                            <div className="p-6">
+                                <h3 className="text-xl font-semibold mb-2">Mayan Discovery</h3>
+                                <p className="text-gray-600 mb-4">Explore ancient ruins hidden in lush jungles</p>
+                                <div className="flex items-center gap-2 text-gray-500 text-sm mb-3">
+                                    <span className="flex items-center gap-1">
+                                        <span>📍</span>
+                                        Mexico & Guatemala
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-gray-500 text-sm mb-6">
+                                    <span className="flex items-center gap-1">
+                                        <span>📅</span>
+                                        9 days
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-lg font-semibold">$2,800</span>
+                                    <button className="bg-[#111827] text-white px-6 py-2 rounded-full hover:bg-gray-800 transition-colors flex items-center gap-2">
+                                        Explore
+                                        <span>→</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Seasonal Highlights Section */}
+                <div className="mb-12">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Seasonal Highlights</h2>
+                    <p className="text-gray-600 mb-6">Find the perfect destination based on when you want to travel</p>
+
+                    {/* Season Tabs */}
+                    <div className="flex gap-4 mb-8">
+                        <button className="flex items-center gap-2 px-6 py-2 bg-blue-50 text-blue-600 rounded-full">
+                            <span>🌸</span>
+                            Spring
+                        </button>
+                        <button className="flex items-center gap-2 px-6 py-2 text-gray-600 hover:bg-gray-50 rounded-full">
+                            <span>☀️</span>
+                            Summer
+                        </button>
+                        <button className="flex items-center gap-2 px-6 py-2 text-gray-600 hover:bg-gray-50 rounded-full">
+                            <span>🍂</span>
+                            Autumn
+                        </button>
+                        <button className="flex items-center gap-2 px-6 py-2 text-gray-600 hover:bg-gray-50 rounded-full">
+                            <span>❄️</span>
+                            Winter
+                        </button>
+                    </div>
+
+                    <h3 className="text-xl font-semibold mb-4">Spring Adventures</h3>
+                    <p className="text-gray-600 mb-6">Experience blossoming landscapes and mild temperatures</p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {/* Japan Card */}
+                        <div className="group cursor-pointer">
+                            <div className="relative h-[280px] rounded-lg overflow-hidden mb-4">
+                                <img
+                                    src="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e"
+                                    alt="Japan"
+                                    className="w-full h-full object-cover"
+                                />
+                                <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+                                <div className="absolute bottom-4 left-4">
+                                    <div className="flex items-center gap-1 text-white mb-1">
+                                        <span>📍</span>
+                                        <span className="font-medium">Japan</span>
+                                    </div>
+                                    <h4 className="text-white text-lg font-medium">Cherry Blossom Viewing</h4>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 text-gray-600 text-sm mb-2">
+                                <span>📅</span>
+                                <span>Best time: March - May</span>
+                                <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs">Spring</span>
+                            </div>
+                            <button className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
+                                Explore Itineraries
+                                <span>→</span>
+                            </button>
+                        </div>
+
+                        {/* Netherlands Card */}
+                        <div className="group cursor-pointer">
+                            <div className="relative h-[280px] rounded-lg overflow-hidden mb-4">
+                                <img
+                                    src="https://images.unsplash.com/photo-1460904577954-8fadb262612c"
+                                    alt="Netherlands"
+                                    className="w-full h-full object-cover"
+                                />
+                                <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+                                <div className="absolute bottom-4 left-4">
+                                    <div className="flex items-center gap-1 text-white mb-1">
+                                        <span>📍</span>
+                                        <span className="font-medium">Netherlands</span>
+                                    </div>
+                                    <h4 className="text-white text-lg font-medium">Tulip Festival</h4>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 text-gray-600 text-sm mb-2">
+                                <span>📅</span>
+                                <span>Best time: April - May</span>
+                                <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs">Spring</span>
+                            </div>
+                            <button className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
+                                Explore Itineraries
+                                <span>→</span>
+                            </button>
+                        </div>
+
+                        {/* Morocco Card */}
+                        <div className="group cursor-pointer">
+                            <div className="relative h-[280px] rounded-lg overflow-hidden mb-4">
+                                <img
+                                    src="https://images.unsplash.com/photo-1489493887464-892be6d1daae"
+                                    alt="Morocco"
+                                    className="w-full h-full object-cover"
+                                />
+                                <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+                                <div className="absolute bottom-4 left-4">
+                                    <div className="flex items-center gap-1 text-white mb-1">
+                                        <span>📍</span>
+                                        <span className="font-medium">Morocco</span>
+                                    </div>
+                                    <h4 className="text-white text-lg font-medium">Desert Trekking</h4>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 text-gray-600 text-sm mb-2">
+                                <span>📅</span>
+                                <span>Best time: March - May</span>
+                                <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs">Spring</span>
+                            </div>
+                            <button className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
+                                Explore Itineraries
+                                <span>→</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Travel Mood Boards Section */}
+                <div className="mb-12">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Travel Mood Boards</h2>
+                    <p className="text-gray-600 mb-6">Visual inspiration for your next adventure based on the atmosphere you seek</p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Tropical Escape Card */}
+                        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="text-xl font-semibold mb-2">Tropical Escape</h3>
+                                    <p className="text-gray-600">White sandy beaches, crystal clear waters, and palm trees</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button className="p-2 hover:bg-gray-50 rounded-full">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </button>
+                                    <button className="p-2 hover:bg-gray-50 rounded-full">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                                    <img
+                                        src="https://images.unsplash.com/photo-1506953823976-52e1fdc0149a"
+                                        alt="Tropical beach"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                                    <img
+                                        src="https://images.unsplash.com/photo-1573843981267-be1999ff37cd"
+                                        alt="Tropical escape"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                                    <img
+                                        src="https://images.unsplash.com/photo-1544550581-5f7ceaf7f992"
+                                        alt="Beach cliffs"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                                    <img
+                                        src="https://images.unsplash.com/photo-1514282401047-d79a71a590e8"
+                                        alt="Overwater bungalows"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-gray-600">Perfect for:</span>
+                                    <div className="flex gap-2">
+                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Maldives</span>
+                                        <span className="text-gray-300">•</span>
+                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Bali</span>
+                                        <span className="text-gray-300">•</span>
+                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Hawaii</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span>📅</span>
+                                    <span className="text-gray-600">Best time: Year-round</span>
+                                </div>
+                                <button className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
+                                    See Itineraries
+                                    <span>→</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Mountain Retreat Card */}
+                        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="text-xl font-semibold mb-2">Mountain Retreat</h3>
+                                    <p className="text-gray-600">Breathtaking peaks, alpine meadows, and cozy cabins</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button className="p-2 hover:bg-gray-50 rounded-full">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </button>
+                                    <button className="p-2 hover:bg-gray-50 rounded-full">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                                    <img
+                                        src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b"
+                                        alt="Mountain landscape"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                                    <img
+                                        src="https://images.unsplash.com/photo-1486870591958-9b9d0d1dda99"
+                                        alt="Snow peaks"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                                    <img
+                                        src="https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1"
+                                        alt="Mountain view"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-gray-600">Perfect for:</span>
+                                    <div className="flex gap-2">
+                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Swiss Alps</span>
+                                        <span className="text-gray-300">•</span>
+                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Rocky Mountains</span>
+                                        <span className="text-gray-300">•</span>
+                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Himalayas</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span>📅</span>
+                                    <span className="text-gray-600">Best time: Spring to Fall</span>
+                                </div>
+                                <button className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
+                                    See Itineraries
+                                    <span>→</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Urban Adventure Card */}
+                        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="text-xl font-semibold mb-2">Urban Adventure</h3>
+                                    <p className="text-gray-600">Vibrant city life, iconic architecture, and cultural hotspots</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button className="p-2 hover:bg-gray-50 rounded-full">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </button>
+                                    <button className="p-2 hover:bg-gray-50 rounded-full">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                                    <img
+                                        src="https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9"
+                                        alt="New York Skyline"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                                    <img
+                                        src="https://images.unsplash.com/photo-1449824913935-59a10b8d2000"
+                                        alt="City Architecture"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                                    <img
+                                        src="https://images.unsplash.com/photo-1514565131-fce0801e5785"
+                                        alt="Historic Building"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                                    <img
+                                        src="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e"
+                                        alt="Japanese Temple"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-gray-600">Perfect for:</span>
+                                    <div className="flex gap-2">
+                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Tokyo</span>
+                                        <span className="text-gray-300">•</span>
+                                        <span className="text-[#0096FF] hover:underline cursor-pointer">New York</span>
+                                        <span className="text-gray-300">•</span>
+                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Paris</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span>📅</span>
+                                    <span className="text-gray-600">Best time: Year-round</span>
+                                </div>
+                                <button className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
+                                    See Itineraries
+                                    <span>→</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Historical Journey Card */}
+                        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="text-xl font-semibold mb-2">Historical Journey</h3>
+                                    <p className="text-gray-600">Ancient ruins, preserved architecture, and cultural heritage</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button className="p-2 hover:bg-gray-50 rounded-full">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </button>
+                                    <button className="p-2 hover:bg-gray-50 rounded-full">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                                    <img
+                                        src="https://images.unsplash.com/photo-1552832230-c0197dd311b5"
+                                        alt="Rome Colosseum"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                                    <img
+                                        src="https://images.unsplash.com/photo-1603565816030-6b389eeb23cb"
+                                        alt="Athens Parthenon"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                                    <img
+                                        src="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e"
+                                        alt="Kyoto Temple"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-gray-600">Perfect for:</span>
+                                    <div className="flex gap-2">
+                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Rome</span>
+                                        <span className="text-gray-300">•</span>
+                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Athens</span>
+                                        <span className="text-gray-300">•</span>
+                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Kyoto</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span>📅</span>
+                                    <span className="text-gray-600">Best time: Spring or Fall</span>
+                                </div>
+                                <button className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
+                                    See Itineraries
+                                    <span>→</span>
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                {/* Hidden Gems Section */}
+                <div className="mb-12">
+                    <h2 className="text-3xl font-bold mb-2">Hidden Gems</h2>
+                    <p className="text-gray-600 mb-6">Extraordinary destinations off the beaten path for unique travel experiences</p>
+
+                    <div className="text-sm bg-blue-50 text-blue-700 p-4 rounded-lg mb-6">
+                        These lesser-known destinations offer authentic experiences away from the crowds
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {/* Mystical Bhutan Card */}
+                        <div className="bg-white rounded-lg overflow-hidden shadow-lg">
+                            <div className="relative">
+                                <img
+                                    src="https://images.unsplash.com/photo-1515912263707-4d1d35fca9e5"
+                                    alt="Mystical Bhutan"
+                                    className="w-full h-64 object-cover"
+                                />
+                                <div className="absolute top-4 right-4 bg-white text-gray-900 px-2 py-1 rounded text-sm">
+                                    Hidden Gem
+                                </div>
+                                <div className="absolute bottom-4 left-4 text-white">
+                                    <div className="flex items-center gap-1 mb-1">
+                                        <span>📍</span>
+                                        <span className="font-medium">Bhutan</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="p-6">
+                                <h3 className="text-xl font-semibold mb-2">Mystical Bhutan</h3>
+                                <p className="text-gray-600 mb-4">Discover the last Himalayan kingdom with ancient monasteries and breathtaking mountain scenery</p>
+                                <div className="flex items-center gap-4 text-gray-500 text-sm mb-4">
+                                    <span className="flex items-center gap-1">
+                                        <span>⏱️</span>
+                                        8-10 days
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                        <span>🎭</span>
+                                        Cultural Immersion
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className="flex items-center gap-1">
+                                        <span>👁️</span>
+                                        <span className="text-gray-500">423 views</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <span>👍</span>
+                                        <span className="text-gray-500">112</span>
+                                    </div>
+                                    <div className="text-gray-500">
+                                        Moderate difficulty
+                                    </div>
+                                </div>
+                                <button className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
+                                    Discover Itinerary
+                                    <span>→</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Faroe Islands Adventure Card */}
+                        <div className="bg-white rounded-lg overflow-hidden shadow-lg">
+                            <div className="relative">
+                                <img
+                                    src="https://images.unsplash.com/photo-1516483638261-f4dbaf036963"
+                                    alt="Faroe Islands Adventure"
+                                    className="w-full h-64 object-cover"
+                                />
+                                <div className="absolute top-4 right-4 bg-white text-gray-900 px-2 py-1 rounded text-sm">
+                                    Hidden Gem
+                                </div>
+                                <div className="absolute bottom-4 left-4 text-white">
+                                    <div className="flex items-center gap-1 mb-1">
+                                        <span>📍</span>
+                                        <span className="font-medium">Faroe Islands, Denmark</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="p-6">
+                                <h3 className="text-xl font-semibold mb-2">Faroe Islands Adventure</h3>
+                                <p className="text-gray-600 mb-4">Explore dramatic landscapes, towering cliffs, and charming villages in this remote North Atlantic archipelago</p>
+                                <div className="flex items-center gap-4 text-gray-500 text-sm mb-4">
+                                    <span className="flex items-center gap-1">
+                                        <span>⏱️</span>
+                                        5-7 days
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                        <span>📸</span>
+                                        Nature Photography
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className="flex items-center gap-1">
+                                        <span>👁️</span>
+                                        <span className="text-gray-500">562 views</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <span>👍</span>
+                                        <span className="text-gray-500">187</span>
+                                    </div>
+                                    <div className="text-gray-500">
+                                        Moderate difficulty
+                                    </div>
+                                </div>
+                                <button className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
+                                    Discover Itinerary
+                                    <span>→</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Oman Desert & Coast Card */}
+                        <div className="bg-white rounded-lg overflow-hidden shadow-lg">
+                            <div className="relative">
+                                <img
+                                    src="https://images.unsplash.com/photo-1451337516015-6b6e9a44a8a3"
+                                    alt="Oman Desert & Coast"
+                                    className="w-full h-64 object-cover"
+                                />
+                                <div className="absolute top-4 right-4 bg-white text-gray-900 px-2 py-1 rounded text-sm">
+                                    Hidden Gem
+                                </div>
+                                <div className="absolute bottom-4 left-4 text-white">
+                                    <div className="flex items-center gap-1 mb-1">
+                                        <span>📍</span>
+                                        <span className="font-medium">Oman</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="p-6">
+                                <h3 className="text-xl font-semibold mb-2">Oman Desert & Coast</h3>
+                                <p className="text-gray-600 mb-4">Experience the contrast of golden deserts, rugged mountains, and pristine coastlines in the Arabian Peninsula</p>
+                                <div className="flex items-center gap-4 text-gray-500 text-sm mb-4">
+                                    <span className="flex items-center gap-1">
+                                        <span>⏱️</span>
+                                        7-12 days
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                        <span>🏃‍♂️</span>
+                                        Adventure Seekers
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className="flex items-center gap-1">
+                                        <span>👁️</span>
+                                        <span className="text-gray-500">347 views</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <span>👍</span>
+                                        <span className="text-gray-500">96</span>
+                                    </div>
+                                    <div className="text-gray-500">
+                                        Easy to Moderate difficulty
+                                    </div>
+                                </div>
+                                <button className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
+                                    Discover Itinerary
+                                    <span>→</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 {/* Most Popular Itineraries Section */}
                 <ScrollableSection title="Most Popular Itineraries">
@@ -858,6 +1817,20 @@ const Discover: React.FC = () => {
                             </div>
                         ))}
                 </ScrollableSection>
+
+                {/* Ready for Adventure Section */}
+                <div className="bg-[#0096FF] rounded-2xl p-12 text-center text-white mb-12">
+                    <h2 className="text-4xl font-bold mb-4">Ready for your next adventure?</h2>
+                    <p className="text-xl mb-8">Create a personalized itinerary tailored to your preferences and travel style</p>
+                    <div className="flex justify-center gap-4">
+                        <button className="bg-white text-[#0096FF] px-6 py-3 rounded-full font-medium hover:bg-gray-100 transition-colors">
+                            Create Itinerary
+                        </button>
+                        <button className="bg-transparent border-2 border-white text-white px-6 py-3 rounded-full font-medium hover:bg-white/10 transition-colors">
+                            Explore More
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );
