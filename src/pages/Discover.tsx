@@ -5,6 +5,7 @@ import { CountryImagesService } from '../services/country-images.service';
 import ItineraryTile from '../components/ItineraryTile';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cleanDestination } from '../utils/stringUtils';
+import { supabase } from '../lib/supabase';
 
 // Country-specific information
 const countryInfo: Record<string, {
@@ -300,6 +301,7 @@ const Discover: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [countryImages, setCountryImages] = useState<Record<string, string[]>>({});
     const [selectedImages, setSelectedImages] = useState<Record<string, string>>({});
+    const [sectionAssignments, setSectionAssignments] = useState<Record<string, string[]>>({});
 
     // Group itineraries by country
     const countryStats = React.useMemo(() => {
@@ -317,6 +319,34 @@ const Discover: React.FC = () => {
     useEffect(() => {
         loadItineraries();
     }, []);
+
+    useEffect(() => {
+        loadSectionAssignments();
+    }, []);
+
+    const loadSectionAssignments = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('discover_section_assignments')
+                .select('*')
+                .order('display_order', { ascending: true });
+
+            if (error) throw error;
+
+            // Group assignments by section
+            const assignmentsBySection = data.reduce((acc, assignment) => {
+                if (!acc[assignment.section_name]) {
+                    acc[assignment.section_name] = [];
+                }
+                acc[assignment.section_name].push(assignment.itinerary_id);
+                return acc;
+            }, {} as Record<string, string[]>);
+
+            setSectionAssignments(assignmentsBySection);
+        } catch (error) {
+            console.error('Error loading section assignments:', error);
+        }
+    };
 
     // Fetch country images
     useEffect(() => {
@@ -716,107 +746,30 @@ const Discover: React.FC = () => {
                 <div className="mb-12">
                     <h2 className="text-3xl font-bold mb-8">Featured Destinations</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {/* Japan Card */}
-                        <div className="bg-white rounded-xl overflow-hidden shadow-lg">
-                            <div className="relative h-[280px]">
-                                <img
-                                    src="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e"
-                                    alt="Japan"
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute top-4 right-4">
-                                    <button className="p-2 bg-white/90 hover:bg-white rounded-full">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" stroke="currentColor" strokeWidth="2" fill="none" />
-                                        </svg>
-                                    </button>
+                        {itineraries
+                            .filter(itinerary => sectionAssignments['Featured Destinations']?.includes(itinerary.id))
+                            .map((itinerary) => (
+                                <div
+                                    key={itinerary.id}
+                                    onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                    className="cursor-pointer"
+                                >
+                                    <ItineraryTile
+                                        id={itinerary.id}
+                                        title={itinerary.trip_name}
+                                        description={`${itinerary.duration} days in ${itinerary.destinations
+                                            .map(d => cleanDestination(d.destination))
+                                            .join(', ')}`}
+                                        imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                        duration={itinerary.duration}
+                                        cities={itinerary.destinations.map(d =>
+                                            cleanDestination(d.destination)
+                                        )}
+                                        createdAt={itinerary.created_at}
+                                        loading="lazy"
+                                    />
                                 </div>
-                                <div className="absolute bottom-4 left-4">
-                                    <span className="px-2 py-1 bg-white/90 text-gray-900 rounded text-sm">Cultural Immersion</span>
-                                </div>
-                            </div>
-                            <div className="p-6">
-                                <h3 className="text-2xl font-semibold mb-2">Japan</h3>
-                                <p className="text-gray-600 mb-4">Experience ancient traditions alongside cutting-edge technology</p>
-                                <div className="flex items-center gap-2 mb-4">
-                                    <span className="text-yellow-400">★</span>
-                                    <span className="font-medium">4.9</span>
-                                    <span className="text-gray-400">(1243)</span>
-                                    <span className="text-gray-300 mx-2">•</span>
-                                    <span className="text-gray-600">10 days</span>
-                                    <span className="text-gray-300 mx-2">•</span>
-                                    <span className="text-gray-600">$2,800</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Norway Card */}
-                        <div className="bg-white rounded-xl overflow-hidden shadow-lg">
-                            <div className="relative h-[280px]">
-                                <img
-                                    src="https://images.unsplash.com/photo-1516483638261-f4dbaf036963"
-                                    alt="Norway"
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute top-4 right-4">
-                                    <button className="p-2 bg-white/90 hover:bg-white rounded-full">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" stroke="currentColor" strokeWidth="2" fill="none" />
-                                        </svg>
-                                    </button>
-                                </div>
-                                <div className="absolute bottom-4 left-4">
-                                    <span className="px-2 py-1 bg-white/90 text-gray-900 rounded text-sm">Natural Wonder</span>
-                                </div>
-                            </div>
-                            <div className="p-6">
-                                <h3 className="text-2xl font-semibold mb-2">Norway</h3>
-                                <p className="text-gray-600 mb-4">Northern lights, fjords, and breathtaking mountain views</p>
-                                <div className="flex items-center gap-2 mb-4">
-                                    <span className="text-yellow-400">★</span>
-                                    <span className="font-medium">4.8</span>
-                                    <span className="text-gray-400">(987)</span>
-                                    <span className="text-gray-300 mx-2">•</span>
-                                    <span className="text-gray-600">8 days</span>
-                                    <span className="text-gray-300 mx-2">•</span>
-                                    <span className="text-gray-600">$3,200</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Morocco Card */}
-                        <div className="bg-white rounded-xl overflow-hidden shadow-lg">
-                            <div className="relative h-[280px]">
-                                <img
-                                    src="https://images.unsplash.com/photo-1489493887464-892be6d1daae"
-                                    alt="Morocco"
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute top-4 right-4">
-                                    <button className="p-2 bg-white/90 hover:bg-white rounded-full">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" stroke="currentColor" strokeWidth="2" fill="none" />
-                                        </svg>
-                                    </button>
-                                </div>
-                                <div className="absolute bottom-4 left-4">
-                                    <span className="px-2 py-1 bg-white/90 text-gray-900 rounded text-sm">Exotic</span>
-                                </div>
-                            </div>
-                            <div className="p-6">
-                                <h3 className="text-2xl font-semibold mb-2">Morocco</h3>
-                                <p className="text-gray-600 mb-4">Desert adventures and vibrant markets in ancient medinas</p>
-                                <div className="flex items-center gap-2 mb-4">
-                                    <span className="text-yellow-400">★</span>
-                                    <span className="font-medium">4.7</span>
-                                    <span className="text-gray-400">(856)</span>
-                                    <span className="text-gray-300 mx-2">•</span>
-                                    <span className="text-gray-600">7 days</span>
-                                    <span className="text-gray-300 mx-2">•</span>
-                                    <span className="text-gray-600">$1,950</span>
-                                </div>
-                            </div>
-                        </div>
+                            ))}
                     </div>
                 </div>
 
@@ -977,110 +930,31 @@ const Discover: React.FC = () => {
                             View all →
                         </button>
                     </div>
-
-                    {/* Unique Experiences Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {/* African Safari Card */}
-                        <div className="bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer">
-                            <div className="relative h-[240px]">
-                                <img
-                                    src="https://images.unsplash.com/photo-1516426122078-c23e76319801"
-                                    alt="African Safari"
-                                    className="w-full h-full object-cover"
-                                />
-                            </div>
-                            <div className="p-6">
-                                <h3 className="text-xl font-semibold mb-2">African Safari</h3>
-                                <p className="text-gray-600 mb-4">Witness the 'Big Five' in their natural habitat</p>
-                                <div className="flex items-center gap-2 text-gray-500 text-sm mb-3">
-                                    <span className="flex items-center gap-1">
-                                        <span>📍</span>
-                                        Tanzania & Kenya
-                                    </span>
+                        {itineraries
+                            .filter(itinerary => sectionAssignments['Unique Experiences']?.includes(itinerary.id))
+                            .map((itinerary) => (
+                                <div
+                                    key={itinerary.id}
+                                    onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                    className="cursor-pointer"
+                                >
+                                    <ItineraryTile
+                                        id={itinerary.id}
+                                        title={itinerary.trip_name}
+                                        description={`${itinerary.duration} days in ${itinerary.destinations
+                                            .map(d => cleanDestination(d.destination))
+                                            .join(', ')}`}
+                                        imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                        duration={itinerary.duration}
+                                        cities={itinerary.destinations.map(d =>
+                                            cleanDestination(d.destination)
+                                        )}
+                                        createdAt={itinerary.created_at}
+                                        loading="lazy"
+                                    />
                                 </div>
-                                <div className="flex items-center gap-2 text-gray-500 text-sm mb-6">
-                                    <span className="flex items-center gap-1">
-                                        <span>📅</span>
-                                        10 days
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-lg font-semibold">$4,500</span>
-                                    <button className="bg-[#111827] text-white px-6 py-2 rounded-full hover:bg-gray-800 transition-colors flex items-center gap-2">
-                                        Explore
-                                        <span>→</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Northern Lights Card */}
-                        <div className="bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer">
-                            <div className="relative h-[240px]">
-                                <img
-                                    src="https://images.unsplash.com/photo-1483347756197-71ef80e95f73"
-                                    alt="Northern Lights"
-                                    className="w-full h-full object-cover"
-                                />
-                            </div>
-                            <div className="p-6">
-                                <h3 className="text-xl font-semibold mb-2">Northern Lights</h3>
-                                <p className="text-gray-600 mb-4">Chase the aurora borealis across the Arctic Circle</p>
-                                <div className="flex items-center gap-2 text-gray-500 text-sm mb-3">
-                                    <span className="flex items-center gap-1">
-                                        <span>📍</span>
-                                        Iceland & Finland
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-2 text-gray-500 text-sm mb-6">
-                                    <span className="flex items-center gap-1">
-                                        <span>📅</span>
-                                        7 days
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-lg font-semibold">$3,200</span>
-                                    <button className="bg-[#111827] text-white px-6 py-2 rounded-full hover:bg-gray-800 transition-colors flex items-center gap-2">
-                                        Explore
-                                        <span>→</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Mayan Discovery Card */}
-                        <div className="bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer">
-                            <div className="relative h-[240px]">
-                                <img
-                                    src="https://images.unsplash.com/photo-1518638150340-f706e86654de"
-                                    alt="Mayan Discovery"
-                                    className="w-full h-full object-cover"
-                                />
-                            </div>
-                            <div className="p-6">
-                                <h3 className="text-xl font-semibold mb-2">Mayan Discovery</h3>
-                                <p className="text-gray-600 mb-4">Explore ancient ruins hidden in lush jungles</p>
-                                <div className="flex items-center gap-2 text-gray-500 text-sm mb-3">
-                                    <span className="flex items-center gap-1">
-                                        <span>📍</span>
-                                        Mexico & Guatemala
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-2 text-gray-500 text-sm mb-6">
-                                    <span className="flex items-center gap-1">
-                                        <span>📅</span>
-                                        9 days
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-lg font-semibold">$2,800</span>
-                                    <button className="bg-[#111827] text-white px-6 py-2 rounded-full hover:bg-gray-800 transition-colors flex items-center gap-2">
-                                        Explore
-                                        <span>→</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                            ))}
                     </div>
                 </div>
 
@@ -1227,53 +1101,52 @@ const Discover: React.FC = () => {
                             </div>
 
                             <div className="grid grid-cols-2 gap-4 mb-4">
-                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1506953823976-52e1fdc0149a"
-                                        alt="Tropical beach"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1573843981267-be1999ff37cd"
-                                        alt="Tropical escape"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1544550581-5f7ceaf7f992"
-                                        alt="Beach cliffs"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1514282401047-d79a71a590e8"
-                                        alt="Overwater bungalows"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
+                                {itineraries
+                                    .filter(itinerary => sectionAssignments['Tropical Escape']?.includes(itinerary.id))
+                                    .slice(0, 4)
+                                    .map((itinerary) => (
+                                        <div
+                                            key={itinerary.id}
+                                            onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                            className="aspect-[4/3] rounded-lg overflow-hidden cursor-pointer"
+                                        >
+                                            <img
+                                                src={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                                alt={itinerary.trip_name}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                    ))}
                             </div>
 
                             <div className="space-y-3">
                                 <div className="flex items-center gap-2">
                                     <span className="text-gray-600">Perfect for:</span>
                                     <div className="flex gap-2">
-                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Maldives</span>
-                                        <span className="text-gray-300">•</span>
-                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Bali</span>
-                                        <span className="text-gray-300">•</span>
-                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Hawaii</span>
+                                        {Array.from(new Set(
+                                            itineraries
+                                                .filter(itinerary => sectionAssignments['Tropical Escape']?.includes(itinerary.id))
+                                                .map(itinerary => itinerary.country)
+                                        ))
+                                            .filter(Boolean)
+                                            .slice(0, 3)
+                                            .map((country, index, array) => (
+                                                <React.Fragment key={country}>
+                                                    <span className="text-[#0096FF] hover:underline cursor-pointer">{country}</span>
+                                                    {index < array.length - 1 && <span className="text-gray-300">•</span>}
+                                                </React.Fragment>
+                                            ))}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span>📅</span>
                                     <span className="text-gray-600">Best time: Year-round</span>
                                 </div>
-                                <button className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
-                                    See Itineraries
+                                <button
+                                    onClick={() => navigate('/itineraries?section=tropical')}
+                                    className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    See All Tropical Itineraries
                                     <span>→</span>
                                 </button>
                             </div>
@@ -1301,46 +1174,52 @@ const Discover: React.FC = () => {
                             </div>
 
                             <div className="grid grid-cols-2 gap-4 mb-4">
-                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b"
-                                        alt="Mountain landscape"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1486870591958-9b9d0d1dda99"
-                                        alt="Snow peaks"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1"
-                                        alt="Mountain view"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
+                                {itineraries
+                                    .filter(itinerary => sectionAssignments['Mountain Retreat']?.includes(itinerary.id))
+                                    .slice(0, 4)
+                                    .map((itinerary) => (
+                                        <div
+                                            key={itinerary.id}
+                                            onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                            className="aspect-[4/3] rounded-lg overflow-hidden cursor-pointer"
+                                        >
+                                            <img
+                                                src={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                                alt={itinerary.trip_name}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                    ))}
                             </div>
 
                             <div className="space-y-3">
                                 <div className="flex items-center gap-2">
                                     <span className="text-gray-600">Perfect for:</span>
                                     <div className="flex gap-2">
-                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Swiss Alps</span>
-                                        <span className="text-gray-300">•</span>
-                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Rocky Mountains</span>
-                                        <span className="text-gray-300">•</span>
-                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Himalayas</span>
+                                        {Array.from(new Set(
+                                            itineraries
+                                                .filter(itinerary => sectionAssignments['Mountain Retreat']?.includes(itinerary.id))
+                                                .map(itinerary => itinerary.country)
+                                        ))
+                                            .filter(Boolean)
+                                            .slice(0, 3)
+                                            .map((country, index, array) => (
+                                                <React.Fragment key={country}>
+                                                    <span className="text-[#0096FF] hover:underline cursor-pointer">{country}</span>
+                                                    {index < array.length - 1 && <span className="text-gray-300">•</span>}
+                                                </React.Fragment>
+                                            ))}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span>📅</span>
                                     <span className="text-gray-600">Best time: Spring to Fall</span>
                                 </div>
-                                <button className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
-                                    See Itineraries
+                                <button
+                                    onClick={() => navigate('/itineraries?section=mountain')}
+                                    className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    See All Mountain Itineraries
                                     <span>→</span>
                                 </button>
                             </div>
@@ -2031,6 +1910,42 @@ const Discover: React.FC = () => {
                         <button className="bg-transparent border-2 border-white text-white px-6 py-3 rounded-full font-medium hover:bg-white/10 transition-colors">
                             Explore More
                         </button>
+                    </div>
+                </div>
+
+                {/* Tropical Escape Section */}
+                <div className="mb-12">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold text-gray-900">Tropical Escape</h2>
+                        <button className="text-[#0096FF] hover:text-[#0077CC] font-medium">
+                            View all →
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {itineraries
+                            .filter(itinerary => sectionAssignments['Tropical Escape']?.includes(itinerary.id))
+                            .map((itinerary) => (
+                                <div
+                                    key={itinerary.id}
+                                    onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                    className="cursor-pointer"
+                                >
+                                    <ItineraryTile
+                                        id={itinerary.id}
+                                        title={itinerary.trip_name}
+                                        description={`${itinerary.duration} days in ${itinerary.destinations
+                                            .map(d => cleanDestination(d.destination))
+                                            .join(', ')}`}
+                                        imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                        duration={itinerary.duration}
+                                        cities={itinerary.destinations.map(d =>
+                                            cleanDestination(d.destination)
+                                        )}
+                                        createdAt={itinerary.created_at}
+                                        loading="lazy"
+                                    />
+                                </div>
+                            ))}
                     </div>
                 </div>
             </div>
