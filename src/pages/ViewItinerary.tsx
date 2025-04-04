@@ -2,13 +2,28 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { UserSettingsService, UserSettings } from '../services/user-settings.service';
 import { UserItineraryService } from '../services/user-itinerary.service';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, FileText } from 'lucide-react';
+import DOMPurify from 'dompurify';
 
 interface Itinerary {
     id: string;
-    user_email: string;
+    user_email?: string;
     trip_name: string;
-    // ... other itinerary fields ...
+    trip_description: string;
+    country: string;
+    duration: number;
+    start_date: string;
+    passengers: number;
+    is_private: boolean;
+    tags: string[];
+    destinations: Array<{
+        destination: string;
+        nights: number;
+        discover: string;
+        transport: string;
+        notes: string;
+        food: string;
+    }>;
 }
 
 const ViewItinerary = () => {
@@ -99,6 +114,22 @@ const ViewItinerary = () => {
                         {userSettings?.bio && <p className="text-sm text-gray-500">{userSettings.bio}</p>}
                     </div>
                 </div>
+
+                {/* Trip Description Section */}
+                {itinerary?.trip_description && (
+                    <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+                        <div className="flex items-center gap-2 mb-4">
+                            <FileText className="w-5 h-5 text-[#00C48C]" />
+                            <h2 className="text-lg font-semibold text-gray-900">Trip Description</h2>
+                        </div>
+                        <div
+                            className="prose prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{
+                                __html: DOMPurify.sanitize(itinerary.trip_description)
+                            }}
+                        />
+                    </div>
+                )}
 
                 {/* Rest of your itinerary display code */}
             </div>

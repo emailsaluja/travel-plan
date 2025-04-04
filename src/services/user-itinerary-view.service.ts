@@ -2,21 +2,24 @@ import { supabase } from '../lib/supabase';
 
 export interface UserItineraryView {
   id: string;
-  user_id: string;
   trip_name: string;
   country: string;
   start_date: string;
   duration: number;
   passengers: number;
+  created_at: string;
+  updated_at: string;
   is_private: boolean;
+  tags: string[];
+  trip_description?: string;
+  food_descriptions?: { [destination: string]: { [place: string]: string } };
   destinations: {
     destination: string;
     nights: number;
     discover: string;
-    manual_discover?: string;
-    manual_discover_desc?: string;
     transport: string;
     notes: string;
+    order_index: number;
     food: string;
     food_desc?: string;
   }[];
@@ -25,162 +28,152 @@ export interface UserItineraryView {
       [place: string]: string;
     };
   };
-  day_attractions?: {
+  day_attractions: {
     day_index: number;
-    attractions: (string | {
-      id: string;
-      name: string;
-      description?: string;
-    })[];
+    attractions: string[];
   }[];
-  day_hotels?: {
+  day_hotels: {
     day_index: number;
     hotel: string;
     hotel_desc?: string;
   }[];
-  day_notes?: {
+  day_notes: {
     day_index: number;
     notes: string;
+    day_overview?: string;
   }[];
-  day_food_options: Array<{
+  day_food_options: {
     day_index: number;
-    food_options: Array<{
+    food_options: {
       id: string;
-      name: string;
-      cuisine?: string;
-      description?: string;
-      isDestinationFood?: boolean;
-    }>;
-  }>;
+      name: {
+        text: string;
+        cuisine?: string;
+        known_for?: string;
+      };
+    }[];
+  }[];
 }
 
 export const UserItineraryViewService = {
   async getItineraryById(id: string): Promise<{ data: UserItineraryView | null; error: any }> {
-    // Get the main itinerary data
-    const { data: itinerary, error: itineraryError } = await supabase
-      .from('user_itineraries')
-      .select('*')
-      .eq('id', id)
-      .single();
+    try {
+      const { data: itineraryData, error: itineraryError } = await supabase
+        .from('user_itineraries')
+        .select(`
+          id,
+          trip_name,
+          country,
+          start_date,
+          duration,
+          passengers,
+          created_at,
+          updated_at,
+          is_private,
+          tags,
+          trip_description
+        `)
+        .eq('id', id)
+        .single();
 
-    if (itineraryError) {
-      return { data: null, error: itineraryError };
-    }
+      if (itineraryError) throw itineraryError;
+      if (!itineraryData) return { data: null, error: null };
 
-    // Get the destinations
-    const { data: destinations, error: destinationsError } = await supabase
-      .from('user_itinerary_destinations')
-      .select('*')
-      .eq('itinerary_id', id)
-      .order('order_index', { ascending: true });
+      // Fetch destinations
+      const { data: destinations, error: destinationsError } = await supabase
+        .from('user_itinerary_destinations')
+        .select('*')
+        .eq('itinerary_id', id)
+        .order('order_index');
 
-    if (destinationsError) {
-      return { data: null, error: destinationsError };
-    }
+      if (destinationsError) throw destinationsError;
 
-    // Get the day attractions
-    const { data: dayAttractions, error: attractionsError } = await supabase
-      .from('user_itinerary_day_attractions')
-      .select('*')
-      .eq('itinerary_id', id)
-      .order('day_index', { ascending: true });
+      // Fetch day attractions
+      const { data: dayAttractions, error: attractionsError } = await supabase
+        .from('user_itinerary_day_attractions')
+        .select('*')
+        .eq('itinerary_id', id)
+        .order('day_index');
 
-    if (attractionsError) {
-      return { data: null, error: attractionsError };
-    }
+      if (attractionsError) throw attractionsError;
 
-    // Process attractions to ensure proper format
-    const processedDayAttractions = dayAttractions?.map(day => {
-      return {
-        day_index: day.day_index,
-        attractions: Array.isArray(day.attractions) ? day.attractions.map((attraction: any) => {
-          if (typeof attraction === 'object' && attraction !== null) {
-            return {
-              id: attraction.id || '',
-              name: attraction.name || '',
-              description: attraction.description || ''
-            };
-          }
-          return {
-            id: '',
-            name: String(attraction),
-            description: ''
-          };
-        }) : []
+      // Fetch day hotels
+      const { data: dayHotels, error: hotelsError } = await supabase
+        .from('user_itinerary_day_hotels')
+        .select('*')
+        .eq('itinerary_id', id)
+        .order('day_index');
+
+      if (hotelsError) throw hotelsError;
+
+      // Fetch day notes
+      const { data: dayNotes, error: notesError } = await supabase
+        .from('user_itinerary_day_notes')
+        .select('day_index, notes, day_overview')
+        .eq('itinerary_id', id)
+        .order('day_index');
+
+      if (notesError) throw notesError;
+
+      // Fetch day food options
+      const { data: dayFoodOptions, error: foodError } = await supabase
+        .from('user_itinerary_day_food_options')
+        .select('*')
+        .eq('itinerary_id', id)
+        .order('day_index');
+
+      if (foodError) throw foodError;
+
+      // Map the data to the UserItineraryView interface
+      const itineraryView: UserItineraryView = {
+        id: itineraryData.id,
+        trip_name: itineraryData.trip_name,
+        country: itineraryData.country,
+        start_date: itineraryData.start_date,
+        duration: itineraryData.duration,
+        passengers: itineraryData.passengers,
+        created_at: itineraryData.created_at,
+        updated_at: itineraryData.updated_at,
+        is_private: itineraryData.is_private,
+        tags: itineraryData.tags,
+        trip_description: itineraryData.trip_description,
+        destinations: destinations.map(d => ({
+          destination: d.destination,
+          nights: d.nights,
+          discover: d.discover,
+          transport: d.transport,
+          notes: d.notes,
+          order_index: d.order_index,
+          food: d.food,
+          food_desc: d.food_desc
+        })),
+        day_attractions: dayAttractions.map(da => ({
+          day_index: da.day_index,
+          attractions: da.attractions
+        })),
+        day_hotels: dayHotels.map(dh => ({
+          day_index: dh.day_index,
+          hotel: dh.hotel,
+          hotel_desc: dh.hotel_desc
+        })),
+        day_notes: dayNotes.map(dn => ({
+          day_index: dn.day_index,
+          notes: dn.notes,
+          day_overview: dn.day_overview
+        })),
+        day_food_options: dayFoodOptions.map(df => ({
+          day_index: df.day_index,
+          food_options: df.food_options
+        }))
       };
-    }) || [];
 
-    // Get the day hotels
-    const { data: dayHotels, error: hotelsError } = await supabase
-      .from('user_itinerary_day_hotels')
-      .select('*')
-      .eq('itinerary_id', id)
-      .order('day_index', { ascending: true });
-
-    if (hotelsError) {
-      return { data: null, error: hotelsError };
+      return {
+        data: itineraryView,
+        error: null
+      };
+    } catch (error) {
+      console.error('Error fetching itinerary:', error);
+      return { data: null, error };
     }
-
-    // Process hotels to ensure proper format and adjust day_index
-    const processedDayHotels = dayHotels?.map(hotel => ({
-      day_index: hotel.day_index,
-      hotel: hotel.hotel || '',
-      hotel_desc: hotel.hotel_desc || ''
-    })) || [];
-
-    // Get the day notes
-    const { data: dayNotes, error: notesError } = await supabase
-      .from('user_itinerary_day_notes')
-      .select('*')
-      .eq('itinerary_id', id)
-      .order('day_index', { ascending: true });
-
-    if (notesError) {
-      return { data: null, error: notesError };
-    }
-
-    // Get the food options
-    const { data: foodOptions, error: foodError } = await supabase
-      .from('user_itinerary_day_food_options')
-      .select('*')
-      .eq('itinerary_id', id)
-      .order('day_index', { ascending: true });
-
-    if (foodError) {
-      return { data: null, error: foodError };
-    }
-
-    // Process food options into day_food_options format
-    const processedDayFoodOptions = foodOptions?.map(day => ({
-      day_index: day.day_index,
-      food_options: Array.isArray(day.name) ? day.name.map((food: any) => ({
-        id: food.id || '',
-        name: food.name?.text || '',
-        cuisine: food.name?.cuisine || 'Local Cuisine',
-        description: food.name?.known_for || '-',
-        isDestinationFood: food.name?.is_destination_food === true
-      })) : []
-    })) || [];
-
-    console.log('Processed day attractions:', processedDayAttractions);
-    console.log('Processed day hotels:', processedDayHotels);
-    console.log('Fetched day notes:', dayNotes);
-    console.log('Processed food options:', processedDayFoodOptions);
-
-    const formattedData = {
-      ...itinerary,
-      destinations: destinations || [],
-      day_attractions: processedDayAttractions,
-      day_hotels: processedDayHotels,
-      day_notes: dayNotes || [],
-      day_food_options: processedDayFoodOptions
-    };
-
-    console.log('Formatted itinerary data:', formattedData);
-
-    return {
-      data: formattedData,
-      error: null
-    };
   }
 }; 

@@ -13,6 +13,8 @@ interface FormData {
         travelStyle: string;
         budget: string;
         pace: string;
+        lookingFor: string;
+        thingsToAvoid: string;
     };
 }
 
@@ -45,7 +47,9 @@ const CreateAIItinerary: React.FC = () => {
             interests: [],
             travelStyle: 'balanced',
             budget: 'medium',
-            pace: 'moderate'
+            pace: 'moderate',
+            lookingFor: '',
+            thingsToAvoid: ''
         }
     });
 
@@ -101,7 +105,11 @@ const CreateAIItinerary: React.FC = () => {
             const itinerary = await aiItineraryService.generateItinerary({
                 country: formData.country,
                 duration: formData.duration,
-                preferences: formData.preferences
+                preferences: {
+                    ...formData.preferences,
+                    lookingFor: formData.preferences.lookingFor.trim(),
+                    thingsToAvoid: formData.preferences.thingsToAvoid.trim()
+                }
             });
             setGeneratedItinerary(itinerary);
         } catch (err) {
@@ -179,6 +187,22 @@ const CreateAIItinerary: React.FC = () => {
                                     </div>
                                 ))}
                             </div>
+                        </div>
+
+                        <div className="mb-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">Your Preferences</h3>
+                            {formData.preferences.lookingFor && (
+                                <div className="mb-4">
+                                    <h4 className="text-sm font-medium text-gray-700">Looking For:</h4>
+                                    <p className="text-gray-600 mt-1">{formData.preferences.lookingFor}</p>
+                                </div>
+                            )}
+                            {formData.preferences.thingsToAvoid && (
+                                <div>
+                                    <h4 className="text-sm font-medium text-gray-700">Avoiding:</h4>
+                                    <p className="text-gray-600 mt-1">{formData.preferences.thingsToAvoid}</p>
+                                </div>
+                            )}
                         </div>
 
                         <div className="mt-8 flex justify-end">
@@ -337,6 +361,38 @@ const CreateAIItinerary: React.FC = () => {
                                     </button>
                                 ))}
                             </div>
+                        </div>
+
+                        {/* Looking For */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                What are you looking for in this trip?
+                            </label>
+                            <textarea
+                                value={formData.preferences.lookingFor}
+                                onChange={(e) => setFormData(prev => ({
+                                    ...prev,
+                                    preferences: { ...prev.preferences, lookingFor: e.target.value }
+                                }))}
+                                placeholder="Describe what you'd like to experience (e.g., local cuisine, specific activities, special interests, budget considerations)"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent h-32 resize-none"
+                            />
+                        </div>
+
+                        {/* Things to Avoid */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                What would you like to avoid?
+                            </label>
+                            <textarea
+                                value={formData.preferences.thingsToAvoid}
+                                onChange={(e) => setFormData(prev => ({
+                                    ...prev,
+                                    preferences: { ...prev.preferences, thingsToAvoid: e.target.value }
+                                }))}
+                                placeholder="List things you'd prefer to avoid (e.g., crowded tourist spots, specific types of activities, certain environments)"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent h-32 resize-none"
+                            />
                         </div>
 
                         {error && (

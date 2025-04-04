@@ -34,7 +34,9 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/typography'),
+  ],
   extend: {
     utilities: {
       '.no-scrollbar': {

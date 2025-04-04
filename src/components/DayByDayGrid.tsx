@@ -60,14 +60,22 @@ interface DayByDayGridProps {
   dayNotes: Array<{
     dayIndex: number;
     notes: string;
+    dayOverview?: string;
   }>;
-  onDayNotesUpdate: (notes: Array<{ dayIndex: number; notes: string }>) => void;
+  onDayNotesUpdate: (notes: Array<{ dayIndex: number; notes: string; dayOverview?: string }>) => void;
   onHotelClick?: (destination: string, dayIndex: number) => void;
   onFoodSelect?: (destination: string, dayIndex: number) => void;
   dayFoods: FoodItem[][];
   onFoodClick?: (destination: string, dayIndex: number) => void;
   onNotesClick: (destination: string, dayIndex: number) => void;
   itineraryId: string;
+  className?: string;
+  iconSize?: string;
+  spacing?: string;
+  padding?: string;
+  buttonSize?: string;
+  headingSize?: string;
+  subheadingSize?: string;
 }
 
 interface ExpandedDay {
@@ -84,6 +92,7 @@ interface ExpandedDay {
 interface DayNote {
   dayIndex: number;
   notes: string;
+  dayOverview?: string;
 }
 
 interface SelectedDay {
@@ -109,7 +118,14 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   dayFoods,
   onFoodClick,
   onNotesClick,
-  itineraryId
+  itineraryId,
+  className,
+  iconSize,
+  spacing,
+  padding,
+  buttonSize,
+  headingSize,
+  subheadingSize
 }) => {
   const [showDiscoverPopup, setShowDiscoverPopup] = useState(false);
   const [showNotesPopup, setShowNotesPopup] = useState(false);
@@ -118,6 +134,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   const [selectedDayForNotes, setSelectedDayForNotes] = useState<{
     dayIndex: number;
     notes: string;
+    dayOverview?: string;
   } | null>(null);
   const [selectedDayForFood, setSelectedDayForFood] = useState<SelectedDay | null>(null);
   const [isLoadingAttractions, setIsLoadingAttractions] = useState(false);
@@ -183,8 +200,8 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
 
     setIsLoadingAttractions(true);
     try {
-      // Load both attractions and food options in parallel
-      const [attractionsResponse, foodResponse] = await Promise.all([
+      // Load attractions, food options, and notes in parallel
+      const [attractionsResponse, foodResponse, notesResponse] = await Promise.all([
         supabase
           .from('user_itinerary_day_attractions')
           .select('day_index, attractions')
@@ -192,6 +209,10 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
         supabase
           .from('user_itinerary_day_food_options')
           .select('day_index, name')
+          .eq('itinerary_id', itineraryId),
+        supabase
+          .from('user_itinerary_day_notes')
+          .select('day_index, notes, day_overview')
           .eq('itinerary_id', itineraryId)
       ]);
 
@@ -201,6 +222,20 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
 
       if (foodResponse.error) {
         console.error('Error loading food options:', foodResponse.error);
+      }
+
+      if (notesResponse.error) {
+        console.error('Error loading notes:', notesResponse.error);
+      }
+
+      // Handle notes data
+      if (notesResponse.data) {
+        const updatedNotes = notesResponse.data.map(item => ({
+          dayIndex: item.day_index,
+          notes: item.notes,
+          dayOverview: item.day_overview
+        }));
+        onDayNotesUpdate(updatedNotes);
       }
 
       // Handle attractions data
@@ -260,7 +295,7 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
     } finally {
       setIsLoadingAttractions(false);
     }
-  }, [itineraryId, expandedDays, destinations, dayAttractions, onDayAttractionsUpdate, isLoadingAttractions, hasLoadedInitialData]);
+  }, [itineraryId, expandedDays, destinations, dayAttractions, onDayAttractionsUpdate, onDayNotesUpdate, isLoadingAttractions, hasLoadedInitialData]);
 
   // Effect to load initial data only when necessary
   useEffect(() => {
@@ -437,15 +472,16 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
   };
 
   const handleNotesClick = (day: ExpandedDay) => {
-    const currentNotes = dayNotes.find(n => n.dayIndex === day.dayIndex)?.notes || '';
+    const currentNote = dayNotes.find(n => n.dayIndex === day.dayIndex);
     setSelectedDayForNotes({
       dayIndex: day.dayIndex,
-      notes: currentNotes
+      notes: currentNote?.notes || '',
+      dayOverview: currentNote?.dayOverview || ''
     });
     setShowNotesPopup(true);
   };
 
-  const handleNotesUpdate = (notes: string) => {
+  const handleNotesUpdate = (notes: string, dayOverview: string) => {
     if (selectedDayForNotes) {
       const newNotes = [...dayNotes];
       const noteIndex = newNotes.findIndex(n => n.dayIndex === selectedDayForNotes.dayIndex);
@@ -453,12 +489,14 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
       if (noteIndex !== -1) {
         newNotes[noteIndex] = {
           ...newNotes[noteIndex],
-          notes
+          notes,
+          dayOverview
         };
       } else {
         newNotes.push({
           dayIndex: selectedDayForNotes.dayIndex,
-          notes
+          notes,
+          dayOverview
         });
       }
 
@@ -811,7 +849,10 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
           }}
           dayNumber={selectedDayForNotes.dayIndex + 1}
           initialNotes={selectedDayForNotes.notes}
+          initialDayOverview={selectedDayForNotes.dayOverview}
           onSave={handleNotesUpdate}
+          itineraryId={itineraryId}
+          dayIndex={selectedDayForNotes.dayIndex}
         />
       )}
 

@@ -907,7 +907,7 @@ const UserPublicDashboard = () => {
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <Link
-                                            to={`/view-itinerary/${itinerary.id}`}
+                                            to={`/viewmyitinerary/${itinerary.id}`}
                                             className="flex-1 text-center py-2.5 bg-[#00C48C] text-white text-[15px] font-medium rounded-xl hover:bg-[#00B380] transition-colors"
                                         >
                                             View Itinerary
@@ -1002,7 +1002,7 @@ const UserPublicDashboard = () => {
                                             View Preparations
                                         </Link>
                                         <Link
-                                            to={`/view-itinerary/${adventure.id}`}
+                                            to={`/viewmyitinerary/${adventure.id}`}
                                             className="flex-1 py-2.5 bg-white text-[#1e293b] text-[15px] font-medium rounded-xl hover:bg-white/90 transition-colors flex items-center justify-center gap-2"
                                         >
                                             <Calendar className="w-5 h-5" />

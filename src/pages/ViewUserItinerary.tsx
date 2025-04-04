@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { cleanDestination } from '../utils/stringUtils';
 import DestinationsList from '../components/DestinationsList';
+import DOMPurify from 'dompurify';
 
 const ViewUserItinerary: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -51,6 +52,8 @@ const ViewUserItinerary: React.FC = () => {
           }
         }
 
+        console.log('Fetched itinerary data:', data);
+        console.log('Trip description:', data.trip_description);
         setItinerary(data);
       } catch (error) {
         console.error('Error fetching itinerary:', error);
@@ -225,6 +228,23 @@ const ViewUserItinerary: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Trip Description - Moved here, right after hero section */}
+      {itinerary.trip_description && (
+        <div className="bg-gray-50">
+          <div className="max-w-[1400px] mx-auto px-8 py-12">
+            <div className="bg-white rounded-lg p-8 shadow-sm">
+              <h2 className="text-2xl font-semibold mb-6 text-gray-900">About This Trip</h2>
+              <div
+                className="prose prose-lg max-w-none prose-p:text-gray-600 prose-headings:text-gray-900 prose-a:text-[#00C48C] prose-strong:text-gray-900 prose-strong:font-semibold"
+                dangerouslySetInnerHTML={{
+                  __html: DOMPurify.sanitize(itinerary.trip_description)
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Navigation Tabs */}
       <div className="sticky top-0 z-20 bg-white border-b border-gray-100 shadow-sm">

@@ -219,7 +219,7 @@ const OnceInLife: React.FC = () => {
                     {itineraries.map((itinerary) => (
                         <div
                             key={itinerary.id}
-                            onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                            onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
                             className="cursor-pointer"
                         >
                             <ItineraryTile

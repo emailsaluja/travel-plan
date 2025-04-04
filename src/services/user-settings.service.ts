@@ -200,42 +200,32 @@ export class UserSettingsService {
     }
 
     static async checkUsernameUniqueness(username: string, currentUserId: string): Promise<boolean> {
-        const cacheKey = `${username}_${currentUserId}`;
-        const cached = usernameCache.get(cacheKey);
-        if (cached && (Date.now() - cached.timestamp < USERNAME_CACHE_DURATION)) {
-            return cached.isUnique;
-        }
-
         try {
-            // Try to use global cache first
-            const globalCache = CacheService.get<GlobalCache>(GLOBAL_CACHE_KEY);
-            if (globalCache && (Date.now() - globalCache.timestamp < GLOBAL_CACHE_DURATION)) {
-                const existingUser = Object.values(globalCache.users).find(
-                    user => user.username === username && user.user_id !== currentUserId
-                );
-                const isUnique = !existingUser;
-                usernameCache.set(cacheKey, {
-                    isUnique,
-                    timestamp: Date.now()
-                });
-                return isUnique;
-            }
-
+            // Get all matching usernames
             const { data, error } = await supabase
                 .from('user_profiles')
                 .select('user_id')
-                .eq('username', username)
-                .neq('user_id', currentUserId)
-                .single();
+                .eq('username', username);
 
-            const isUnique = !data && error?.code === 'PGRST116';
-            usernameCache.set(cacheKey, {
-                isUnique,
-                timestamp: Date.now()
-            });
+            if (error) {
+                console.error('Error checking username uniqueness:', error);
+                return false;
+            }
 
-            return isUnique;
+            // If no data or empty array, username is available
+            if (!data || data.length === 0) {
+                return true;
+            }
+
+            // If there is exactly one result and it's the current user, username is available
+            if (data.length === 1 && data[0].user_id === currentUserId) {
+                return true;
+            }
+
+            // Username is taken by another user
+            return false;
         } catch (error) {
+            console.error('Error checking username uniqueness:', error);
             return false;
         }
     }
@@ -249,6 +239,7 @@ export class UserSettingsService {
 
             const fileExt = file.name.split('.').pop();
             const fileName = `${userId}/profile-picture.${fileExt}`;
+            const bucket = 'user-images';
 
             console.log('Attempting to upload file:', {
                 fileName,
@@ -257,28 +248,55 @@ export class UserSettingsService {
                 userId
             });
 
-            // Upload the file with its proper content type
-            const { data, error: uploadError } = await supabase.storage
-                .from('user-images')
-                .upload(fileName, file, {
-                    upsert: true,
-                    contentType: file.type
-                });
+            // Get the token for authorization
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
 
-            if (uploadError) {
-                console.error('Upload error details:', uploadError);
-                throw uploadError;
+            if (!token) {
+                throw new Error('No authentication token available');
             }
 
-            console.log('Upload successful:', data);
+            // Manually construct storage URL from the base URL
+            const storageUrl = 'https://jotzzoyslukrscesyohn.supabase.co/storage/v1';
 
-            const { data: { publicUrl } } = supabase.storage
-                .from('user-images')
-                .getPublicUrl(fileName);
+            // Create a promise to handle the XMLHttpRequest
+            return new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                const url = `${storageUrl}/object/${bucket}/${fileName}`;
 
-            console.log('Generated public URL:', publicUrl);
+                xhr.open('POST', url, true);
 
-            return publicUrl;
+                // Set headers
+                xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+                xhr.setRequestHeader('x-upsert', 'true');
+                xhr.setRequestHeader('Content-Type', file.type);
+
+                // Handle response
+                xhr.onload = function () {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        console.log('Upload successful:', xhr.responseText);
+
+                        // Get the public URL
+                        const { data: { publicUrl } } = supabase.storage
+                            .from(bucket)
+                            .getPublicUrl(fileName);
+
+                        console.log('Generated public URL:', publicUrl);
+                        resolve(publicUrl);
+                    } else {
+                        console.error('Upload failed:', xhr.status, xhr.responseText);
+                        reject(new Error(`Upload failed: ${xhr.status} ${xhr.responseText}`));
+                    }
+                };
+
+                xhr.onerror = function () {
+                    console.error('XHR error during upload');
+                    reject(new Error('Network error during upload'));
+                };
+
+                // Send the file directly as binary data
+                xhr.send(file);
+            });
         } catch (error) {
             console.error('Error uploading profile picture:', error);
             return null;
@@ -294,6 +312,7 @@ export class UserSettingsService {
 
             const fileExt = file.name.split('.').pop();
             const fileName = `${userId}/hero-banner.${fileExt}`;
+            const bucket = 'user-images';
 
             console.log('Attempting to upload hero banner:', {
                 fileName,
@@ -302,28 +321,55 @@ export class UserSettingsService {
                 userId
             });
 
-            // Upload the file with its proper content type
-            const { data, error: uploadError } = await supabase.storage
-                .from('user-images')
-                .upload(fileName, file, {
-                    upsert: true,
-                    contentType: file.type
-                });
+            // Get the token for authorization
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
 
-            if (uploadError) {
-                console.error('Upload error details:', uploadError);
-                throw uploadError;
+            if (!token) {
+                throw new Error('No authentication token available');
             }
 
-            console.log('Upload successful:', data);
+            // Manually construct storage URL from the base URL
+            const storageUrl = 'https://jotzzoyslukrscesyohn.supabase.co/storage/v1';
 
-            const { data: { publicUrl } } = supabase.storage
-                .from('user-images')
-                .getPublicUrl(fileName);
+            // Create a promise to handle the XMLHttpRequest
+            return new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                const url = `${storageUrl}/object/${bucket}/${fileName}`;
 
-            console.log('Generated public URL:', publicUrl);
+                xhr.open('POST', url, true);
 
-            return publicUrl;
+                // Set headers
+                xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+                xhr.setRequestHeader('x-upsert', 'true');
+                xhr.setRequestHeader('Content-Type', file.type);
+
+                // Handle response
+                xhr.onload = function () {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        console.log('Upload successful:', xhr.responseText);
+
+                        // Get the public URL
+                        const { data: { publicUrl } } = supabase.storage
+                            .from(bucket)
+                            .getPublicUrl(fileName);
+
+                        console.log('Generated public URL:', publicUrl);
+                        resolve(publicUrl);
+                    } else {
+                        console.error('Upload failed:', xhr.status, xhr.responseText);
+                        reject(new Error(`Upload failed: ${xhr.status} ${xhr.responseText}`));
+                    }
+                };
+
+                xhr.onerror = function () {
+                    console.error('XHR error during upload');
+                    reject(new Error('Network error during upload'));
+                };
+
+                // Send the file directly as binary data
+                xhr.send(file);
+            });
         } catch (error) {
             console.error('Error uploading hero banner:', error);
             return null;
@@ -332,24 +378,37 @@ export class UserSettingsService {
 
     async saveUserSettings(settings: UserSettings, userId: string): Promise<boolean> {
         try {
-            // Get existing profile
-            const { data: existingProfile } = await ProfileService.getProfile(userId);
+            // First get current settings to avoid overwriting fields not in the update
+            const currentSettings = await UserSettingsService.getUserSettings(userId);
 
-            // Update profile with new settings
-            await ProfileService.updateProfile({
-                user_id: userId,
+            // Create update object with all fields from settings
+            const updateData = {
                 username: settings.username,
                 full_name: settings.full_name,
                 bio: settings.bio,
-                profile_picture_url: settings.profile_picture_url,
-                hero_banner_url: settings.hero_banner_url,
-                website_url: settings.website_url,
-                youtube_url: settings.youtube_url,
-                instagram_url: settings.instagram_url,
-                // Keep existing profile data
-                measurement_system: existingProfile?.measurement_system || 'metric',
-                privacy_setting: existingProfile?.privacy_setting || 'approved_only'
-            }, userId);
+                profile_picture_url: settings.profile_picture_url || (currentSettings?.profile_picture_url || null),
+                hero_banner_url: settings.hero_banner_url || (currentSettings?.hero_banner_url || null),
+                website_url: settings.website_url || '',
+                youtube_url: settings.youtube_url || '',
+                instagram_url: settings.instagram_url || '',
+                updated_at: new Date().toISOString()
+            };
+
+            console.log('Updating user profile with data:', updateData);
+
+            // Update the profile directly in user_profiles table
+            const { error: updateError } = await supabase
+                .from('user_profiles')
+                .update(updateData)
+                .eq('user_id', userId);
+
+            if (updateError) throw updateError;
+
+            // Clear caches
+            memoryCache.delete(userId);
+            CacheService.clear(`user_settings_${userId}`);
+            CacheService.clear(GLOBAL_CACHE_KEY);
+            lastGlobalFetch = 0;
 
             return true;
         } catch (error) {

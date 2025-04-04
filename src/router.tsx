@@ -20,6 +20,7 @@ import ViewUserItinerary from './pages/ViewUserItinerary';
 import UserPublicDashboard from './pages/UserPublicDashboard';
 import PublicItineraryView from './pages/PublicItineraryView';
 import { CountryImagesAdmin } from './components/CountryImagesAdmin';
+import { DiscoverSectionAdmin } from './components/DiscoverSectionAdmin';
 import Discover from './pages/Discover';
 import LikedTrips from './pages/LikedTrips';
 import AdminDashboard from './pages/AdminDashboard';
@@ -87,6 +88,10 @@ export const router = createBrowserRouter([
       {
         path: 'admin/country-images',
         element: <ProtectedRoute><CountryImagesAdmin /></ProtectedRoute>
+      },
+      {
+        path: 'admin/discover-sections',
+        element: <ProtectedRoute><DiscoverSectionAdmin /></ProtectedRoute>
       },
       {
         path: 'admin',

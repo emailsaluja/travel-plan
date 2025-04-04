@@ -1,8 +1,9 @@
 import OpenAI from 'openai';
-import { supabase } from '../lib/supabase';
+import { supabase } from './supabase';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const DEEPSEEK_API_KEY = "sk-1eb1c96d9b04410c97a039a9a0f17ab2";
+const API_BASE_URL = 'http://localhost:8080'; // Update this to match your backend server port
 
 interface AIItineraryRequest {
     country: string;
@@ -217,18 +218,137 @@ Format the response as a JSON object with this structure:
     }
 
     async getItineraryById(id: string): Promise<SavedAIItinerary | null> {
-        const { data, error } = await this.supabase
-            .from('ai_itineraries')
-            .select('*')
-            .eq('id', id)
-            .single();
+        try {
+            const { data, error } = await supabase
+                .from('ai_itineraries')
+                .select('*')
+                .eq('id', id)
+                .single();
 
-        if (error) {
-            console.error('Error fetching AI itinerary:', error);
-            return null;
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error fetching itinerary:', error);
+            throw error;
         }
+    }
 
-        return data;
+    async updateItinerary(id: string, updatedItinerary: SavedAIItinerary): Promise<SavedAIItinerary> {
+        try {
+            const { data, error } = await supabase
+                .from('ai_itineraries')
+                .update({
+                    generated_itinerary: updatedItinerary.generated_itinerary,
+                    duration: updatedItinerary.duration
+                })
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error updating itinerary:', error);
+            throw error;
+        }
+    }
+
+    async addDestination(id: string, newDestination: any): Promise<SavedAIItinerary> {
+        try {
+            // First get the current itinerary
+            const { data: currentItinerary, error: fetchError } = await supabase
+                .from('ai_itineraries')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            if (fetchError) throw fetchError;
+
+            // Create updated itinerary data
+            const updatedData = {
+                generated_itinerary: {
+                    ...currentItinerary.generated_itinerary,
+                    destinations: [
+                        ...currentItinerary.generated_itinerary.destinations,
+                        newDestination
+                    ],
+                    dailyPlans: [
+                        ...currentItinerary.generated_itinerary.dailyPlans,
+                        ...Array.from({ length: newDestination.nights }, (_, i) => ({
+                            day: currentItinerary.generated_itinerary.dailyPlans.length + i + 1,
+                            activities: []
+                        }))
+                    ]
+                },
+                duration: currentItinerary.duration + newDestination.nights
+            };
+
+            // Update the itinerary
+            const { data, error } = await supabase
+                .from('ai_itineraries')
+                .update(updatedData)
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error adding destination:', error);
+            throw error;
+        }
+    }
+
+    async deleteDestination(id: string, destinationIndex: number): Promise<SavedAIItinerary> {
+        try {
+            // First get the current itinerary
+            const { data: currentItinerary, error: fetchError } = await supabase
+                .from('ai_itineraries')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            if (fetchError) throw fetchError;
+
+            // Get the destination to be deleted
+            const destinationToDelete = currentItinerary.generated_itinerary.destinations[destinationIndex];
+
+            // Calculate the days to remove
+            let dayCount = 0;
+            for (let i = 0; i < destinationIndex; i++) {
+                dayCount += currentItinerary.generated_itinerary.destinations[i].nights;
+            }
+            const startDay = dayCount + 1;
+            const endDay = startDay + destinationToDelete.nights - 1;
+
+            // Create updated itinerary data
+            const updatedData = {
+                generated_itinerary: {
+                    destinations: currentItinerary.generated_itinerary.destinations.filter((_, index) => index !== destinationIndex),
+                    dailyPlans: currentItinerary.generated_itinerary.dailyPlans.filter(plan =>
+                        plan.day < startDay || plan.day > endDay
+                    ).map((plan, index) => ({
+                        ...plan,
+                        day: index + 1 // Renumber the days
+                    }))
+                },
+                duration: currentItinerary.duration - destinationToDelete.nights
+            };
+
+            // Update the itinerary
+            const { data, error } = await supabase
+                .from('ai_itineraries')
+                .update(updatedData)
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error deleting destination:', error);
+            throw error;
+        }
     }
 }
 

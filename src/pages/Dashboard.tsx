@@ -462,52 +462,88 @@ const Dashboard = () => {
   };
 
   const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) { // 2MB limit
-        alert('Profile picture must be less than 2MB');
-        return;
-      }
-      setProfilePictureFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfilePicturePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    if (file.size > 2 * 1024 * 1024) { // 2MB limit
+      alert('Profile picture must be less than 2MB');
+      return;
     }
+
+    console.log('Selected profile picture:', {
+      name: file.name,
+      type: file.type,
+      size: file.size
+    });
+
+    // Store the raw file object
+    setProfilePictureFile(file);
+
+    // Create a local preview
+    const reader = new FileReader();
+    reader.onload = () => {
+      setProfilePicturePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleHeroBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        alert('Hero banner must be less than 5MB');
-        return;
-      }
-      setHeroBannerFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setHeroBannerPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      alert('Hero banner must be less than 5MB');
+      return;
     }
+
+    console.log('Selected hero banner:', {
+      name: file.name,
+      type: file.type,
+      size: file.size
+    });
+
+    // Store the raw file object
+    setHeroBannerFile(file);
+
+    // Create a local preview
+    const reader = new FileReader();
+    reader.onload = () => {
+      setHeroBannerPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
   const checkUsernameUniqueness = async (username: string, currentUserId: string): Promise<boolean> => {
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('user_id')
-      .eq('username', username)
-      .neq('user_id', currentUserId)
-      .single();
+    try {
+      // Get all matching usernames
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('user_id')
+        .eq('username', username);
 
-    if (error && error.code === 'PGRST116') {
-      // No matching username found, which means it's unique
-      return true;
+      if (error) {
+        console.error('Error checking username uniqueness:', error);
+        return false;
+      }
+
+      // If no data or empty array, username is available
+      if (!data || data.length === 0) {
+        return true;
+      }
+
+      // If there is exactly one result and it's the current user, username is available
+      if (data.length === 1 && data[0].user_id === currentUserId) {
+        return true;
+      }
+
+      // Username is taken by another user
+      return false;
+    } catch (error) {
+      console.error('Error checking username uniqueness:', error);
+      return false;
     }
-
-    // If we found a user with this username, it's not unique
-    return !data;
   };
 
   const handleSaveSettings = async () => {
@@ -525,24 +561,90 @@ const Dashboard = () => {
         }
       }
 
+      // Handle file uploads first if there are any
+      let profilePictureUrl = settings.profile_picture_url;
+      let heroBannerUrl = settings.hero_banner_url;
+
+      // Upload profile picture if there's a new file
+      if (profilePictureFile) {
+        console.log('Starting profile picture upload');
+
+        try {
+          const userSettingsService = new UserSettingsService();
+          const uploadedUrl = await userSettingsService.uploadProfilePicture(profilePictureFile, settings.user_id);
+
+          if (uploadedUrl) {
+            profilePictureUrl = uploadedUrl;
+            console.log('Profile picture uploaded successfully:', profilePictureUrl);
+          } else {
+            console.error('Failed to upload profile picture');
+          }
+        } catch (uploadError) {
+          console.error('Error uploading profile picture:', uploadError);
+        }
+      }
+
+      // Upload hero banner if there's a new file
+      if (heroBannerFile) {
+        console.log('Starting hero banner upload');
+
+        try {
+          const userSettingsService = new UserSettingsService();
+          const uploadedUrl = await userSettingsService.uploadHeroBanner(heroBannerFile, settings.user_id);
+
+          if (uploadedUrl) {
+            heroBannerUrl = uploadedUrl;
+            console.log('Hero banner uploaded successfully:', heroBannerUrl);
+          } else {
+            console.error('Failed to upload hero banner');
+          }
+        } catch (uploadError) {
+          console.error('Error uploading hero banner:', uploadError);
+        }
+      }
+
+      // Update the profile with all fields
+      const updateData = {
+        username: settings.username,
+        full_name: settings.full_name,
+        bio: settings.bio,
+        profile_picture_url: profilePictureUrl,
+        hero_banner_url: heroBannerUrl,
+        website_url: settings.website_url || '',
+        youtube_url: settings.youtube_url || '',
+        instagram_url: settings.instagram_url || '',
+        updated_at: new Date().toISOString()
+      };
+
+      console.log('Updating profile with data:', updateData);
+
       const { error: updateError } = await supabase
         .from('user_profiles')
-        .update({
-          username: settings.username,
-          full_name: settings.full_name,
-          bio: settings.bio,
-          website_url: settings.website_url,
-          youtube_url: settings.youtube_url,
-          instagram_url: settings.instagram_url
-        })
+        .update(updateData)
         .eq('user_id', settings.user_id);
 
       if (updateError) {
         throw updateError;
       }
 
-      setOriginalSettings(settings);
+      // Update local settings
+      setSettings(prev => ({
+        ...prev,
+        profile_picture_url: profilePictureUrl,
+        hero_banner_url: heroBannerUrl
+      }));
+
+      setOriginalSettings({
+        ...settings,
+        profile_picture_url: profilePictureUrl,
+        hero_banner_url: heroBannerUrl
+      });
+
       setIsSettingsOpen(false);
+
+      // Reset file states
+      setProfilePictureFile(null);
+      setHeroBannerFile(null);
     } catch (error: any) {
       setError(error.message);
     } finally {
@@ -881,7 +983,7 @@ const Dashboard = () => {
                     className="group relative bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all"
                   >
                     <div
-                      onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                      onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
                       className="cursor-pointer"
                     >
                       <div className="relative h-48">
@@ -1024,7 +1126,7 @@ const Dashboard = () => {
                       className="group relative overflow-hidden rounded-xl"
                     >
                       <div
-                        onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                        onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
                         className="cursor-pointer"
                       >
                         <ItineraryTile
@@ -1125,7 +1227,7 @@ const Dashboard = () => {
                     <div>
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
                         onChange={handleProfilePictureChange}
                         className="hidden"
                         id="profile-picture"
@@ -1215,7 +1317,7 @@ const Dashboard = () => {
                   <div className="mt-2">
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
                       onChange={handleHeroBannerChange}
                       className="hidden"
                       id="hero-banner"
