@@ -6,8 +6,9 @@ import { toast } from 'react-toastify';
 interface NotesPopupProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (notes: string) => void;
+  onSave: (notes: string, dayOverview: string) => void;
   initialNotes?: string;
+  initialDayOverview?: string;
   dayNumber: number;
   itineraryId?: string;
   dayIndex?: number;
@@ -18,11 +19,13 @@ const NotesPopup: React.FC<NotesPopupProps> = ({
   onClose,
   onSave,
   initialNotes = '',
+  initialDayOverview = '',
   dayNumber,
   itineraryId,
   dayIndex
 }) => {
   const [notes, setNotes] = useState('');
+  const [dayOverview, setDayOverview] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -39,7 +42,8 @@ const NotesPopup: React.FC<NotesPopupProps> = ({
     } else {
       setNotes('');
     }
-  }, [initialNotes]);
+    setDayOverview(initialDayOverview || '');
+  }, [initialNotes, initialDayOverview]);
 
   if (!isOpen) return null;
 
@@ -48,7 +52,7 @@ const NotesPopup: React.FC<NotesPopupProps> = ({
       setIsSaving(true);
 
       // Call the parent's onSave handler to update application state
-      onSave(notes);
+      onSave(notes, dayOverview);
 
       // If we have an itineraryId and dayIndex, also save directly to the database
       if (itineraryId && typeof dayIndex === 'number') {
@@ -71,7 +75,11 @@ const NotesPopup: React.FC<NotesPopupProps> = ({
           // Update existing record
           const { error } = await supabase
             .from('user_itinerary_day_notes')
-            .update({ notes, updated_at: new Date() })
+            .update({
+              notes,
+              day_overview: dayOverview,
+              updated_at: new Date()
+            })
             .eq('itinerary_id', itineraryId)
             .eq('day_index', dayIndex);
 
@@ -84,6 +92,7 @@ const NotesPopup: React.FC<NotesPopupProps> = ({
               itinerary_id: itineraryId,
               day_index: dayIndex,
               notes,
+              day_overview: dayOverview,
               created_at: new Date()
             });
 
@@ -143,25 +152,44 @@ const NotesPopup: React.FC<NotesPopupProps> = ({
 
         {/* Content */}
         <div className="p-6">
-          <div className="mb-4">
-            <button
-              onClick={addBulletPoint}
-              className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-            >
-              <List className="w-4 h-4" />
-              Add Bullet Point
-            </button>
+          {/* Day Overview Section */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Day Overview
+            </label>
+            <textarea
+              value={dayOverview}
+              onChange={(e) => setDayOverview(e.target.value)}
+              placeholder="Add a brief overview of this day's activities..."
+              className="w-full h-24 p-4 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 resize-none"
+            />
           </div>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Add your notes for this day..."
-            className="w-full h-64 p-4 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 resize-none font-mono"
-          />
-          <p className="mt-2 text-sm text-gray-500">
-            Press Enter to add a new bullet point automatically
-          </p>
+
+          {/* Notes Section */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Notes & Reminders
+              </label>
+              <button
+                onClick={addBulletPoint}
+                className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+              >
+                <List className="w-4 h-4" />
+                Add Bullet Point
+              </button>
+            </div>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Add your notes for this day..."
+              className="w-full h-64 p-4 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 resize-none font-mono"
+            />
+            <p className="mt-2 text-sm text-gray-500">
+              Press Enter to add a new bullet point automatically
+            </p>
+          </div>
         </div>
 
         {/* Footer */}
@@ -177,7 +205,7 @@ const NotesPopup: React.FC<NotesPopupProps> = ({
                 <span>Saving...</span>
               </>
             ) : (
-              <span>Save Notes</span>
+              <span>Save Changes</span>
             )}
           </button>
         </div>

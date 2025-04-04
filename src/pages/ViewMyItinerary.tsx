@@ -163,12 +163,12 @@ const ViewMyItinerary: React.FC = () => {
         allAttractions: { [key: string]: Attraction[] };
         allFoodOptions: { [key: string]: any[] };
         dayHotels: { [key: string]: string };
-        dayNotes: { [key: string]: string };
+        day_notes: { [key: string]: string };
     }>({
         allAttractions: {},
         allFoodOptions: {},
         dayHotels: {},
-        dayNotes: {}
+        day_notes: {}
     });
 
     const formatDate = (date: string) => {
@@ -282,7 +282,7 @@ const ViewMyItinerary: React.FC = () => {
                 allAttractions: attractions,
                 allFoodOptions: foodOptions,
                 dayHotels: hotels,
-                dayNotes: notes
+                day_notes: notes
             });
         };
 
@@ -294,7 +294,7 @@ const ViewMyItinerary: React.FC = () => {
     const currentAttractions = preloadedData.allAttractions[currentKey] || [];
     const currentFoodOptions = preloadedData.allFoodOptions[currentKey] || [];
     const currentHotel = preloadedData.dayHotels[currentKey];
-    const currentNotes = preloadedData.dayNotes[currentKey];
+    const currentNotes = preloadedData.day_notes[currentKey];
 
     // Update the renderFoodOptions function to use preloaded data
     const renderFoodOptions = (dayIndex: number) => {
@@ -433,7 +433,8 @@ const ViewMyItinerary: React.FC = () => {
     const dayHotelData = itinerary?.day_hotels?.find(d => d.day_index === currentDayNumber - 1);
     const dayHotel = dayHotelData?.hotel;
     const dayHotelDesc = dayHotelData?.hotel_desc;
-    const dayNotes = itinerary?.day_notes?.find(d => d.day_index === currentDayNumber - 1)?.notes;
+    const dayNotes = itinerary?.day_notes?.find(n => n.day_index === currentDayNumber - 1)?.notes;
+    const dayOverview = itinerary?.day_notes?.find(n => n.day_index === currentDayNumber - 1)?.day_overview;
     const dayFoodOptions = itinerary?.day_food_options?.[currentDayNumber - 1]?.food_options || [];
 
     // Get discover items for the current destination
@@ -684,20 +685,18 @@ const ViewMyItinerary: React.FC = () => {
                                                     </div>
                                                 </div>
 
-                                                {/* Things to Do Section */}
-                                                <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden">
-                                                    <div className="p-6">
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                                <path d="M17.5 8.33334C17.5 14.1667 10 19.1667 10 19.1667C10 19.1667 2.5 14.1667 2.5 8.33334C2.5 6.34421 3.29018 4.43656 4.6967 3.03004C6.10322 1.62352 8.01088 0.833344 10 0.833344C11.9891 0.833344 13.8968 1.62352 15.3033 3.03004C16.7098 4.43656 17.5 6.34421 17.5 8.33334Z" stroke="#0EA5E9" strokeWidth="1.67" strokeLinecap="round" strokeLinejoin="round" />
-                                                                <path d="M10 10.8333C11.3807 10.8333 12.5 9.71405 12.5 8.33334C12.5 6.95262 11.3807 5.83334 10 5.83334C8.61929 5.83334 7.5 6.95262 7.5 8.33334C7.5 9.71405 8.61929 10.8333 10 10.8333Z" stroke="#0EA5E9" strokeWidth="1.67" strokeLinecap="round" strokeLinejoin="round" />
-                                                            </svg>
-                                                            <h3 className="text-[#0F172A] text-lg font-semibold">Things to Do & See</h3>
+                                                {/* Day Content */}
+                                                <div className="mt-6">
+                                                    {/* Day Overview */}
+                                                    {dayOverview && (
+                                                        <div className="mb-6 bg-gray-50 p-4 rounded-lg">
+                                                            <h3 className="text-lg font-semibold mb-2">Day Overview</h3>
+                                                            <p className="text-gray-700">{dayOverview}</p>
                                                         </div>
-                                                        <p className="text-[#64748B] text-sm">Scheduled activities and recommended places to visit</p>
-                                                    </div>
+                                                    )}
 
-                                                    <div className="space-y-4 p-6 pt-2">
+                                                    {/* Attractions */}
+                                                    <div className="space-y-6">
                                                         {uniqueAttractions.map((attraction, index) => (
                                                             <div key={index} className="flex items-start justify-between p-4 border border-[#E2E8F0] rounded-lg">
                                                                 <div className="flex items-start gap-3">

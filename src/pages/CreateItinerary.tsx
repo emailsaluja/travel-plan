@@ -127,6 +127,7 @@ interface SaveDayHotel {
 interface DayNote {
   dayIndex: number;
   notes: string;
+  dayOverview?: string;
 }
 
 interface SaveDayNote {
@@ -282,6 +283,7 @@ const CreateItinerary: React.FC = () => {
   const [selectedDayForNotes, setSelectedDayForNotes] = useState<{
     dayIndex: number;
     notes: string;
+    dayOverview?: string;
   } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -2548,7 +2550,7 @@ const CreateItinerary: React.FC = () => {
               setShowNotesPopup(false);
               setSelectedDayForNotes(null);
             }}
-            onSave={(notes) => {
+            onSave={(notes, dayOverview) => {
               const updatedNotes = [...dayNotes];
               const existingNoteIndex = updatedNotes.findIndex(
                 (note) => note.dayIndex === selectedDayForNotes.dayIndex
@@ -2557,12 +2559,14 @@ const CreateItinerary: React.FC = () => {
               if (existingNoteIndex !== -1) {
                 updatedNotes[existingNoteIndex] = {
                   ...updatedNotes[existingNoteIndex],
-                  notes
+                  notes,
+                  dayOverview
                 };
               } else {
                 updatedNotes.push({
                   dayIndex: selectedDayForNotes.dayIndex,
-                  notes
+                  notes,
+                  dayOverview
                 });
               }
 
@@ -2571,6 +2575,7 @@ const CreateItinerary: React.FC = () => {
               setSelectedDayForNotes(null);
             }}
             initialNotes={selectedDayForNotes.notes}
+            initialDayOverview={selectedDayForNotes.dayOverview}
             dayNumber={selectedDayForNotes.dayIndex + 1}
             itineraryId={itineraryId}
             dayIndex={selectedDayForNotes.dayIndex}
