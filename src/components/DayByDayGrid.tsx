@@ -812,6 +812,8 @@ const DayByDayGrid: React.FC<DayByDayGridProps> = ({
           dayNumber={selectedDayForNotes.dayIndex + 1}
           initialNotes={selectedDayForNotes.notes}
           onSave={handleNotesUpdate}
+          itineraryId={itineraryId}
+          dayIndex={selectedDayForNotes.dayIndex}
         />
       )}
 

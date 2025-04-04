@@ -281,15 +281,31 @@ const ViewMyItinerary: React.FC = () => {
     // Update the renderFoodOptions function to use preloaded data
     const renderFoodOptions = (dayIndex: number) => {
         const key = `${selectedDestIndex}-${dayIndex}`;
-        const dayFoodOptions = preloadedData.allFoodOptions[key] || [];
+        const currentDayNumber = getDayNumber(selectedDestIndex, dayIndex);
+
+        // Get food options directly from the API data
+        const dayFoodOptions = itinerary?.day_food_options?.find(
+            d => d.day_index === currentDayNumber - 1
+        )?.food_options || [];
+
+        console.log('Food options to render:', dayFoodOptions);
 
         if (!dayFoodOptions || dayFoodOptions.length === 0) {
             return <p className="text-gray-500 py-4">No dining options added for this day.</p>;
         }
 
+        // Convert to proper format
+        const foodItems = dayFoodOptions.map(option => ({
+            id: option.id || '',
+            name: {
+                text: option.name || '',
+                cuisine: option.cuisine || 'Local Cuisine',
+                known_for: option.description || '-'
+            }
+        }));
+
         // Deduplicate food options based on restaurant name
-        const uniqueFoodOptions = dayFoodOptions.reduce((acc: FoodItem[], current: any) => {
-            // Safely check if the current item has the expected structure
+        const uniqueFoodOptions = foodItems.reduce((acc: FoodItem[], current: FoodItem) => {
             const currentName = current?.name?.text;
             if (!currentName) return acc;
 
@@ -304,6 +320,8 @@ const ViewMyItinerary: React.FC = () => {
             return acc;
         }, [] as FoodItem[]);
 
+        console.log('Unique food options:', uniqueFoodOptions);
+
         return (
             <div className="divide-y divide-[#E2E8F0]">
                 {uniqueFoodOptions.map((food: FoodItem, index: number) => (
@@ -312,7 +330,27 @@ const ViewMyItinerary: React.FC = () => {
                             <div className="text-[#0F172A] text-sm font-medium">{food.name?.text || 'N/A'}</div>
                         </div>
                         <div className="text-[#64748B] text-sm">{food.name?.cuisine || 'N/A'}</div>
-                        <div className="text-[#64748B] text-sm">{food.name?.known_for || 'N/A'}</div>
+                        <div className="text-[#64748B] text-sm">
+                            {(() => {
+                                const knownFor = food.name?.known_for || 'N/A';
+                                const { url, cleanText } = extractUrl(knownFor);
+                                return (
+                                    <>
+                                        {cleanText}
+                                        {url && (
+                                            <a
+                                                href={url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="ml-2 inline-block bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-0.5 rounded-md transition-colors"
+                                            >
+                                                Book Table
+                                            </a>
+                                        )}
+                                    </>
+                                );
+                            })()}
+                        </div>
                     </div>
                 ))}
             </div>
@@ -332,30 +370,26 @@ const ViewMyItinerary: React.FC = () => {
             <ul className="list-disc pl-5 space-y-2">
                 {lines.map((line, index) => {
                     // Process URLs in the line
-                    const parts = line.split(urlPattern);
-                    const matches = Array.from(line.matchAll(urlPattern)).map(match => match[0]);
+                    const urlMatches = Array.from(line.matchAll(urlPattern)).map(match => match[0]);
+                    const hasUrl = urlMatches.length > 0;
+                    const url = hasUrl ? urlMatches[0] : null;
 
-                    // Clean up the line by removing the bullet point if it exists
-                    const cleanLine = line.replace(/^[•\s]+/, '').trim();
+                    // Clean up the line by removing the bullet point if it exists and any URLs
+                    const cleanText = line.replace(/^[•\s]+/, '').replace(urlPattern, '').trim();
 
                     return (
                         <li key={index} className="text-gray-700">
-                            {parts.map((part: string, partIndex: number): React.ReactNode => {
-                                if (matches.includes(part)) {
-                                    return (
-                                        <a
-                                            key={partIndex}
-                                            href={part}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-blue-600 hover:underline break-words"
-                                        >
-                                            {part}
-                                        </a>
-                                    );
-                                }
-                                return <span key={partIndex}>{partIndex === 0 ? cleanLine : part}</span>;
-                            })}
+                            <span>{cleanText}</span>
+                            {url && (
+                                <a
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="ml-2 inline-block bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-0.5 rounded-md transition-colors"
+                                >
+                                    Click here
+                                </a>
+                            )}
                         </li>
                     );
                 })}
@@ -378,7 +412,9 @@ const ViewMyItinerary: React.FC = () => {
 
     const currentDayNumber = getDayNumber(selectedDestIndex, selectedDayIndex);
     const dayAttractions = itinerary?.day_attractions?.[currentDayNumber - 1]?.attractions || [];
-    const dayHotel = itinerary?.day_hotels?.find(d => d.day_index === currentDayNumber - 1)?.hotel;
+    const dayHotelData = itinerary?.day_hotels?.find(d => d.day_index === currentDayNumber - 1);
+    const dayHotel = dayHotelData?.hotel;
+    const dayHotelDesc = dayHotelData?.hotel_desc;
     const dayNotes = itinerary?.day_notes?.find(d => d.day_index === currentDayNumber - 1)?.notes;
     const dayFoodOptions = itinerary?.day_food_options?.[currentDayNumber - 1]?.food_options || [];
 
@@ -456,23 +492,20 @@ const ViewMyItinerary: React.FC = () => {
     const destinationFoodItems = currentDestination?.food?.split(',').filter(Boolean) || [];
     const destinationFoodDescriptions = currentDestination?.food_desc?.split(',').filter(Boolean) || [];
 
-    // Transform food options to match FoodItem interface
-    const transformFoodOptions = (foodOptions: any[]): FoodItem[] => {
-        return foodOptions.map(option => ({
-            id: option.id,
-            name: {
-                text: option.name,
-                cuisine: option.cuisine,
-                known_for: option.description
-            }
-        }));
-    };
-
     // Combine day food options with destination food items
     const allFoodOptions = dayFoodOptions.map((dayFood: any) => ({
         dayIndex: dayFood.day_index,
-        foodItems: transformFoodOptions(dayFood.food_options || [])
+        foodOptions: dayFood.food_options || []
     }));
+
+    // Add this function to extract URL from text and remove it from display
+    const extractUrl = (text: string): { url: string | null, cleanText: string } => {
+        const urlPattern = /(https?:\/\/[^\s]+)/g;
+        const match = text?.match(urlPattern);
+        const url = match ? match[0] : null;
+        const cleanText = text?.replace(urlPattern, '').trim();
+        return { url, cleanText };
+    };
 
     return (
         <section className="relative">
@@ -609,6 +642,19 @@ const ViewMyItinerary: React.FC = () => {
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                                                                 </svg>
                                                                 <span className="font-medium">{dayHotel}</span>
+                                                                {dayHotelDesc && (() => {
+                                                                    const { url } = extractUrl(dayHotelDesc);
+                                                                    return url ? (
+                                                                        <a
+                                                                            href={url}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="ml-2 bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded-md transition-colors"
+                                                                        >
+                                                                            Book Hotel
+                                                                        </a>
+                                                                    ) : null;
+                                                                })()}
                                                             </div>
                                                         )}
                                                     </div>
@@ -639,7 +685,28 @@ const ViewMyItinerary: React.FC = () => {
                                                                     <div>
                                                                         <h4 className="text-[#0F172A] text-base font-medium">{attraction.name}</h4>
                                                                         {attraction.description && (
-                                                                            <p className="text-[#64748B] text-sm mt-1">{attraction.description}</p>
+                                                                            <>
+                                                                                {(() => {
+                                                                                    const { url, cleanText } = extractUrl(attraction.description);
+                                                                                    return (
+                                                                                        <>
+                                                                                            <p className="text-[#64748B] text-sm mt-1">
+                                                                                                {cleanText}
+                                                                                            </p>
+                                                                                            {url && (
+                                                                                                <a
+                                                                                                    href={url}
+                                                                                                    target="_blank"
+                                                                                                    rel="noopener noreferrer"
+                                                                                                    className="mt-1 inline-block bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-0.5 rounded-md transition-colors"
+                                                                                                >
+                                                                                                    Book Now
+                                                                                                </a>
+                                                                                            )}
+                                                                                        </>
+                                                                                    );
+                                                                                })()}
+                                                                            </>
                                                                         )}
                                                                     </div>
                                                                 </div>

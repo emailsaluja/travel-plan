@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, List } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { toast } from 'react-toastify';
 
 interface NotesPopupProps {
   isOpen: boolean;
@@ -7,6 +9,8 @@ interface NotesPopupProps {
   onSave: (notes: string) => void;
   initialNotes?: string;
   dayNumber: number;
+  itineraryId?: string;
+  dayIndex?: number;
 }
 
 const NotesPopup: React.FC<NotesPopupProps> = ({
@@ -14,9 +18,12 @@ const NotesPopup: React.FC<NotesPopupProps> = ({
   onClose,
   onSave,
   initialNotes = '',
-  dayNumber
+  dayNumber,
+  itineraryId,
+  dayIndex
 }) => {
   const [notes, setNotes] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     // Convert escaped newlines to actual newlines and ensure bullet points
@@ -36,9 +43,69 @@ const NotesPopup: React.FC<NotesPopupProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSave = () => {
-    onSave(notes);
-    onClose();
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+
+      // Call the parent's onSave handler to update application state
+      onSave(notes);
+
+      // If we have an itineraryId and dayIndex, also save directly to the database
+      if (itineraryId && typeof dayIndex === 'number') {
+        // Check if a record already exists
+        const { data: existingRecord, error: checkError } = await supabase
+          .from('user_itinerary_day_notes')
+          .select('*')
+          .eq('itinerary_id', itineraryId)
+          .eq('day_index', dayIndex)
+          .maybeSingle();
+
+        if (checkError) {
+          console.error('Error checking for existing notes:', checkError);
+          toast.error('Error saving notes to database');
+          return;
+        }
+
+        let saveError;
+        if (existingRecord) {
+          // Update existing record
+          const { error } = await supabase
+            .from('user_itinerary_day_notes')
+            .update({ notes, updated_at: new Date() })
+            .eq('itinerary_id', itineraryId)
+            .eq('day_index', dayIndex);
+
+          saveError = error;
+        } else {
+          // Insert new record
+          const { error } = await supabase
+            .from('user_itinerary_day_notes')
+            .insert({
+              itinerary_id: itineraryId,
+              day_index: dayIndex,
+              notes,
+              created_at: new Date()
+            });
+
+          saveError = error;
+        }
+
+        if (saveError) {
+          console.error('Error saving notes to database:', saveError);
+          toast.error('Error saving notes to database');
+        } else {
+          console.log('Notes saved successfully to database');
+          toast.success('Notes saved successfully');
+        }
+      }
+
+      setIsSaving(false);
+      onClose();
+    } catch (error) {
+      console.error('Error saving notes:', error);
+      toast.error('Error saving notes');
+      setIsSaving(false);
+    }
   };
 
   const addBulletPoint = () => {
@@ -101,9 +168,17 @@ const NotesPopup: React.FC<NotesPopupProps> = ({
         <div className="p-6 border-t border-gray-200 flex justify-end">
           <button
             onClick={handleSave}
-            className="px-6 py-2 bg-pink-500 text-white rounded-full hover:bg-pink-600 transition-colors"
+            disabled={isSaving}
+            className="px-6 py-2 bg-pink-500 text-white rounded-full hover:bg-pink-600 transition-colors flex items-center gap-2"
           >
-            Save Notes
+            {isSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Saving...</span>
+              </>
+            ) : (
+              <span>Save Notes</span>
+            )}
           </button>
         </div>
       </div>
