@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { UserProfile } from '../types/profile';
 
 export interface ProfileSettings {
     user_id: string;
@@ -27,12 +28,14 @@ export class ProfileService {
                 profileUserId = user.id;
             }
 
-            // Try to get existing profile
+            // Try to get existing profile using maybeSingle() instead of single()
             const { data: existingProfile, error: fetchError } = await supabase
                 .from('user_profiles')
                 .select('*')
                 .eq('user_id', profileUserId)
-                .single();
+                .maybeSingle();
+
+            if (fetchError) throw fetchError;
 
             // If profile exists, return it
             if (existingProfile) {
@@ -67,63 +70,74 @@ export class ProfileService {
         }
     }
 
-    static async updateProfile(settings: Partial<ProfileSettings>, userId?: string) {
+    static async updateProfile(userId: string, data: Partial<UserProfile>) {
         try {
-            // If userId is not provided, get it from the current session
-            let profileUserId: string;
-            if (userId) {
-                profileUserId = userId;
-            } else {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) {
-                    throw new Error('User not authenticated');
-                }
-                profileUserId = user.id;
-            }
+            const { data: existingProfile, error: fetchError } = await supabase
+                .from('user_profiles')
+                .select('*')
+                .eq('user_id', userId)
+                .maybeSingle();
 
-            // If updating username, check if it's unique
-            if (settings.username) {
-                const { count, error: checkError } = await supabase
+            if (fetchError) throw fetchError;
+
+            if (existingProfile) {
+                // Update existing profile
+                const { data: updatedProfile, error: updateError } = await supabase
                     .from('user_profiles')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('username', settings.username)
-                    .neq('user_id', profileUserId);
+                    .update(data)
+                    .eq('user_id', userId)
+                    .select()
+                    .single();
 
-                if (checkError) {
-                    throw checkError;
-                }
+                if (updateError) throw updateError;
+                return updatedProfile;
+            } else {
+                // Create new profile
+                const { data: newProfile, error: insertError } = await supabase
+                    .from('user_profiles')
+                    .insert([{ user_id: userId, ...data }])
+                    .select()
+                    .single();
 
-                if (count && count > 0) {
-                    throw new Error('Username is already taken');
-                }
+                if (insertError) throw insertError;
+                return newProfile;
             }
-
-            // Get existing profile
-            const { data: existingProfile } = await supabase
-                .from('user_profiles')
-                .select('*')
-                .eq('user_id', profileUserId)
-                .single();
-
-            // Prepare the data to save
-            const dataToSave = {
-                user_id: profileUserId,
-                ...existingProfile, // Keep existing data
-                ...settings, // Override with new settings
-                updated_at: new Date().toISOString()
-            };
-
-            // Update or insert the profile
-            const { data, error } = await supabase
-                .from('user_profiles')
-                .upsert(dataToSave)
-                .select('*')
-                .single();
-
-            if (error) throw error;
-            return { data };
         } catch (error) {
             console.error('Error updating profile:', error);
+            throw error;
+        }
+    }
+
+    static async uploadProfilePicture(userId: string, file: File) {
+        try {
+            // Upload the file to storage
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${userId}-${Date.now()}.${fileExt}`;
+            const filePath = `profile-pictures/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('user-uploads')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            // Get the public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('user-uploads')
+                .getPublicUrl(filePath);
+
+            // Update the profile with the new picture URL
+            const { data: profile, error: updateError } = await supabase
+                .from('user_profiles')
+                .update({ profile_picture_url: publicUrl })
+                .eq('user_id', userId)
+                .select()
+                .single();
+
+            if (updateError) throw updateError;
+            return profile;
+        } catch (error) {
+            console.error('Error uploading profile picture:', error);
             throw error;
         }
     }
@@ -152,6 +166,34 @@ export class ProfileService {
             return { success: true };
         } catch (error) {
             console.error('Error deleting account:', error);
+            throw error;
+        }
+    }
+
+    static async checkUsernameAvailability(username: string, currentUserId: string) {
+        try {
+            // First check if username exists at all
+            const { data, error } = await supabase
+                .from('user_profiles')
+                .select('user_id')
+                .eq('username', username);
+
+            if (error) throw error;
+
+            // If no data or empty array, username is available
+            if (!data || data.length === 0) {
+                return true;
+            }
+
+            // If there is exactly one result and it's the current user, username is available
+            if (data.length === 1 && data[0].user_id === currentUserId) {
+                return true;
+            }
+
+            // Username is taken by another user
+            return false;
+        } catch (error) {
+            console.error('Error checking username availability:', error);
             throw error;
         }
     }

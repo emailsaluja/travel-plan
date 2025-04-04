@@ -34,6 +34,8 @@ const DISCOVER_SECTIONS = [
     'Trending Destinations',
     'Seasonal Highlights',
     'Travel Mood Boards',
+    'Urban Adventure',
+    'Historical Journey',
     'Hidden Gems',
     'Most Popular Itineraries',
     'Bucket List Experiences',

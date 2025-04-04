@@ -302,6 +302,8 @@ const Discover: React.FC = () => {
     const [countryImages, setCountryImages] = useState<Record<string, string[]>>({});
     const [selectedImages, setSelectedImages] = useState<Record<string, string>>({});
     const [sectionAssignments, setSectionAssignments] = useState<Record<string, string[]>>({});
+    const [activeSeason, setActiveSeason] = useState('Spring');
+    const [topTravellers, setTopTravellers] = useState<any[]>([]);
 
     // Group itineraries by country
     const countryStats = React.useMemo(() => {
@@ -376,33 +378,38 @@ const Discover: React.FC = () => {
                             }
                             selected[country] = imageUrl.toString();
                         } else {
-                            // Use default images if no country-specific images found
                             const defaultImages = images['default'] || [];
                             const randomDefaultIndex = Math.floor(Math.random() * defaultImages.length);
                             selected[country] = defaultImages[randomDefaultIndex];
                         }
                     } catch (error) {
                         console.error(`Error processing hero image for ${country}:`, error);
-                        // Use a static fallback image if everything else fails
                         selected[country] = '/images/empty-state.svg';
                     }
                 });
 
-                // Select images for itineraries
+                // Select images for itineraries with different sizes based on section
                 itineraries.forEach(itinerary => {
                     try {
                         const countryImageList = images[itinerary.country] || [];
                         if (countryImageList.length > 0) {
-                            // For itinerary tiles, use smaller images
                             const randomIndex = Math.floor(Math.random() * countryImageList.length);
                             const imageUrl = new URL(countryImageList[randomIndex]);
+
                             if (imageUrl.hostname.includes('supabase.co')) {
-                                imageUrl.searchParams.set('quality', '90');
-                                imageUrl.searchParams.set('width', '800');
+                                // Use higher quality and larger size for Featured Destinations
+                                if (sectionAssignments['Featured Destinations']?.includes(itinerary.id)) {
+                                    imageUrl.searchParams.set('quality', '95');
+                                    imageUrl.searchParams.set('width', '1200');
+                                    imageUrl.searchParams.set('height', '800');
+                                } else {
+                                    // Standard size for other sections
+                                    imageUrl.searchParams.set('quality', '90');
+                                    imageUrl.searchParams.set('width', '800');
+                                }
                             }
                             selected[itinerary.id] = imageUrl.toString();
                         } else {
-                            // Use default images if no country-specific images found
                             const defaultImages = images['default'] || [];
                             const randomDefaultIndex = Math.floor(Math.random() * defaultImages.length);
                             selected[itinerary.id] = defaultImages[randomDefaultIndex];
@@ -417,7 +424,6 @@ const Discover: React.FC = () => {
                 setSelectedImages(selected);
             } catch (error) {
                 console.error('Error fetching country images:', error);
-                // Set default images for all countries and itineraries
                 const selected: Record<string, string> = {};
                 Object.keys(countryStats).forEach(country => {
                     selected[country] = '/images/empty-state.svg';
@@ -430,7 +436,7 @@ const Discover: React.FC = () => {
         };
 
         fetchCountryImages();
-    }, [itineraries, countryStats]);
+    }, [itineraries, countryStats, sectionAssignments]);
 
     const loadItineraries = async () => {
         try {
@@ -445,6 +451,90 @@ const Discover: React.FC = () => {
 
     const handleCountryClick = (country: string) => {
         navigate(`/discover/${encodeURIComponent(country.toLowerCase())}`);
+    };
+
+    // Add this function to load top travellers
+    const loadTopTravellers = async () => {
+        try {
+            // First get all itineraries grouped by user_id
+            const { data: itineraryData, error: itineraryError } = await supabase
+                .from('user_itineraries')
+                .select('user_id, country, created_at')
+                .order('created_at', { ascending: false });
+
+            if (itineraryError) throw itineraryError;
+
+            // Group itineraries by user and calculate stats
+            const userStats = itineraryData.reduce((acc: any, itinerary: any) => {
+                const userId = itinerary.user_id;
+                if (!acc[userId]) {
+                    acc[userId] = {
+                        user_id: userId,
+                        countries: new Set(),
+                        lastMonthTrips: 0,
+                        totalTrips: 0
+                    };
+                }
+
+                acc[userId].countries.add(itinerary.country);
+                acc[userId].totalTrips++;
+
+                // Check if itinerary was created in the last month
+                const lastMonth = new Date();
+                lastMonth.setMonth(lastMonth.getMonth() - 1);
+                if (new Date(itinerary.created_at) >= lastMonth) {
+                    acc[userId].lastMonthTrips++;
+                }
+
+                return acc;
+            }, {});
+
+            // Get top 3 users by total trips
+            const topUserIds = Object.entries(userStats)
+                .sort(([, a]: any, [, b]: any) => b.totalTrips - a.totalTrips)
+                .slice(0, 3)
+                .map(([userId]) => userId);
+
+            console.log('Top user IDs:', topUserIds);
+
+            // Fetch user details for top users
+            const { data: userData, error: userError } = await supabase
+                .from('user_profiles')
+                .select('user_id, full_name, profile_picture_url, bio')
+                .in('user_id', topUserIds);
+
+            if (userError) throw userError;
+
+            console.log('User profiles data:', userData);
+
+            if (!userData || userData.length === 0) {
+                console.warn('No user profiles found for top travellers');
+                return;
+            }
+
+            // Combine user data with their stats
+            const processedTravellers = userData.map((user: any) => ({
+                ...user,
+                ...userStats[user.user_id],
+                avatar_url: user.profile_picture_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.user_id}`,
+                countriesVisited: Array.from(userStats[user.user_id].countries)
+            }));
+
+            console.log('Processed travellers:', processedTravellers);
+            setTopTravellers(processedTravellers);
+        } catch (error) {
+            console.error('Error loading top travellers:', error);
+        }
+    };
+
+    useEffect(() => {
+        loadTopTravellers();
+    }, []);
+
+    const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>, fallbackUrl: string = '/images/empty-state.svg') => {
+        const target = e.target as HTMLImageElement;
+        console.warn(`Failed to load image: ${target.src}`);
+        target.src = fallbackUrl;
     };
 
     if (loading) {
@@ -510,10 +600,7 @@ const Discover: React.FC = () => {
                                 maxWidth: '100%',
                                 maxHeight: '100%'
                             }}
-                            onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = '/images/empty-state.svg';
-                            }}
+                            onError={(e) => handleImageError(e)}
                             loading="eager"
                         />
                         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/60"></div>
@@ -717,18 +804,7 @@ const Discover: React.FC = () => {
                                     alt={country}
                                     className="absolute inset-0 w-full h-full object-cover"
                                     loading="lazy"
-                                    onError={(e) => {
-                                        console.error(`Failed to load image for ${country}`);
-                                        const target = e.target as HTMLImageElement;
-                                        // Try to get a default image from the country images
-                                        const defaultImages = countryImages['default'] || [];
-                                        if (defaultImages.length > 0) {
-                                            const randomIndex = Math.floor(Math.random() * defaultImages.length);
-                                            target.src = defaultImages[randomIndex];
-                                        } else {
-                                            target.src = '/images/empty-state.svg';
-                                        }
-                                    }}
+                                    onError={(e) => handleImageError(e)}
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/60"></div>
                                 <div className="absolute inset-0 p-4 flex flex-col justify-end">
@@ -752,22 +828,47 @@ const Discover: React.FC = () => {
                                 <div
                                     key={itinerary.id}
                                     onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
-                                    className="cursor-pointer"
+                                    className="relative group cursor-pointer rounded-xl overflow-hidden"
                                 >
-                                    <ItineraryTile
-                                        id={itinerary.id}
-                                        title={itinerary.trip_name}
-                                        description={`${itinerary.duration} days in ${itinerary.destinations
-                                            .map(d => cleanDestination(d.destination))
-                                            .join(', ')}`}
-                                        imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
-                                        duration={itinerary.duration}
-                                        cities={itinerary.destinations.map(d =>
-                                            cleanDestination(d.destination)
-                                        )}
-                                        createdAt={itinerary.created_at}
-                                        loading="lazy"
-                                    />
+                                    <div className="relative aspect-[4/3]">
+                                        <img
+                                            src={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                            alt={itinerary.trip_name}
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => handleImageError(e)}
+                                        />
+                                        {/* Like button */}
+                                        <button className="absolute top-4 right-4 bg-white/90 p-2 rounded-full z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                            </svg>
+                                        </button>
+                                        {/* Gradient overlay */}
+                                        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/30 to-black/60"></div>
+                                        {/* Content overlay */}
+                                        <div className="absolute inset-0 p-6 flex flex-col justify-between text-white">
+                                            <div>
+                                                <span className="inline-block px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-sm mb-2">
+                                                    {itinerary.tags?.[0] || 'Featured'}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xl font-semibold mb-2">{itinerary.trip_name}</h3>
+                                                <p className="text-white/90 text-sm mb-2">
+                                                    {itinerary.destinations.map(d => cleanDestination(d.destination)).join(', ')}
+                                                </p>
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <span>{itinerary.duration} days</span>
+                                                    <span className="text-white/60">•</span>
+                                                    <div className="flex items-center">
+                                                        <span className="text-yellow-400">★</span>
+                                                        <span className="ml-1">4.8</span>
+                                                        <span className="text-white/60 ml-1">(987)</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             ))}
                     </div>
@@ -785,137 +886,38 @@ const Discover: React.FC = () => {
                         </button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {/* Italy Card */}
-                        <div className="rounded-lg overflow-hidden shadow-md group cursor-pointer">
-                            <div className="relative">
-                                <img
-                                    src="https://images.unsplash.com/photo-1516483638261-f4dbaf036963"
-                                    alt="Italy"
-                                    className="w-full h-[200px] object-cover"
-                                />
-                                <div className="absolute top-3 left-3 bg-white rounded-full px-2 py-1 flex items-center gap-1">
-                                    <span className="text-yellow-400">★</span>
-                                    <span className="font-medium">4.8</span>
-                                </div>
-                                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60"></div>
-                                <div className="absolute bottom-3 left-3 text-white">
-                                    <div className="flex items-center gap-1 mb-1">
-                                        <span className="text-white">📍</span>
-                                        <span className="font-medium">Italy</span>
+                        {itineraries
+                            .filter(itinerary => sectionAssignments['Trending Destinations']?.includes(itinerary.id))
+                            .slice(0, 4)
+                            .map((itinerary) => (
+                                <div
+                                    key={itinerary.id}
+                                    onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                    className="rounded-lg overflow-hidden shadow-md group cursor-pointer"
+                                >
+                                    <div className="relative">
+                                        <img
+                                            src={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                            alt={itinerary.trip_name}
+                                            className="w-full h-[200px] object-cover"
+                                            onError={(e) => handleImageError(e)}
+                                        />
+                                        <div className="absolute top-3 left-3 bg-white rounded-full px-2 py-1 flex items-center gap-1">
+                                            <span className="text-yellow-400">★</span>
+                                            <span className="font-medium">4.8</span>
+                                        </div>
+                                        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60"></div>
+                                        <div className="absolute bottom-0 left-0 right-0 p-4">
+                                            <h3 className="text-white font-semibold text-lg">{itinerary.trip_name}</h3>
+                                            <p className="text-white/90 text-sm">{itinerary.country}</p>
+                                            <p className="text-white/80 text-xs mt-1">
+                                                {itinerary.destinations.map(d => cleanDestination(d.destination)).join(', ')}
+                                            </p>
+                                            <p className="text-white/90 text-sm mt-1">{itinerary.duration} days</p>
+                                        </div>
                                     </div>
-                                    <p className="text-sm text-gray-200">Renaissance art, iconic architecture, and delicious cuisine</p>
                                 </div>
-                            </div>
-                            <div className="p-4 bg-white">
-                                <div className="text-sm text-gray-600 mb-2">498 trips planned</div>
-                                <div className="flex flex-wrap gap-2">
-                                    <span className="text-sm text-[#0096FF]">Rome</span>
-                                    <span className="text-gray-400">•</span>
-                                    <span className="text-sm text-[#0096FF]">Florence</span>
-                                    <span className="text-gray-400">•</span>
-                                    <span className="text-sm text-[#0096FF]">Venice</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Bali Card */}
-                        <div className="rounded-lg overflow-hidden shadow-md group cursor-pointer">
-                            <div className="relative">
-                                <img
-                                    src="https://images.unsplash.com/photo-1537996194471-e657df975ab4"
-                                    alt="Bali"
-                                    className="w-full h-[200px] object-cover"
-                                />
-                                <div className="absolute top-3 left-3 bg-white rounded-full px-2 py-1 flex items-center gap-1">
-                                    <span className="text-yellow-400">★</span>
-                                    <span className="font-medium">4.7</span>
-                                </div>
-                                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60"></div>
-                                <div className="absolute bottom-3 left-3 text-white">
-                                    <div className="flex items-center gap-1 mb-1">
-                                        <span className="text-white">📍</span>
-                                        <span className="font-medium">Bali, Indonesia</span>
-                                    </div>
-                                    <p className="text-sm text-gray-200">Tropical paradise with stunning beaches and spiritual retreats</p>
-                                </div>
-                            </div>
-                            <div className="p-4 bg-white">
-                                <div className="text-sm text-gray-600 mb-2">276 trips planned</div>
-                                <div className="flex flex-wrap gap-2">
-                                    <span className="text-sm text-[#0096FF]">Ubud</span>
-                                    <span className="text-gray-400">•</span>
-                                    <span className="text-sm text-[#0096FF]">Seminyak</span>
-                                    <span className="text-gray-400">•</span>
-                                    <span className="text-sm text-[#0096FF]">Uluwatu</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Greece Card */}
-                        <div className="rounded-lg overflow-hidden shadow-md group cursor-pointer">
-                            <div className="relative">
-                                <img
-                                    src="https://images.unsplash.com/photo-1533105079780-92b9be482077"
-                                    alt="Greece"
-                                    className="w-full h-[200px] object-cover"
-                                />
-                                <div className="absolute top-3 left-3 bg-white rounded-full px-2 py-1 flex items-center gap-1">
-                                    <span className="text-yellow-400">★</span>
-                                    <span className="font-medium">4.8</span>
-                                </div>
-                                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60"></div>
-                                <div className="absolute bottom-3 left-3 text-white">
-                                    <div className="flex items-center gap-1 mb-1">
-                                        <span className="text-white">📍</span>
-                                        <span className="font-medium">Greece</span>
-                                    </div>
-                                    <p className="text-sm text-gray-200">Ancient ruins, idyllic islands, and Mediterranean charm</p>
-                                </div>
-                            </div>
-                            <div className="p-4 bg-white">
-                                <div className="text-sm text-gray-600 mb-2">342 trips planned</div>
-                                <div className="flex flex-wrap gap-2">
-                                    <span className="text-sm text-[#0096FF]">Athens</span>
-                                    <span className="text-gray-400">•</span>
-                                    <span className="text-sm text-[#0096FF]">Santorini</span>
-                                    <span className="text-gray-400">•</span>
-                                    <span className="text-sm text-[#0096FF]">Mykonos</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* New Zealand Card */}
-                        <div className="rounded-lg overflow-hidden shadow-md group cursor-pointer">
-                            <div className="relative">
-                                <img
-                                    src="https://images.unsplash.com/photo-1507699622108-4be3abd695ad"
-                                    alt="New Zealand"
-                                    className="w-full h-[200px] object-cover"
-                                />
-                                <div className="absolute top-3 left-3 bg-white rounded-full px-2 py-1 flex items-center gap-1">
-                                    <span className="text-yellow-400">★</span>
-                                    <span className="font-medium">4.9</span>
-                                </div>
-                                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60"></div>
-                                <div className="absolute bottom-3 left-3 text-white">
-                                    <div className="flex items-center gap-1 mb-1">
-                                        <span className="text-white">📍</span>
-                                        <span className="font-medium">New Zealand</span>
-                                    </div>
-                                    <p className="text-sm text-gray-200">Stunning landscapes from mountains to beaches</p>
-                                </div>
-                            </div>
-                            <div className="p-4 bg-white">
-                                <div className="text-sm text-gray-600 mb-2">215 trips planned</div>
-                                <div className="flex flex-wrap gap-2">
-                                    <span className="text-sm text-[#0096FF]">Auckland</span>
-                                    <span className="text-gray-400">•</span>
-                                    <span className="text-sm text-[#0096FF]">Queenstown</span>
-                                    <span className="text-gray-400">•</span>
-                                    <span className="text-sm text-[#0096FF]">Wellington</span>
-                                </div>
-                            </div>
-                        </div>
+                            ))}
                     </div>
                 </div>
 
@@ -965,111 +967,65 @@ const Discover: React.FC = () => {
 
                     {/* Season Tabs */}
                     <div className="flex gap-4 mb-8">
-                        <button className="flex items-center gap-2 px-6 py-2 bg-blue-50 text-blue-600 rounded-full">
+                        <button
+                            onClick={() => setActiveSeason('Spring')}
+                            className={`flex items-center gap-2 px-6 py-2 rounded-full ${activeSeason === 'Spring' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                        >
                             <span>🌸</span>
                             Spring
                         </button>
-                        <button className="flex items-center gap-2 px-6 py-2 text-gray-600 hover:bg-gray-50 rounded-full">
+                        <button
+                            onClick={() => setActiveSeason('Summer')}
+                            className={`flex items-center gap-2 px-6 py-2 rounded-full ${activeSeason === 'Summer' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                        >
                             <span>☀️</span>
                             Summer
                         </button>
-                        <button className="flex items-center gap-2 px-6 py-2 text-gray-600 hover:bg-gray-50 rounded-full">
+                        <button
+                            onClick={() => setActiveSeason('Autumn')}
+                            className={`flex items-center gap-2 px-6 py-2 rounded-full ${activeSeason === 'Autumn' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                        >
                             <span>🍂</span>
                             Autumn
                         </button>
-                        <button className="flex items-center gap-2 px-6 py-2 text-gray-600 hover:bg-gray-50 rounded-full">
+                        <button
+                            onClick={() => setActiveSeason('Winter')}
+                            className={`flex items-center gap-2 px-6 py-2 rounded-full ${activeSeason === 'Winter' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                        >
                             <span>❄️</span>
                             Winter
                         </button>
                     </div>
 
-                    <h3 className="text-xl font-semibold mb-4">Spring Adventures</h3>
-                    <p className="text-gray-600 mb-6">Experience blossoming landscapes and mild temperatures</p>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {/* Japan Card */}
-                        <div className="group cursor-pointer">
-                            <div className="relative h-[280px] rounded-lg overflow-hidden mb-4">
-                                <img
-                                    src="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e"
-                                    alt="Japan"
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute inset-0 bg-black bg-opacity-30"></div>
-                                <div className="absolute bottom-4 left-4">
-                                    <div className="flex items-center gap-1 text-white mb-1">
-                                        <span>📍</span>
-                                        <span className="font-medium">Japan</span>
-                                    </div>
-                                    <h4 className="text-white text-lg font-medium">Cherry Blossom Viewing</h4>
+                        {itineraries
+                            .filter(itinerary => sectionAssignments[activeSeason]?.includes(itinerary.id))
+                            .map((itinerary) => (
+                                <div
+                                    key={itinerary.id}
+                                    onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                    className="cursor-pointer"
+                                >
+                                    <ItineraryTile
+                                        id={itinerary.id}
+                                        title={itinerary.trip_name}
+                                        description={`${itinerary.duration} days in ${itinerary.destinations
+                                            .map(d => cleanDestination(d.destination))
+                                            .join(', ')}`}
+                                        imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                        duration={itinerary.duration}
+                                        cities={itinerary.destinations.map(d =>
+                                            cleanDestination(d.destination)
+                                        )}
+                                        createdAt={itinerary.created_at}
+                                        loading="lazy"
+                                    />
                                 </div>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-600 text-sm mb-2">
-                                <span>📅</span>
-                                <span>Best time: March - May</span>
-                                <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs">Spring</span>
-                            </div>
-                            <button className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
-                                Explore Itineraries
-                                <span>→</span>
-                            </button>
-                        </div>
-
-                        {/* Netherlands Card */}
-                        <div className="group cursor-pointer">
-                            <div className="relative h-[280px] rounded-lg overflow-hidden mb-4">
-                                <img
-                                    src="https://images.unsplash.com/photo-1460904577954-8fadb262612c"
-                                    alt="Netherlands"
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute inset-0 bg-black bg-opacity-30"></div>
-                                <div className="absolute bottom-4 left-4">
-                                    <div className="flex items-center gap-1 text-white mb-1">
-                                        <span>📍</span>
-                                        <span className="font-medium">Netherlands</span>
-                                    </div>
-                                    <h4 className="text-white text-lg font-medium">Tulip Festival</h4>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-600 text-sm mb-2">
-                                <span>📅</span>
-                                <span>Best time: April - May</span>
-                                <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs">Spring</span>
-                            </div>
-                            <button className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
-                                Explore Itineraries
-                                <span>→</span>
-                            </button>
-                        </div>
-
-                        {/* Morocco Card */}
-                        <div className="group cursor-pointer">
-                            <div className="relative h-[280px] rounded-lg overflow-hidden mb-4">
-                                <img
-                                    src="https://images.unsplash.com/photo-1489493887464-892be6d1daae"
-                                    alt="Morocco"
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute inset-0 bg-black bg-opacity-30"></div>
-                                <div className="absolute bottom-4 left-4">
-                                    <div className="flex items-center gap-1 text-white mb-1">
-                                        <span>📍</span>
-                                        <span className="font-medium">Morocco</span>
-                                    </div>
-                                    <h4 className="text-white text-lg font-medium">Desert Trekking</h4>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-600 text-sm mb-2">
-                                <span>📅</span>
-                                <span>Best time: March - May</span>
-                                <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs">Spring</span>
-                            </div>
-                            <button className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
-                                Explore Itineraries
-                                <span>→</span>
-                            </button>
-                        </div>
+                            ))}
                     </div>
                 </div>
 
@@ -1247,53 +1203,52 @@ const Discover: React.FC = () => {
                             </div>
 
                             <div className="grid grid-cols-2 gap-4 mb-4">
-                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9"
-                                        alt="New York Skyline"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1449824913935-59a10b8d2000"
-                                        alt="City Architecture"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1514565131-fce0801e5785"
-                                        alt="Historic Building"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e"
-                                        alt="Japanese Temple"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
+                                {itineraries
+                                    .filter(itinerary => sectionAssignments['Urban Adventure']?.includes(itinerary.id))
+                                    .slice(0, 4)
+                                    .map((itinerary) => (
+                                        <div
+                                            key={itinerary.id}
+                                            onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                            className="aspect-[4/3] rounded-lg overflow-hidden cursor-pointer"
+                                        >
+                                            <img
+                                                src={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                                alt={itinerary.trip_name}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                    ))}
                             </div>
 
                             <div className="space-y-3">
                                 <div className="flex items-center gap-2">
                                     <span className="text-gray-600">Perfect for:</span>
                                     <div className="flex gap-2">
-                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Tokyo</span>
-                                        <span className="text-gray-300">•</span>
-                                        <span className="text-[#0096FF] hover:underline cursor-pointer">New York</span>
-                                        <span className="text-gray-300">•</span>
-                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Paris</span>
+                                        {Array.from(new Set(
+                                            itineraries
+                                                .filter(itinerary => sectionAssignments['Urban Adventure']?.includes(itinerary.id))
+                                                .map(itinerary => itinerary.country)
+                                        ))
+                                            .filter(Boolean)
+                                            .slice(0, 3)
+                                            .map((country, index, array) => (
+                                                <React.Fragment key={country}>
+                                                    <span className="text-[#0096FF] hover:underline cursor-pointer">{country}</span>
+                                                    {index < array.length - 1 && <span className="text-gray-300">•</span>}
+                                                </React.Fragment>
+                                            ))}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span>📅</span>
                                     <span className="text-gray-600">Best time: Year-round</span>
                                 </div>
-                                <button className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
-                                    See Itineraries
+                                <button
+                                    onClick={() => navigate('/itineraries?section=urban')}
+                                    className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    See All Urban Itineraries
                                     <span>→</span>
                                 </button>
                             </div>
@@ -1321,499 +1276,57 @@ const Discover: React.FC = () => {
                             </div>
 
                             <div className="grid grid-cols-2 gap-4 mb-4">
-                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1552832230-c0197dd311b5"
-                                        alt="Rome Colosseum"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1603565816030-6b389eeb23cb"
-                                        alt="Athens Parthenon"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e"
-                                        alt="Kyoto Temple"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
+                                {itineraries
+                                    .filter(itinerary => sectionAssignments['Historical Journey']?.includes(itinerary.id))
+                                    .slice(0, 4)
+                                    .map((itinerary) => (
+                                        <div
+                                            key={itinerary.id}
+                                            onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                            className="aspect-[4/3] rounded-lg overflow-hidden cursor-pointer"
+                                        >
+                                            <img
+                                                src={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                                alt={itinerary.trip_name}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                    ))}
                             </div>
 
                             <div className="space-y-3">
                                 <div className="flex items-center gap-2">
                                     <span className="text-gray-600">Perfect for:</span>
                                     <div className="flex gap-2">
-                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Rome</span>
-                                        <span className="text-gray-300">•</span>
-                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Athens</span>
-                                        <span className="text-gray-300">•</span>
-                                        <span className="text-[#0096FF] hover:underline cursor-pointer">Kyoto</span>
+                                        {Array.from(new Set(
+                                            itineraries
+                                                .filter(itinerary => sectionAssignments['Historical Journey']?.includes(itinerary.id))
+                                                .map(itinerary => itinerary.country)
+                                        ))
+                                            .filter(Boolean)
+                                            .slice(0, 3)
+                                            .map((country, index, array) => (
+                                                <React.Fragment key={country}>
+                                                    <span className="text-[#0096FF] hover:underline cursor-pointer">{country}</span>
+                                                    {index < array.length - 1 && <span className="text-gray-300">•</span>}
+                                                </React.Fragment>
+                                            ))}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span>📅</span>
                                     <span className="text-gray-600">Best time: Spring or Fall</span>
                                 </div>
-                                <button className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
-                                    See Itineraries
+                                <button
+                                    onClick={() => navigate('/itineraries?section=historical')}
+                                    className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    See All Historical Itineraries
                                     <span>→</span>
                                 </button>
                             </div>
                         </div>
 
-                    </div>
-                </div>
-
-                {/* Travellers with most Trips Section */}
-                <div className="mb-12">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-bold text-gray-900">Travellers with most Trips</h2>
-                        <button
-                            onClick={() => navigate('/community')}
-                            className="text-[#0096FF] hover:text-[#0077CC] font-medium"
-                        >
-                            View all →
-                        </button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {/* Alex Morgan Card */}
-                        <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                            <div className="relative h-48">
-                                <img
-                                    src="https://images.unsplash.com/photo-1542909168-82c3e7fdca5c"
-                                    alt="Alex Morgan"
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute top-4 left-4">
-                                    <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 text-sm font-medium">
-                                        🌍 Iceland
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="p-4">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1542909168-82c3e7fdca5c"
-                                        alt="Alex Morgan"
-                                        className="w-12 h-12 rounded-full object-cover"
-                                    />
-                                    <div>
-                                        <h3 className="font-semibold">Alex Morgan</h3>
-                                        <p className="text-sm text-gray-600">Explorer</p>
-                                    </div>
-                                </div>
-                                <h4 className="font-medium mb-2">Iceland Ring Road: Essential Tips</h4>
-                                <p className="text-sm text-gray-600 mb-3">
-                                    After driving the entire Ring Road twice, here are my top recommendations for the best stops, hidden gems, and...
-                                </p>
-                                <div className="flex items-center justify-between text-sm text-gray-500">
-                                    <div className="flex items-center gap-2">
-                                        <span>28 comments</span>
-                                        <span>•</span>
-                                        <span>142 likes</span>
-                                    </div>
-                                    <button className="text-[#0096FF] hover:text-[#0077CC]">Read More</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Mia Zhang Card */}
-                        <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                            <div className="relative h-48">
-                                <img
-                                    src="https://images.unsplash.com/photo-1553701275-1d6594ac1b9b"
-                                    alt="Japan Street"
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute top-4 left-4">
-                                    <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 text-sm font-medium">
-                                        🗾 Japan
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="p-4">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80"
-                                        alt="Mia Zhang"
-                                        className="w-12 h-12 rounded-full object-cover"
-                                    />
-                                    <div>
-                                        <h3 className="font-semibold">Mia Zhang</h3>
-                                        <p className="text-sm text-gray-600">Travel Expert</p>
-                                    </div>
-                                </div>
-                                <h4 className="font-medium mb-2">Solo Female Travel in Japan</h4>
-                                <p className="text-sm text-gray-600 mb-3">
-                                    My experience traveling alone through Japan as a woman, with safety tips, cultural insights, and recommendations for...
-                                </p>
-                                <div className="flex items-center justify-between text-sm text-gray-500">
-                                    <div className="flex items-center gap-2">
-                                        <span>46 comments</span>
-                                        <span>•</span>
-                                        <span>215 likes</span>
-                                    </div>
-                                    <button className="text-[#0096FF] hover:text-[#0077CC]">Read More</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Carlos & Maria Card */}
-                        <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                            <div className="relative h-48">
-                                <img
-                                    src="https://images.unsplash.com/photo-1467269204594-9661b134dd2b"
-                                    alt="European Street"
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute top-4 left-4">
-                                    <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 text-sm font-medium">
-                                        🏰 Europe
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="p-4">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1469571486292-0ba58a3f068b"
-                                        alt="Carlos & Maria"
-                                        className="w-12 h-12 rounded-full object-cover"
-                                    />
-                                    <div>
-                                        <h3 className="font-semibold">Carlos & Maria</h3>
-                                        <p className="text-sm text-gray-600">Budget Travelers</p>
-                                    </div>
-                                </div>
-                                <h4 className="font-medium mb-2">How We Visited 8 European Countries on $3000</h4>
-                                <p className="text-sm text-gray-600 mb-3">
-                                    Our detailed budget breakdown, money-saving tips, and itinerary for an affordable European adventure across...
-                                </p>
-                                <div className="flex items-center justify-between text-sm text-gray-500">
-                                    <div className="flex items-center gap-2">
-                                        <span>57 comments</span>
-                                        <span>•</span>
-                                        <span>324 likes</span>
-                                    </div>
-                                    <button className="text-[#0096FF] hover:text-[#0077CC]">Read More</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Hidden Gems Section */}
-                <div className="mb-12">
-                    <h2 className="text-3xl font-bold mb-2">Hidden Gems</h2>
-                    <p className="text-gray-600 mb-6">Extraordinary destinations off the beaten path for unique travel experiences</p>
-
-                    <div className="text-sm bg-blue-50 text-blue-700 p-4 rounded-lg mb-6">
-                        These lesser-known destinations offer authentic experiences away from the crowds
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {/* Mystical Bhutan Card */}
-                        <div className="bg-white rounded-lg overflow-hidden shadow-lg">
-                            <div className="relative">
-                                <img
-                                    src="https://images.unsplash.com/photo-1515912263707-4d1d35fca9e5"
-                                    alt="Mystical Bhutan"
-                                    className="w-full h-64 object-cover"
-                                />
-                                <div className="absolute top-4 right-4 bg-white text-gray-900 px-2 py-1 rounded text-sm">
-                                    Hidden Gem
-                                </div>
-                                <div className="absolute bottom-4 left-4 text-white">
-                                    <div className="flex items-center gap-1 mb-1">
-                                        <span>📍</span>
-                                        <span className="font-medium">Bhutan</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="p-6">
-                                <h3 className="text-xl font-semibold mb-2">Mystical Bhutan</h3>
-                                <p className="text-gray-600 mb-4">Discover the last Himalayan kingdom with ancient monasteries and breathtaking mountain scenery</p>
-                                <div className="flex items-center gap-4 text-gray-500 text-sm mb-4">
-                                    <span className="flex items-center gap-1">
-                                        <span>⏱️</span>
-                                        8-10 days
-                                    </span>
-                                    <span className="flex items-center gap-1">
-                                        <span>🎭</span>
-                                        Cultural Immersion
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-4 mb-4">
-                                    <div className="flex items-center gap-1">
-                                        <span>👁️</span>
-                                        <span className="text-gray-500">423 views</span>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <span>👍</span>
-                                        <span className="text-gray-500">112</span>
-                                    </div>
-                                    <div className="text-gray-500">
-                                        Moderate difficulty
-                                    </div>
-                                </div>
-                                <button className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
-                                    Discover Itinerary
-                                    <span>→</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Faroe Islands Adventure Card */}
-                        <div className="bg-white rounded-lg overflow-hidden shadow-lg">
-                            <div className="relative">
-                                <img
-                                    src="https://images.unsplash.com/photo-1516483638261-f4dbaf036963"
-                                    alt="Faroe Islands Adventure"
-                                    className="w-full h-64 object-cover"
-                                />
-                                <div className="absolute top-4 right-4 bg-white text-gray-900 px-2 py-1 rounded text-sm">
-                                    Hidden Gem
-                                </div>
-                                <div className="absolute bottom-4 left-4 text-white">
-                                    <div className="flex items-center gap-1 mb-1">
-                                        <span>📍</span>
-                                        <span className="font-medium">Faroe Islands, Denmark</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="p-6">
-                                <h3 className="text-xl font-semibold mb-2">Faroe Islands Adventure</h3>
-                                <p className="text-gray-600 mb-4">Explore dramatic landscapes, towering cliffs, and charming villages in this remote North Atlantic archipelago</p>
-                                <div className="flex items-center gap-4 text-gray-500 text-sm mb-4">
-                                    <span className="flex items-center gap-1">
-                                        <span>⏱️</span>
-                                        5-7 days
-                                    </span>
-                                    <span className="flex items-center gap-1">
-                                        <span>📸</span>
-                                        Nature Photography
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-4 mb-4">
-                                    <div className="flex items-center gap-1">
-                                        <span>👁️</span>
-                                        <span className="text-gray-500">562 views</span>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <span>👍</span>
-                                        <span className="text-gray-500">187</span>
-                                    </div>
-                                    <div className="text-gray-500">
-                                        Moderate difficulty
-                                    </div>
-                                </div>
-                                <button className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
-                                    Discover Itinerary
-                                    <span>→</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Oman Desert & Coast Card */}
-                        <div className="bg-white rounded-lg overflow-hidden shadow-lg">
-                            <div className="relative">
-                                <img
-                                    src="https://images.unsplash.com/photo-1451337516015-6b6e9a44a8a3"
-                                    alt="Oman Desert & Coast"
-                                    className="w-full h-64 object-cover"
-                                />
-                                <div className="absolute top-4 right-4 bg-white text-gray-900 px-2 py-1 rounded text-sm">
-                                    Hidden Gem
-                                </div>
-                                <div className="absolute bottom-4 left-4 text-white">
-                                    <div className="flex items-center gap-1 mb-1">
-                                        <span>📍</span>
-                                        <span className="font-medium">Oman</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="p-6">
-                                <h3 className="text-xl font-semibold mb-2">Oman Desert & Coast</h3>
-                                <p className="text-gray-600 mb-4">Experience the contrast of golden deserts, rugged mountains, and pristine coastlines in the Arabian Peninsula</p>
-                                <div className="flex items-center gap-4 text-gray-500 text-sm mb-4">
-                                    <span className="flex items-center gap-1">
-                                        <span>⏱️</span>
-                                        7-12 days
-                                    </span>
-                                    <span className="flex items-center gap-1">
-                                        <span>🏃‍♂️</span>
-                                        Adventure Seekers
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-4 mb-4">
-                                    <div className="flex items-center gap-1">
-                                        <span>👁️</span>
-                                        <span className="text-gray-500">347 views</span>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <span>👍</span>
-                                        <span className="text-gray-500">96</span>
-                                    </div>
-                                    <div className="text-gray-500">
-                                        Easy to Moderate difficulty
-                                    </div>
-                                </div>
-                                <button className="w-full bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
-                                    Discover Itinerary
-                                    <span>→</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Most Popular Itineraries Section */}
-                <ScrollableSection title="Most Popular Itineraries">
-                    {itineraries
-                        .filter(itinerary => itinerary.tags?.includes('popular'))
-                        .map((itinerary) => (
-                            <div
-                                key={itinerary.id}
-                                onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
-                                className="cursor-pointer w-[300px]"
-                            >
-                                <ItineraryTile
-                                    id={itinerary.id}
-                                    title={itinerary.trip_name}
-                                    description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => cleanDestination(d.destination))
-                                        .join(', ')}`}
-                                    imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
-                                    duration={itinerary.duration}
-                                    cities={itinerary.destinations.map(d =>
-                                        cleanDestination(d.destination)
-                                    )}
-                                    createdAt={itinerary.created_at}
-                                    loading="lazy"
-                                />
-                            </div>
-                        ))}
-                </ScrollableSection>
-
-                {/* Bucket List Experiences Section */}
-                <ScrollableSection title="Bucket List Experiences">
-                    <div className="flex flex-col items-start mb-4">
-                        <button
-                            onClick={() => navigate('/itineraries?section=bucket-list')}
-                            className="text-[#00C48C] hover:text-[#00B380] flex items-center gap-2 mb-4"
-                        >
-                            View all →
-                        </button>
-                    </div>
-                    {itineraries
-                        .filter(itinerary => itinerary.tags?.includes('bucket-list'))
-                        .map((itinerary) => (
-                            <div
-                                key={itinerary.id}
-                                onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
-                                className="cursor-pointer w-[300px]"
-                            >
-                                <ItineraryTile
-                                    id={itinerary.id}
-                                    title={itinerary.trip_name}
-                                    description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => cleanDestination(d.destination))
-                                        .join(', ')}`}
-                                    imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
-                                    duration={itinerary.duration}
-                                    cities={itinerary.destinations.map(d =>
-                                        cleanDestination(d.destination)
-                                    )}
-                                    createdAt={itinerary.created_at}
-                                    loading="lazy"
-                                />
-                            </div>
-                        ))}
-                </ScrollableSection>
-
-                {/* Family Friendly Itineraries Section */}
-                <div className="mb-12">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-bold text-gray-900">Family Friendly Itineraries</h2>
-                        <button
-                            onClick={() => navigate('/itineraries?section=family')}
-                            className="text-[#0096FF] hover:text-[#0077CC] font-medium"
-                        >
-                            View all →
-                        </button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <div className="flex gap-4">
-                            {itineraries
-                                .filter(itinerary => itinerary.tags?.includes('family'))
-                                .map((itinerary) => (
-                                    <div
-                                        key={itinerary.id}
-                                        onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
-                                        className="cursor-pointer w-[300px]"
-                                    >
-                                        <ItineraryTile
-                                            id={itinerary.id}
-                                            title={itinerary.trip_name}
-                                            description={`${itinerary.duration} days in ${itinerary.destinations
-                                                .map(d => cleanDestination(d.destination))
-                                                .join(', ')}`}
-                                            imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
-                                            duration={itinerary.duration}
-                                            cities={itinerary.destinations.map(d =>
-                                                cleanDestination(d.destination)
-                                            )}
-                                            createdAt={itinerary.created_at}
-                                            loading="lazy"
-                                        />
-                                    </div>
-                                ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Adventurous Itineraries Section */}
-                <div className="mb-12">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-bold text-gray-900">Adventurous Itineraries</h2>
-                        <button
-                            onClick={() => navigate('/itineraries?section=adventure')}
-                            className="text-[#0096FF] hover:text-[#0077CC] font-medium"
-                        >
-                            View all →
-                        </button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <div className="flex gap-4">
-                            {itineraries
-                                .filter(itinerary => itinerary.tags?.includes('adventure'))
-                                .map((itinerary) => (
-                                    <div
-                                        key={itinerary.id}
-                                        onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
-                                        className="cursor-pointer w-[300px]"
-                                    >
-                                        <ItineraryTile
-                                            id={itinerary.id}
-                                            title={itinerary.trip_name}
-                                            description={`${itinerary.duration} days in ${itinerary.destinations
-                                                .map(d => cleanDestination(d.destination))
-                                                .join(', ')}`}
-                                            imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
-                                            duration={itinerary.duration}
-                                            cities={itinerary.destinations.map(d =>
-                                                cleanDestination(d.destination)
-                                            )}
-                                            createdAt={itinerary.created_at}
-                                            loading="lazy"
-                                        />
-                                    </div>
-                                ))}
-                        </div>
                     </div>
                 </div>
 
@@ -1858,44 +1371,147 @@ const Discover: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Multi Countries Section */}
+                {/* Hidden Gems Section */}
+                <div className="mb-12">
+                    <h2 className="text-3xl font-bold mb-2">Hidden Gems</h2>
+                    <p className="text-gray-600 mb-6">Extraordinary destinations off the beaten path for unique travel experiences</p>
+
+                    <div className="text-sm bg-blue-50 text-blue-700 p-4 rounded-lg mb-6">
+                        These lesser-known destinations offer authentic experiences away from the crowds
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {itineraries
+                            .filter(itinerary => sectionAssignments['Hidden Gems']?.includes(itinerary.id))
+                            .slice(0, 3)
+                            .map((itinerary) => (
+                                <div key={itinerary.id} className="bg-white rounded-lg overflow-hidden shadow-lg flex flex-col">
+                                    <div className="relative">
+                                        <img
+                                            src={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                            alt={itinerary.trip_name}
+                                            className="w-full h-64 object-cover"
+                                        />
+                                        <div className="absolute top-4 right-4 bg-white text-gray-900 px-2 py-1 rounded text-sm">
+                                            Hidden Gem
+                                        </div>
+                                        <div className="absolute bottom-4 left-4 text-white">
+                                            <div className="flex items-center gap-1">
+                                                <span>📍</span>
+                                                <span className="font-medium">{itinerary.country}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="p-6 flex flex-col flex-grow">
+                                        <div className="flex-grow">
+                                            <h3 className="text-xl font-semibold mb-2">{itinerary.trip_name}</h3>
+                                            <p className="text-gray-600 mb-4">
+                                                {itinerary.destinations.map(d => cleanDestination(d.destination)).join(', ')}
+                                            </p>
+                                            <div className="flex items-center gap-4 text-gray-500 text-sm">
+                                                <span className="flex items-center gap-1">
+                                                    <span>⏱️</span>
+                                                    {itinerary.duration} days
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                            className="w-full bg-[#18181B] text-white py-3 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 mt-6"
+                                        >
+                                            Discover Itinerary
+                                            <span>→</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                    </div>
+                </div>
+
+                {/* Travellers with most Trips Section */}
                 <div className="mb-12">
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-bold text-gray-900">Multi Countries</h2>
+                        <h2 className="text-2xl font-bold text-gray-900">Travellers with most Trips</h2>
                         <button
-                            onClick={() => navigate('/itineraries?section=multi-country')}
+                            onClick={() => navigate('/community')}
                             className="text-[#0096FF] hover:text-[#0077CC] font-medium"
                         >
                             View all →
                         </button>
                     </div>
-                    <div className="overflow-x-auto">
-                        <div className="flex gap-4">
-                            {itineraries
-                                .filter(itinerary => itinerary.tags?.includes('multi-country'))
-                                .map((itinerary) => (
-                                    <div
-                                        key={itinerary.id}
-                                        onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
-                                        className="cursor-pointer w-[300px]"
-                                    >
-                                        <ItineraryTile
-                                            id={itinerary.id}
-                                            title={itinerary.trip_name}
-                                            description={`${itinerary.duration} days in ${itinerary.destinations
-                                                .map(d => cleanDestination(d.destination))
-                                                .join(', ')}`}
-                                            imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
-                                            duration={itinerary.duration}
-                                            cities={itinerary.destinations.map(d =>
-                                                cleanDestination(d.destination)
-                                            )}
-                                            createdAt={itinerary.created_at}
-                                            loading="lazy"
-                                        />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {topTravellers.map((traveller) => (
+                            <div key={traveller.id} className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col h-full">
+                                <div className="relative h-48">
+                                    <img
+                                        src={traveller.avatar_url}
+                                        alt={traveller.full_name}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => handleImageError(e, "https://api.dicebear.com/7.x/avataaars/svg?seed=" + traveller.id)}
+                                    />
+                                    <div className="absolute top-4 left-4">
+                                        <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 text-sm font-medium flex items-center gap-1.5">
+                                            <span className="text-blue-600">🌍</span>
+                                            <span className="text-gray-800">{traveller.countriesVisited.length} Countries</span>
+                                        </div>
                                     </div>
-                                ))}
-                        </div>
+                                </div>
+                                <div className="p-6 flex flex-col flex-grow">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <img
+                                            src={traveller.avatar_url}
+                                            alt={traveller.full_name}
+                                            className="w-12 h-12 rounded-full object-cover border-2 border-blue-100"
+                                        />
+                                        <div>
+                                            <h3 className="font-semibold text-gray-900">{traveller.full_name}</h3>
+                                            <p className="text-sm text-gray-600">{traveller.bio || "Travel Enthusiast"}</p>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-3 mb-4 bg-gray-50 p-4 rounded-xl">
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-gray-600 flex items-center gap-2">
+                                                <span className="text-blue-500">🎯</span>
+                                                Trips Last Month
+                                            </span>
+                                            <span className="font-medium text-blue-600">{traveller.lastMonthTrips}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-gray-600 flex items-center gap-2">
+                                                <span className="text-blue-500">✈️</span>
+                                                Total Trips
+                                            </span>
+                                            <span className="font-medium text-blue-600">{traveller.totalTrips}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-gray-600 flex items-center gap-2">
+                                                <span className="text-blue-500">🗺️</span>
+                                                Countries
+                                            </span>
+                                            <span className="font-medium text-blue-600">{traveller.countriesVisited.length}</span>
+                                        </div>
+                                    </div>
+                                    <div className="text-sm text-gray-600 mb-6 bg-blue-50 p-3 rounded-lg flex items-start gap-2">
+                                        <span className="text-blue-500 mt-0.5">📍</span>
+                                        <span>
+                                            Recent: {traveller.countriesVisited.slice(0, 3).join(', ')}
+                                            {traveller.countriesVisited.length > 3 && ' and more...'}
+                                        </span>
+                                    </div>
+                                    <div className="mt-auto">
+                                        <button
+                                            onClick={() => navigate(`/profile/${traveller.id}`)}
+                                            className="w-full bg-blue-600 hover:bg-blue-700 text-white text-center py-2.5 rounded-full transition-colors flex items-center justify-center gap-2 font-medium"
+                                        >
+                                            <span>View Profile</span>
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M9 18L15 12L9 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
@@ -1910,42 +1526,6 @@ const Discover: React.FC = () => {
                         <button className="bg-transparent border-2 border-white text-white px-6 py-3 rounded-full font-medium hover:bg-white/10 transition-colors">
                             Explore More
                         </button>
-                    </div>
-                </div>
-
-                {/* Tropical Escape Section */}
-                <div className="mb-12">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-bold text-gray-900">Tropical Escape</h2>
-                        <button className="text-[#0096FF] hover:text-[#0077CC] font-medium">
-                            View all →
-                        </button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {itineraries
-                            .filter(itinerary => sectionAssignments['Tropical Escape']?.includes(itinerary.id))
-                            .map((itinerary) => (
-                                <div
-                                    key={itinerary.id}
-                                    onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
-                                    className="cursor-pointer"
-                                >
-                                    <ItineraryTile
-                                        id={itinerary.id}
-                                        title={itinerary.trip_name}
-                                        description={`${itinerary.duration} days in ${itinerary.destinations
-                                            .map(d => cleanDestination(d.destination))
-                                            .join(', ')}`}
-                                        imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
-                                        duration={itinerary.duration}
-                                        cities={itinerary.destinations.map(d =>
-                                            cleanDestination(d.destination)
-                                        )}
-                                        createdAt={itinerary.created_at}
-                                        loading="lazy"
-                                    />
-                                </div>
-                            ))}
                     </div>
                 </div>
             </div>
