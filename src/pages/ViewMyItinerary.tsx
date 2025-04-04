@@ -8,9 +8,25 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { config } from '../config/config';
 import MapboxMap from '../components/MapboxMap';
+import DOMPurify from 'dompurify';
+
+interface DayAttraction {
+    name: string;
+    description: string;
+}
 
 // Initialize Mapbox with the token
 mapboxgl.accessToken = config.mapbox.accessToken;
+
+// Add type for time of day
+type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night' | 'all day';
+
+interface Attraction {
+    name: string;
+    description: string;
+    isDiscover: boolean;
+    timeOfDay: TimeOfDay;
+}
 
 interface FoodItem {
     id: string;
@@ -144,7 +160,7 @@ const ViewMyItinerary: React.FC = () => {
 
     // New state variables for preloaded data
     const [preloadedData, setPreloadedData] = useState<{
-        allAttractions: { [key: string]: any[] };
+        allAttractions: { [key: string]: Attraction[] };
         allFoodOptions: { [key: string]: any[] };
         dayHotels: { [key: string]: string };
         dayNotes: { [key: string]: string };
@@ -209,7 +225,7 @@ const ViewMyItinerary: React.FC = () => {
         if (!itinerary) return;
 
         const preloadAllData = () => {
-            const attractions: { [key: string]: any[] } = {};
+            const attractions: { [key: string]: Attraction[] } = {};
             const foodOptions: { [key: string]: any[] } = {};
             const hotels: { [key: string]: string } = {};
             const notes: { [key: string]: string } = {};
@@ -226,15 +242,17 @@ const ViewMyItinerary: React.FC = () => {
                     const discoverDescriptions = destination.manual_discover_desc?.split(',').filter(Boolean) || [];
 
                     attractions[key] = [
-                        ...dayAttractions.map(attraction => ({
+                        ...(dayAttractions as (string | DayAttraction)[]).map(attraction => ({
                             name: typeof attraction === 'string' ? attraction : attraction.name || '',
                             description: typeof attraction === 'string' ? '' : attraction.description || '',
-                            isDiscover: false
+                            isDiscover: false,
+                            timeOfDay: 'all day' as TimeOfDay
                         })),
                         ...discoverItems.map((item: string, index: number) => ({
                             name: item,
                             description: discoverDescriptions[index] || '',
-                            isDiscover: true
+                            isDiscover: true,
+                            timeOfDay: 'all day' as TimeOfDay
                         }))
                     ];
 
@@ -423,20 +441,9 @@ const ViewMyItinerary: React.FC = () => {
     const discoverItems = currentDestination?.manual_discover?.split(',').filter(Boolean) || [];
     const discoverDescriptions = currentDestination?.manual_discover_desc?.split(',').filter(Boolean) || [];
 
-    // Add type for time of day
-    type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night' | 'all day';
-
-    // Add type for attraction
-    interface Attraction {
-        name: string;
-        description: string;
-        isDiscover: boolean;
-        timeOfDay: TimeOfDay;
-    }
-
     // Combine day attractions and discover items
     const allAttractions: Attraction[] = [
-        ...dayAttractions.map(attraction => {
+        ...dayAttractions.map((attraction: any) => {
             if (typeof attraction === 'string') {
                 return {
                     name: attraction.trim(),
@@ -543,6 +550,23 @@ const ViewMyItinerary: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Trip Description - Added right after hero section */}
+            {itinerary?.trip_description && (
+                <div className="bg-gray-50">
+                    <div className="max-w-[1400px] mx-auto px-8 py-12">
+                        <div className="bg-white rounded-lg p-8 shadow-sm">
+                            <h2 className="text-2xl font-semibold mb-6 text-gray-900">About This Trip</h2>
+                            <div
+                                className="prose prose-lg max-w-none prose-p:text-gray-600 prose-headings:text-gray-900 prose-a:text-[#00C48C] prose-strong:text-gray-900 prose-strong:font-semibold"
+                                dangerouslySetInnerHTML={{
+                                    __html: DOMPurify.sanitize(itinerary.trip_description)
+                                }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="container mx-auto max-w-[90rem]">
                 <motion.div

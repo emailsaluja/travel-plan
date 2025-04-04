@@ -548,39 +548,42 @@ export class UserItineraryService {
 
       if (itineraryError) throw itineraryError;
 
-      // Delete existing destinations
-      const { error: deleteError } = await supabase
-        .from('user_itinerary_destinations')
-        .delete()
-        .eq('itinerary_id', id);
+      // Only update destinations if provided
+      if (data.destinations && data.destinations.length > 0) {
+        // Delete existing destinations
+        const { error: deleteError } = await supabase
+          .from('user_itinerary_destinations')
+          .delete()
+          .eq('itinerary_id', id);
 
-      if (deleteError) throw deleteError;
+        if (deleteError) throw deleteError;
 
-      // Insert new destinations
-      const destinationsToInsert = data.destinations.map((dest, index) => ({
-        itinerary_id: id,
-        destination: dest.destination,
-        nights: dest.nights,
-        discover: dest.discover,
-        transport: dest.transport,
-        notes: dest.notes,
-        food: dest.food,
-        food_desc: dest.food_desc,
-        hotel: dest.hotel || '',
-        manual_hotel: dest.manual_hotel || '',
-        manual_hotel_desc: dest.manual_hotel_desc || '',
-        manual_discover: dest.manual_discover || '',
-        manual_discover_desc: dest.manual_discover_desc || '',
-        order_index: index
-      }));
+        // Insert new destinations
+        const destinationsToInsert = data.destinations.map((dest, index) => ({
+          itinerary_id: id,
+          destination: dest.destination,
+          nights: dest.nights,
+          discover: dest.discover || '',
+          transport: dest.transport || '',
+          notes: dest.notes || '',
+          food: dest.food || '',
+          food_desc: dest.food_desc || '',
+          hotel: dest.hotel || '',
+          manual_hotel: dest.manual_hotel || '',
+          manual_hotel_desc: dest.manual_hotel_desc || '',
+          manual_discover: dest.manual_discover || '',
+          manual_discover_desc: dest.manual_discover_desc || '',
+          order_index: index
+        }));
 
-      const { error: destinationsError } = await supabase
-        .from('user_itinerary_destinations')
-        .insert(destinationsToInsert);
+        const { error: destinationsError } = await supabase
+          .from('user_itinerary_destinations')
+          .insert(destinationsToInsert);
 
-      if (destinationsError) throw destinationsError;
+        if (destinationsError) throw destinationsError;
+      }
 
-      // Update day attractions
+      // Update day attractions if provided
       if (data.dayAttractions && data.dayAttractions.length > 0) {
         // Delete existing attractions
         await supabase
@@ -601,7 +604,7 @@ export class UserItineraryService {
         if (attractionsError) throw attractionsError;
       }
 
-      // Update day hotels
+      // Update day hotels if provided
       if (data.dayHotels && data.dayHotels.length > 0) {
         // Delete existing hotels
         await supabase
@@ -623,7 +626,7 @@ export class UserItineraryService {
         if (hotelsError) throw hotelsError;
       }
 
-      // Update day notes
+      // Update day notes if provided
       if (data.dayNotes && data.dayNotes.length > 0) {
         // Delete existing notes
         await supabase

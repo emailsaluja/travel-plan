@@ -9,6 +9,7 @@ export interface UserItineraryView {
   duration: number;
   passengers: number;
   is_private: boolean;
+  trip_description?: string;
   destinations: {
     destination: string;
     nights: number;
@@ -25,13 +26,14 @@ export interface UserItineraryView {
       [place: string]: string;
     };
   };
+  food_descriptions?: {
+    [destination: string]: {
+      [place: string]: string;
+    };
+  };
   day_attractions?: {
     day_index: number;
-    attractions: (string | {
-      id: string;
-      name: string;
-      description?: string;
-    })[];
+    attractions: string[];
   }[];
   day_hotels?: {
     day_index: number;
@@ -59,7 +61,18 @@ export const UserItineraryViewService = {
     // Get the main itinerary data
     const { data: itinerary, error: itineraryError } = await supabase
       .from('user_itineraries')
-      .select('*')
+      .select(`
+        id,
+        user_id,
+        trip_name,
+        country,
+        start_date,
+        duration,
+        passengers,
+        is_private,
+        trip_description,
+        tags
+      `)
       .eq('id', id)
       .single();
 

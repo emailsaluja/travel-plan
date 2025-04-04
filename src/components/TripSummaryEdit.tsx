@@ -23,6 +23,8 @@ import {
 import { countries } from '../data/countries';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import { UserItineraryService } from '../services/user-itinerary.service';
+import { useSearchParams } from 'react-router-dom';
 
 interface TripSummary {
   tripName: string;
@@ -59,6 +61,8 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
   onUpdate,
   onClose
 }) => {
+  const [searchParams] = useSearchParams();
+  const itineraryId = searchParams.get('id');
   const [editedSummary, setEditedSummary] = useState<TripSummary>({
     tripName: tripSummary.tripName,
     country: tripSummary.country,
@@ -126,7 +130,7 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
     }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!editedSummary.tripName.trim()) {
       setError('Trip name is required');
       return;
@@ -135,7 +139,37 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
       setError('Please select a country');
       return;
     }
-    onUpdate(editedSummary);
+
+    try {
+      if (itineraryId) {
+        // Save to database if we have an itineraryId
+        await UserItineraryService.updateItinerary(itineraryId, {
+          tripSummary: {
+            tripName: editedSummary.tripName,
+            country: editedSummary.country,
+            duration: editedSummary.duration,
+            startDate: editedSummary.startDate,
+            passengers: editedSummary.passengers,
+            isPrivate: editedSummary.isPrivate,
+            tags: editedSummary.tags,
+            tripDescription: editedSummary.tripDescription
+          },
+          destinations: [], // Keep existing destinations
+          dayAttractions: [], // Keep existing attractions
+          dayHotels: [], // Keep existing hotels
+          dayNotes: [] // Keep existing notes
+        });
+      }
+
+      // Call the parent's onUpdate handler to update application state
+      onUpdate(editedSummary);
+
+      // Close the modal
+      onClose();
+    } catch (error) {
+      console.error('Error saving trip summary:', error);
+      setError('Failed to save changes. Please try again.');
+    }
   };
 
   return (
