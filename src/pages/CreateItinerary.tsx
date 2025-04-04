@@ -53,6 +53,7 @@ import TopNavigation from '../components/TopNavigation';
 import MapboxMap from '../components/MapboxMap';
 import DestinationDiscover from '../components/DestinationDiscover';
 import { toast } from 'react-toastify';
+import NotesPopup from '../components/NotesPopup';
 
 interface DestinationData {
   destination: string;
@@ -85,6 +86,7 @@ interface ItineraryDay {
   hotel?: string;
   manual_hotel?: string;
   manual_hotel_desc?: string;
+  order_index?: number;
 }
 
 interface TripSummary {
@@ -95,6 +97,7 @@ interface TripSummary {
   passengers: number;
   isPrivate: boolean;
   tags: string[];
+  tripDescription: string;
 }
 
 type TabType = 'destinations' | 'day-by-day';
@@ -139,6 +142,7 @@ interface UserItineraryData {
   passengers: number;
   is_private: boolean;
   tags: string[];
+  trip_description: string;
   destinations: Array<{
     destination: string;
     nights: number;
@@ -205,6 +209,23 @@ interface Destination {
   }>;
 }
 
+// Add interface at the top with other interfaces
+interface ItineraryDestination {
+  destination: string;
+  nights: number;
+  discover: string;
+  transport: string;
+  notes: string;
+  food: string;
+  food_desc: string;
+  hotel?: string;
+  manual_hotel: string;
+  manual_hotel_desc: string;
+  manual_discover: string;
+  manual_discover_desc: string;
+  order_index: number;
+}
+
 const CreateItinerary: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -216,11 +237,12 @@ const CreateItinerary: React.FC = () => {
   const [tripSummary, setTripSummary] = useState<TripSummary>({
     tripName: '',
     country: '',
-    duration: 1,
+    duration: 0,
     startDate: new Date().toISOString().split('T')[0],
     passengers: 1,
     isPrivate: false,
-    tags: []
+    tags: [],
+    tripDescription: ''
   });
   const [itineraryDays, setItineraryDays] = useState<ItineraryDay[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>('destinations');
@@ -307,26 +329,37 @@ const CreateItinerary: React.FC = () => {
       if (itineraryId) {
         try {
           setLoading(true);
-          const { data } = await UserItineraryService.getItineraryById(itineraryId);
-          console.log('Loaded itinerary data:', data);
-          if (data) {
-            // Set trip summary
-            setTripSummary({
-              tripName: data.trip_name,
-              country: data.country,
-              duration: data.duration,
-              startDate: data.start_date,
-              passengers: data.passengers,
-              isPrivate: data.is_private || false,
-              tags: data.tags || []
-            });
-            setCountrySearch(data.country);
+          const { data: itinerary, error } = await supabase
+            .from('user_itineraries')
+            .select(`
+              *,
+              destinations:user_itinerary_destinations(*)
+            `)
+            .eq('id', itineraryId)
+            .single();
 
-            // Sort destinations by order_index before setting state
-            const sortedDestinations = [...data.destinations].sort((a, b) => a.order_index - b.order_index);
+          if (error) throw error;
+
+          if (itinerary) {
+            setTripSummary({
+              tripName: itinerary.trip_name,
+              country: itinerary.country,
+              duration: itinerary.duration,
+              startDate: itinerary.start_date,
+              passengers: itinerary.passengers,
+              isPrivate: itinerary.is_private,
+              tags: itinerary.tags || [],
+              tripDescription: itinerary.trip_description || ''
+            });
+            setCountrySearch(itinerary.country);
+
+            // Update the sorting line with proper types
+            const sortedDestinations = (itinerary.destinations || [] as ItineraryDestination[]).sort(
+              (a: ItineraryDestination, b: ItineraryDestination) => a.order_index - b.order_index
+            );
 
             // Set destinations with their specific hotels and manual_discover
-            const destinationsWithHotels = sortedDestinations.map((dest: any) => ({
+            const destinationsWithHotels = sortedDestinations.map((dest: ItineraryDestination) => ({
               destination: cleanDestination(dest.destination),
               nights: dest.nights,
               discover: dest.discover || '',
@@ -426,10 +459,10 @@ const CreateItinerary: React.FC = () => {
             setDayFoods(newDayFoods);
 
             // Set day attractions from manual_discover
-            if (data.destinations) {
-              console.log('Setting day attractions from manual_discover:', data.destinations);
+            if (itinerary.destinations) {
+              console.log('Setting day attractions from manual_discover:', itinerary.destinations);
               let dayIndex = 0;
-              const attractions = data.destinations.flatMap((dest: any) => {
+              const attractions = itinerary.destinations.flatMap((dest: any) => {
                 const manualAttractions = dest.manual_discover ? dest.manual_discover.split(', ').filter(Boolean) : [];
                 const regularAttractions = dest.discover ? dest.discover.split(', ').filter(Boolean) : [];
                 const result = [];
@@ -449,9 +482,9 @@ const CreateItinerary: React.FC = () => {
             }
 
             // Set day notes
-            if (data.day_notes) {
-              console.log('Setting day notes:', data.day_notes);
-              setDayNotes(data.day_notes.map((dn: any) => ({
+            if (itinerary.day_notes) {
+              console.log('Setting day notes:', itinerary.day_notes);
+              setDayNotes(itinerary.day_notes.map((dn: any) => ({
                 dayIndex: dn.day_index,
                 notes: dn.notes
               })));
@@ -672,7 +705,8 @@ const CreateItinerary: React.FC = () => {
           startDate: tripSummary.startDate,
           passengers: tripSummary.passengers,
           isPrivate: tripSummary.isPrivate,
-          tags: tripSummary.tags
+          tags: tripSummary.tags,
+          tripDescription: tripSummary.tripDescription
         },
         destinations: itineraryDays.map(day => ({
           destination: day.destination,
@@ -686,7 +720,8 @@ const CreateItinerary: React.FC = () => {
           manual_hotel: day.manual_hotel || '',
           manual_hotel_desc: day.manual_hotel_desc || '',
           manual_discover: day.manual_discover || '',
-          manual_discover_desc: day.manual_discover_desc || ''
+          manual_discover_desc: day.manual_discover_desc || '',
+          order_index: day.order_index
         })),
         dayAttractions: dayByDayData.dayAttractions.map(da => ({
           dayIndex: da.dayIndex,
@@ -2299,7 +2334,7 @@ const CreateItinerary: React.FC = () => {
                             });
                             setShowNotesPopup(true);
                           }}
-                          itineraryId={itineraryId || ''}
+                          itineraryId={itineraryId ?? ''}
                           className="text-sm font-['Inter_var']"
                           iconSize="w-4 h-4"
                           spacing="gap-2"
@@ -2391,7 +2426,7 @@ const CreateItinerary: React.FC = () => {
                 const dayFood = dayFoods.find(f => f.dayIndex === startDayIndex);
                 return dayFood?.foodItems || [];
               })()}
-              itineraryId={itineraryId || ''}
+              itineraryId={itineraryId ?? ''}
               dayIndex={activeDestinationIndexForFood}
               onFoodUpdate={handleFoodSelect}
             />
@@ -2412,7 +2447,7 @@ const CreateItinerary: React.FC = () => {
               }}
               destination={currentDestinationForHotel}
               onHotelSelect={handleHotelSelect}
-              itineraryId={itineraryId || ''}
+              itineraryId={itineraryId ?? ''}
               destinationIndex={currentDestinationIndexForHotel}
               selectedHotel={itineraryDays[currentDestinationIndexForHotel]?.hotel}
               manualHotel={itineraryDays[currentDestinationIndexForHotel]?.manual_hotel}
@@ -2439,7 +2474,7 @@ const CreateItinerary: React.FC = () => {
               dayIndex={currentDestinationIndexForHotel}
               selectedHotel={dayHotels.find(h => h.dayIndex === currentDestinationIndexForHotel)?.hotel}
               hotelDesc={dayHotelDesc}
-              itineraryId={itineraryId || ''}
+              itineraryId={itineraryId ?? ''}
             />
           </div>
         )}
@@ -2483,7 +2518,7 @@ const CreateItinerary: React.FC = () => {
                   setItineraryDays(updatedDays);
                 }
               }}
-              itineraryId={itineraryId || ''}
+              itineraryId={itineraryId ?? ''}
               destinationIndex={itineraryDays.findIndex((d: ItineraryDay) => cleanDestination(d.destination) === activeDestinationForDiscover)}
             />
           </div>
@@ -2503,6 +2538,43 @@ const CreateItinerary: React.FC = () => {
               onClose={() => setShowTripSummaryEdit(false)}
             />
           </div>
+        )}
+
+        {/* Notes Popup */}
+        {showNotesPopup && selectedDayForNotes && (
+          <NotesPopup
+            isOpen={showNotesPopup}
+            onClose={() => {
+              setShowNotesPopup(false);
+              setSelectedDayForNotes(null);
+            }}
+            onSave={(notes) => {
+              const updatedNotes = [...dayNotes];
+              const existingNoteIndex = updatedNotes.findIndex(
+                (note) => note.dayIndex === selectedDayForNotes.dayIndex
+              );
+
+              if (existingNoteIndex !== -1) {
+                updatedNotes[existingNoteIndex] = {
+                  ...updatedNotes[existingNoteIndex],
+                  notes
+                };
+              } else {
+                updatedNotes.push({
+                  dayIndex: selectedDayForNotes.dayIndex,
+                  notes
+                });
+              }
+
+              setDayNotes(updatedNotes);
+              setShowNotesPopup(false);
+              setSelectedDayForNotes(null);
+            }}
+            initialNotes={selectedDayForNotes.notes}
+            dayNumber={selectedDayForNotes.dayIndex + 1}
+            itineraryId={itineraryId}
+            dayIndex={selectedDayForNotes.dayIndex}
+          />
         )}
       </div>
     );

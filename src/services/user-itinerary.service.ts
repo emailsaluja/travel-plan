@@ -44,6 +44,7 @@ interface UserItineraryData {
   user_id?: string;
   is_private?: boolean;
   tags?: string[];
+  trip_description?: string;
   destinations: UserItineraryDestination[];
   day_attractions: UserItineraryDayAttraction[];
   day_hotels: UserItineraryDayHotel[];
@@ -61,6 +62,7 @@ interface SupabaseItineraryResponse {
   user_id?: string;
   is_private?: boolean;
   tags?: string[];
+  trip_description?: string;
   destinations?: UserItineraryDestination[];
   day_attractions?: UserItineraryDayAttraction[];
   day_hotels?: UserItineraryDayHotel[];
@@ -78,6 +80,7 @@ interface ItineraryResponse {
   is_private: boolean;
   tags: string[];
   user_id: string;
+  trip_description: string;
   destinations: Array<{
     destination: string;
     nights: number;
@@ -118,6 +121,7 @@ export interface UserItinerary {
   created_at: string;
   is_private: boolean;
   tags: string[];
+  trip_description: string;
   destinations: {
     id: string;
     destination: string;
@@ -149,6 +153,7 @@ export interface SaveItineraryData {
     passengers: number;
     isPrivate: boolean;
     tags: string[];
+    tripDescription: string;
   };
   destinations: {
     destination: string;
@@ -187,6 +192,7 @@ interface LikedItinerary {
   duration: number;
   passengers: number;
   created_at: string;
+  trip_description: string;
   destinations: Array<{
     destination: string;
     nights: number;
@@ -215,7 +221,8 @@ export class UserItineraryService {
           duration: data.tripSummary.duration,
           passengers: data.tripSummary.passengers,
           is_private: data.tripSummary.isPrivate,
-          tags: data.tripSummary.tags || []
+          tags: data.tripSummary.tags || [],
+          trip_description: data.tripSummary.tripDescription
         })
         .select()
         .single();
@@ -533,7 +540,8 @@ export class UserItineraryService {
           duration: data.tripSummary.duration,
           passengers: data.tripSummary.passengers,
           is_private: data.tripSummary.isPrivate,
-          tags: data.tripSummary.tags || []
+          tags: data.tripSummary.tags || [],
+          trip_description: data.tripSummary.tripDescription
         })
         .eq('id', id)
         .eq('user_id', user.id);
@@ -791,7 +799,8 @@ export class UserItineraryService {
           duration: originalItinerary.duration,
           passengers: originalItinerary.passengers,
           is_private: true, // Make the copy private by default
-          tags: originalItinerary.tags || []
+          tags: originalItinerary.tags || [],
+          trip_description: originalItinerary.trip_description
         })
         .select()
         .single();

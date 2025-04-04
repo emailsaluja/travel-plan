@@ -17,9 +17,12 @@ import {
   Utensils,
   Library,
   Landmark,
-  X
+  X,
+  FileText
 } from 'lucide-react';
 import { countries } from '../data/countries';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 
 interface TripSummary {
   tripName: string;
@@ -29,6 +32,7 @@ interface TripSummary {
   passengers: number;
   isPrivate: boolean;
   tags: string[];
+  tripDescription: string;
 }
 
 const AVAILABLE_TAGS = [
@@ -62,7 +66,8 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
     startDate: tripSummary.startDate,
     passengers: tripSummary.passengers,
     isPrivate: tripSummary.isPrivate,
-    tags: tripSummary.tags || []
+    tags: tripSummary.tags || [],
+    tripDescription: tripSummary.tripDescription || ''
   });
   const [newTag, setNewTag] = useState('');
   const [countrySearch, setCountrySearch] = useState('');
@@ -111,6 +116,13 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
       tags: prev.tags.includes(tagId)
         ? prev.tags.filter(t => t !== tagId)
         : [...prev.tags, tagId]
+    }));
+  };
+
+  const handleDescriptionChange = (content: string) => {
+    setEditedSummary(prev => ({
+      ...prev,
+      tripDescription: content
     }));
   };
 
@@ -270,6 +282,34 @@ const TripSummaryEdit: React.FC<TripSummaryEditProps> = ({
               />
             </div>
           </div>
+        </div>
+
+        {/* Trip Description */}
+        <div className="col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-[#00C48C]" />
+              Trip Description
+            </div>
+          </label>
+          <ReactQuill
+            value={editedSummary.tripDescription}
+            onChange={handleDescriptionChange}
+            className="bg-white rounded-lg"
+            theme="snow"
+            modules={{
+              toolbar: [
+                [{ header: [1, 2, false] }],
+                ['bold', 'italic', 'underline', 'strike', 'blockquote'],
+                [{ list: 'ordered' }, { list: 'bullet' }],
+                ['link'],
+                ['clean']
+              ]
+            }}
+          />
+          <p className="mt-1 text-sm text-gray-500">
+            Add a rich description of your trip to help others understand what makes it special.
+          </p>
         </div>
 
         {/* Tags Section */}
