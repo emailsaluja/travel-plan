@@ -5,6 +5,7 @@ import { CountryImagesService } from '../services/country-images.service';
 import ItineraryTile from '../components/ItineraryTile';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cleanDestination } from '../utils/stringUtils';
+import { supabase } from '../lib/supabase';
 
 // Country-specific information
 const countryInfo: Record<string, {
@@ -248,12 +249,12 @@ interface Itinerary {
 const ScrollableSection: React.FC<{
     title: string;
     children: React.ReactNode;
-}> = ({ title, children }) => {
+}> = ({ title, children }): JSX.Element => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     const scroll = (direction: 'left' | 'right') => {
         if (scrollContainerRef.current) {
-            const scrollAmount = 600; // Adjust this value to control scroll distance
+            const scrollAmount = 600;
             const newScrollLeft = scrollContainerRef.current.scrollLeft + (direction === 'left' ? -scrollAmount : scrollAmount);
             scrollContainerRef.current.scrollTo({
                 left: newScrollLeft,
@@ -300,6 +301,9 @@ const Discover: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [countryImages, setCountryImages] = useState<Record<string, string[]>>({});
     const [selectedImages, setSelectedImages] = useState<Record<string, string>>({});
+    const [sectionAssignments, setSectionAssignments] = useState<Record<string, string[]>>({});
+    const [activeSeason, setActiveSeason] = useState('Spring');
+    const [topTravellers, setTopTravellers] = useState<any[]>([]);
 
     // Group itineraries by country
     const countryStats = React.useMemo(() => {
@@ -317,6 +321,34 @@ const Discover: React.FC = () => {
     useEffect(() => {
         loadItineraries();
     }, []);
+
+    useEffect(() => {
+        loadSectionAssignments();
+    }, []);
+
+    const loadSectionAssignments = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('discover_section_assignments')
+                .select('*')
+                .order('display_order', { ascending: true });
+
+            if (error) throw error;
+
+            // Group assignments by section
+            const assignmentsBySection = data.reduce((acc, assignment) => {
+                if (!acc[assignment.section_name]) {
+                    acc[assignment.section_name] = [];
+                }
+                acc[assignment.section_name].push(assignment.itinerary_id);
+                return acc;
+            }, {} as Record<string, string[]>);
+
+            setSectionAssignments(assignmentsBySection);
+        } catch (error) {
+            console.error('Error loading section assignments:', error);
+        }
+    };
 
     // Fetch country images
     useEffect(() => {
@@ -346,33 +378,38 @@ const Discover: React.FC = () => {
                             }
                             selected[country] = imageUrl.toString();
                         } else {
-                            // Use default images if no country-specific images found
                             const defaultImages = images['default'] || [];
                             const randomDefaultIndex = Math.floor(Math.random() * defaultImages.length);
                             selected[country] = defaultImages[randomDefaultIndex];
                         }
                     } catch (error) {
                         console.error(`Error processing hero image for ${country}:`, error);
-                        // Use a static fallback image if everything else fails
                         selected[country] = '/images/empty-state.svg';
                     }
                 });
 
-                // Select images for itineraries
+                // Select images for itineraries with different sizes based on section
                 itineraries.forEach(itinerary => {
                     try {
                         const countryImageList = images[itinerary.country] || [];
                         if (countryImageList.length > 0) {
-                            // For itinerary tiles, use smaller images
                             const randomIndex = Math.floor(Math.random() * countryImageList.length);
                             const imageUrl = new URL(countryImageList[randomIndex]);
+
                             if (imageUrl.hostname.includes('supabase.co')) {
-                                imageUrl.searchParams.set('quality', '90');
-                                imageUrl.searchParams.set('width', '800');
+                                // Use higher quality and larger size for Featured Destinations
+                                if (sectionAssignments['Featured Destinations']?.includes(itinerary.id)) {
+                                    imageUrl.searchParams.set('quality', '95');
+                                    imageUrl.searchParams.set('width', '1200');
+                                    imageUrl.searchParams.set('height', '800');
+                                } else {
+                                    // Standard size for other sections
+                                    imageUrl.searchParams.set('quality', '90');
+                                    imageUrl.searchParams.set('width', '800');
+                                }
                             }
                             selected[itinerary.id] = imageUrl.toString();
                         } else {
-                            // Use default images if no country-specific images found
                             const defaultImages = images['default'] || [];
                             const randomDefaultIndex = Math.floor(Math.random() * defaultImages.length);
                             selected[itinerary.id] = defaultImages[randomDefaultIndex];
@@ -387,7 +424,6 @@ const Discover: React.FC = () => {
                 setSelectedImages(selected);
             } catch (error) {
                 console.error('Error fetching country images:', error);
-                // Set default images for all countries and itineraries
                 const selected: Record<string, string> = {};
                 Object.keys(countryStats).forEach(country => {
                     selected[country] = '/images/empty-state.svg';
@@ -400,7 +436,7 @@ const Discover: React.FC = () => {
         };
 
         fetchCountryImages();
-    }, [itineraries, countryStats]);
+    }, [itineraries, countryStats, sectionAssignments]);
 
     const loadItineraries = async () => {
         try {
@@ -415,6 +451,90 @@ const Discover: React.FC = () => {
 
     const handleCountryClick = (country: string) => {
         navigate(`/discover/${encodeURIComponent(country.toLowerCase())}`);
+    };
+
+    // Add this function to load top travellers
+    const loadTopTravellers = async () => {
+        try {
+            // First get all itineraries grouped by user_id
+            const { data: itineraryData, error: itineraryError } = await supabase
+                .from('user_itineraries')
+                .select('user_id, country, created_at')
+                .order('created_at', { ascending: false });
+
+            if (itineraryError) throw itineraryError;
+
+            // Group itineraries by user and calculate stats
+            const userStats = itineraryData.reduce((acc: any, itinerary: any) => {
+                const userId = itinerary.user_id;
+                if (!acc[userId]) {
+                    acc[userId] = {
+                        user_id: userId,
+                        countries: new Set(),
+                        lastMonthTrips: 0,
+                        totalTrips: 0
+                    };
+                }
+
+                acc[userId].countries.add(itinerary.country);
+                acc[userId].totalTrips++;
+
+                // Check if itinerary was created in the last month
+                const lastMonth = new Date();
+                lastMonth.setMonth(lastMonth.getMonth() - 1);
+                if (new Date(itinerary.created_at) >= lastMonth) {
+                    acc[userId].lastMonthTrips++;
+                }
+
+                return acc;
+            }, {});
+
+            // Get top 3 users by total trips
+            const topUserIds = Object.entries(userStats)
+                .sort(([, a]: any, [, b]: any) => b.totalTrips - a.totalTrips)
+                .slice(0, 3)
+                .map(([userId]) => userId);
+
+            console.log('Top user IDs:', topUserIds);
+
+            // Fetch user details for top users
+            const { data: userData, error: userError } = await supabase
+                .from('user_profiles')
+                .select('user_id, full_name, profile_picture_url, bio')
+                .in('user_id', topUserIds);
+
+            if (userError) throw userError;
+
+            console.log('User profiles data:', userData);
+
+            if (!userData || userData.length === 0) {
+                console.warn('No user profiles found for top travellers');
+                return;
+            }
+
+            // Combine user data with their stats
+            const processedTravellers = userData.map((user: any) => ({
+                ...user,
+                ...userStats[user.user_id],
+                avatar_url: user.profile_picture_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.user_id}`,
+                countriesVisited: Array.from(userStats[user.user_id].countries)
+            }));
+
+            console.log('Processed travellers:', processedTravellers);
+            setTopTravellers(processedTravellers);
+        } catch (error) {
+            console.error('Error loading top travellers:', error);
+        }
+    };
+
+    useEffect(() => {
+        loadTopTravellers();
+    }, []);
+
+    const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>, fallbackUrl: string = '/images/empty-state.svg') => {
+        const target = e.target as HTMLImageElement;
+        console.warn(`Failed to load image: ${target.src}`);
+        target.src = fallbackUrl;
     };
 
     if (loading) {
@@ -480,10 +600,7 @@ const Discover: React.FC = () => {
                                 maxWidth: '100%',
                                 maxHeight: '100%'
                             }}
-                            onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = '/images/empty-state.svg';
-                            }}
+                            onError={(e) => handleImageError(e)}
                             loading="eager"
                         />
                         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/60"></div>
@@ -615,7 +732,7 @@ const Discover: React.FC = () => {
                         {countryData.itineraries.map((itinerary) => (
                             <div
                                 key={itinerary.id}
-                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
+                                onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
                                 className="cursor-pointer"
                             >
                                 <ItineraryTile
@@ -642,7 +759,36 @@ const Discover: React.FC = () => {
 
     // Main discover page with country grid
     return (
-        <div className="min-h-screen bg-white pt-16">
+        <div className="container mx-auto px-4 pt-24 pb-8">
+            {/* Header Section */}
+            <div className="text-center mb-12">
+                <h1 className="text-5xl font-bold mb-4">
+                    Discover the world's<br />
+                    <span className="text-[#0096FF]">extraordinary</span> places
+                </h1>
+                <p className="text-gray-600 mb-8">
+                    Carefully curated destinations and experiences that will transform the way you see the world.
+                </p>
+                <div className="max-w-2xl mx-auto relative">
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder="Where would you like to go?"
+                            className="w-full px-6 py-4 rounded-full border border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0096FF] focus:border-transparent pl-12"
+                        />
+                        <span className="absolute left-4 top-1/2 transform -translate-y-1/2">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M11 19C15.4183 19 19 15.4183 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19Z" stroke="#71717A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d="M21 21L16.65 16.65" stroke="#71717A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </span>
+                        <button className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[#0096FF] text-white px-8 py-2 rounded-full hover:bg-[#0077CC] transition-colors">
+                            Search
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 {/* Countries Section */}
                 <ScrollableSection title="Explore these Countries">
@@ -658,18 +804,7 @@ const Discover: React.FC = () => {
                                     alt={country}
                                     className="absolute inset-0 w-full h-full object-cover"
                                     loading="lazy"
-                                    onError={(e) => {
-                                        console.error(`Failed to load image for ${country}`);
-                                        const target = e.target as HTMLImageElement;
-                                        // Try to get a default image from the country images
-                                        const defaultImages = countryImages['default'] || [];
-                                        if (defaultImages.length > 0) {
-                                            const randomIndex = Math.floor(Math.random() * defaultImages.length);
-                                            target.src = defaultImages[randomIndex];
-                                        } else {
-                                            target.src = '/images/empty-state.svg';
-                                        }
-                                    }}
+                                    onError={(e) => handleImageError(e)}
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/60"></div>
                                 <div className="absolute inset-0 p-4 flex flex-col justify-end">
@@ -683,181 +818,716 @@ const Discover: React.FC = () => {
                     ))}
                 </ScrollableSection>
 
-                {/* Most Popular Itineraries Section */}
-                <ScrollableSection title="Most Popular Itineraries">
-                    {itineraries
-                        .filter(itinerary => itinerary.tags?.includes('popular'))
-                        .map((itinerary) => (
-                            <div
-                                key={itinerary.id}
-                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
-                                className="cursor-pointer w-[300px]"
-                            >
-                                <ItineraryTile
-                                    id={itinerary.id}
-                                    title={itinerary.trip_name}
-                                    description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => cleanDestination(d.destination))
-                                        .join(', ')}`}
-                                    imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
-                                    duration={itinerary.duration}
-                                    cities={itinerary.destinations.map(d =>
-                                        cleanDestination(d.destination)
-                                    )}
-                                    createdAt={itinerary.created_at}
-                                    loading="lazy"
-                                />
-                            </div>
-                        ))}
-                </ScrollableSection>
+                {/* Featured Destinations Section */}
+                <div className="mb-12">
+                    <h2 className="text-3xl font-bold mb-8">Featured Destinations</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {itineraries
+                            .filter(itinerary => sectionAssignments['Featured Destinations']?.includes(itinerary.id))
+                            .map((itinerary) => (
+                                <div
+                                    key={itinerary.id}
+                                    onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                    className="relative group cursor-pointer rounded-xl overflow-hidden"
+                                >
+                                    <div className="relative aspect-[4/3]">
+                                        <img
+                                            src={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                            alt={itinerary.trip_name}
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => handleImageError(e)}
+                                        />
+                                        {/* Like button */}
+                                        <button className="absolute top-4 right-4 bg-white/90 p-2 rounded-full z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                            </svg>
+                                        </button>
+                                        {/* Gradient overlay */}
+                                        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/30 to-black/60"></div>
+                                        {/* Content overlay */}
+                                        <div className="absolute inset-0 p-6 flex flex-col justify-between text-white">
+                                            <div>
+                                                <span className="inline-block px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-sm mb-2">
+                                                    {itinerary.tags?.[0] || 'Featured'}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xl font-semibold mb-2">{itinerary.trip_name}</h3>
+                                                <p className="text-white/90 text-sm mb-2">
+                                                    {itinerary.destinations.map(d => cleanDestination(d.destination)).join(', ')}
+                                                </p>
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <span>{itinerary.duration} days</span>
+                                                    <span className="text-white/60">•</span>
+                                                    <div className="flex items-center">
+                                                        <span className="text-yellow-400">★</span>
+                                                        <span className="ml-1">4.8</span>
+                                                        <span className="text-white/60 ml-1">(987)</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                    </div>
+                </div>
 
-                {/* Bucket List Experiences Section */}
-                <ScrollableSection title="Bucket List Experiences">
-                    <div className="flex flex-col items-start mb-4">
+                {/* Trending Destinations Section */}
+                <div className="mb-12">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold text-gray-900">Trending Destinations</h2>
                         <button
-                            onClick={() => navigate('/discover/onceinlife')}
-                            className="text-[#00C48C] hover:text-[#00B380] flex items-center gap-2 mb-4"
+                            onClick={() => navigate('/itineraries?section=trending')}
+                            className="text-[#0096FF] hover:text-[#0077CC] font-medium"
                         >
-                            View Once in a Life Experiences →
+                            View all →
                         </button>
                     </div>
-                    {itineraries
-                        .filter(itinerary => itinerary.tags?.includes('bucket-list'))
-                        .map((itinerary) => (
-                            <div
-                                key={itinerary.id}
-                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
-                                className="cursor-pointer w-[300px]"
-                            >
-                                <ItineraryTile
-                                    id={itinerary.id}
-                                    title={itinerary.trip_name}
-                                    description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => cleanDestination(d.destination))
-                                        .join(', ')}`}
-                                    imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
-                                    duration={itinerary.duration}
-                                    cities={itinerary.destinations.map(d =>
-                                        cleanDestination(d.destination)
-                                    )}
-                                    createdAt={itinerary.created_at}
-                                    loading="lazy"
-                                />
-                            </div>
-                        ))}
-                </ScrollableSection>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {itineraries
+                            .filter(itinerary => sectionAssignments['Trending Destinations']?.includes(itinerary.id))
+                            .slice(0, 4)
+                            .map((itinerary) => (
+                                <div
+                                    key={itinerary.id}
+                                    onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                    className="rounded-lg overflow-hidden shadow-md group cursor-pointer"
+                                >
+                                    <div className="relative">
+                                        <img
+                                            src={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                            alt={itinerary.trip_name}
+                                            className="w-full h-[200px] object-cover"
+                                            onError={(e) => handleImageError(e)}
+                                        />
+                                        <div className="absolute top-3 left-3 bg-white rounded-full px-2 py-1 flex items-center gap-1">
+                                            <span className="text-yellow-400">★</span>
+                                            <span className="font-medium">4.8</span>
+                                        </div>
+                                        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60"></div>
+                                        <div className="absolute bottom-0 left-0 right-0 p-4">
+                                            <h3 className="text-white font-semibold text-lg">{itinerary.trip_name}</h3>
+                                            <p className="text-white/90 text-sm">{itinerary.country}</p>
+                                            <p className="text-white/80 text-xs mt-1">
+                                                {itinerary.destinations.map(d => cleanDestination(d.destination)).join(', ')}
+                                            </p>
+                                            <p className="text-white/90 text-sm mt-1">{itinerary.duration} days</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                    </div>
+                </div>
 
-                {/* Family Friendly Itineraries Section */}
-                <ScrollableSection title="Family Friendly Itineraries">
-                    {itineraries
-                        .filter(itinerary => itinerary.tags?.includes('family'))
-                        .map((itinerary) => (
-                            <div
-                                key={itinerary.id}
-                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
-                                className="cursor-pointer w-[300px]"
-                            >
-                                <ItineraryTile
-                                    id={itinerary.id}
-                                    title={itinerary.trip_name}
-                                    description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => cleanDestination(d.destination))
-                                        .join(', ')}`}
-                                    imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
-                                    duration={itinerary.duration}
-                                    cities={itinerary.destinations.map(d =>
-                                        cleanDestination(d.destination)
-                                    )}
-                                    createdAt={itinerary.created_at}
-                                    loading="lazy"
-                                />
-                            </div>
-                        ))}
-                </ScrollableSection>
+                {/* Unique Experiences Section */}
+                <div className="mb-12">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold text-gray-900">Unique Experiences</h2>
+                        <button
+                            onClick={() => navigate('/itineraries?section=unique')}
+                            className="text-[#0096FF] hover:text-[#0077CC] font-medium"
+                        >
+                            View all →
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {itineraries
+                            .filter(itinerary => sectionAssignments['Unique Experiences']?.includes(itinerary.id))
+                            .map((itinerary) => (
+                                <div
+                                    key={itinerary.id}
+                                    onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                    className="cursor-pointer"
+                                >
+                                    <ItineraryTile
+                                        id={itinerary.id}
+                                        title={itinerary.trip_name}
+                                        description={`${itinerary.duration} days in ${itinerary.destinations
+                                            .map(d => cleanDestination(d.destination))
+                                            .join(', ')}`}
+                                        imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                        duration={itinerary.duration}
+                                        cities={itinerary.destinations.map(d =>
+                                            cleanDestination(d.destination)
+                                        )}
+                                        createdAt={itinerary.created_at}
+                                        loading="lazy"
+                                    />
+                                </div>
+                            ))}
+                    </div>
+                </div>
 
-                {/* Adventurous Itineraries Section */}
-                <ScrollableSection title="Adventurous Itineraries">
-                    {itineraries
-                        .filter(itinerary => itinerary.tags?.includes('adventure'))
-                        .map((itinerary) => (
-                            <div
-                                key={itinerary.id}
-                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
-                                className="cursor-pointer w-[300px]"
-                            >
-                                <ItineraryTile
-                                    id={itinerary.id}
-                                    title={itinerary.trip_name}
-                                    description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => cleanDestination(d.destination))
-                                        .join(', ')}`}
-                                    imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
-                                    duration={itinerary.duration}
-                                    cities={itinerary.destinations.map(d =>
-                                        cleanDestination(d.destination)
-                                    )}
-                                    createdAt={itinerary.created_at}
-                                    loading="lazy"
-                                />
+                {/* Seasonal Highlights Section */}
+                <div className="mb-12">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Seasonal Highlights</h2>
+                    <p className="text-gray-600 mb-6">Find the perfect destination based on when you want to travel</p>
+
+                    {/* Season Tabs */}
+                    <div className="flex gap-4 mb-8">
+                        <button
+                            onClick={() => setActiveSeason('Spring')}
+                            className={`flex items-center gap-2 px-6 py-2 rounded-full ${activeSeason === 'Spring' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                        >
+                            <span>🌸</span>
+                            Spring
+                        </button>
+                        <button
+                            onClick={() => setActiveSeason('Summer')}
+                            className={`flex items-center gap-2 px-6 py-2 rounded-full ${activeSeason === 'Summer' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                        >
+                            <span>☀️</span>
+                            Summer
+                        </button>
+                        <button
+                            onClick={() => setActiveSeason('Autumn')}
+                            className={`flex items-center gap-2 px-6 py-2 rounded-full ${activeSeason === 'Autumn' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                        >
+                            <span>🍂</span>
+                            Autumn
+                        </button>
+                        <button
+                            onClick={() => setActiveSeason('Winter')}
+                            className={`flex items-center gap-2 px-6 py-2 rounded-full ${activeSeason === 'Winter' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                        >
+                            <span>❄️</span>
+                            Winter
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {itineraries
+                            .filter(itinerary => sectionAssignments[activeSeason]?.includes(itinerary.id))
+                            .map((itinerary) => (
+                                <div
+                                    key={itinerary.id}
+                                    onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                    className="cursor-pointer"
+                                >
+                                    <ItineraryTile
+                                        id={itinerary.id}
+                                        title={itinerary.trip_name}
+                                        description={`${itinerary.duration} days in ${itinerary.destinations
+                                            .map(d => cleanDestination(d.destination))
+                                            .join(', ')}`}
+                                        imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                        duration={itinerary.duration}
+                                        cities={itinerary.destinations.map(d =>
+                                            cleanDestination(d.destination)
+                                        )}
+                                        createdAt={itinerary.created_at}
+                                        loading="lazy"
+                                    />
+                                </div>
+                            ))}
+                    </div>
+                </div>
+
+                {/* Travel Mood Boards Section */}
+                <div className="mb-12">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Travel Mood Boards</h2>
+                    <p className="text-gray-600 mb-6">Visual inspiration for your next adventure based on the atmosphere you seek</p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Tropical Escape Card */}
+                        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="text-xl font-semibold mb-2">Tropical Escape</h3>
+                                    <p className="text-gray-600">White sandy beaches, crystal clear waters, and palm trees</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button className="p-2 hover:bg-gray-50 rounded-full">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </button>
+                                    <button className="p-2 hover:bg-gray-50 rounded-full">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
-                        ))}
-                </ScrollableSection>
+
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                {itineraries
+                                    .filter(itinerary => sectionAssignments['Tropical Escape']?.includes(itinerary.id))
+                                    .slice(0, 4)
+                                    .map((itinerary) => (
+                                        <div
+                                            key={itinerary.id}
+                                            onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                            className="aspect-[4/3] rounded-lg overflow-hidden cursor-pointer"
+                                        >
+                                            <img
+                                                src={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                                alt={itinerary.trip_name}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                    ))}
+                            </div>
+
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-gray-600">Perfect for:</span>
+                                    <div className="flex gap-2">
+                                        {Array.from(new Set(
+                                            itineraries
+                                                .filter(itinerary => sectionAssignments['Tropical Escape']?.includes(itinerary.id))
+                                                .map(itinerary => itinerary.country)
+                                        ))
+                                            .filter(Boolean)
+                                            .slice(0, 3)
+                                            .map((country, index, array) => (
+                                                <React.Fragment key={country}>
+                                                    <span className="text-[#0096FF] hover:underline cursor-pointer">{country}</span>
+                                                    {index < array.length - 1 && <span className="text-gray-300">•</span>}
+                                                </React.Fragment>
+                                            ))}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span>📅</span>
+                                    <span className="text-gray-600">Best time: Year-round</span>
+                                </div>
+                                <button
+                                    onClick={() => navigate('/itineraries?section=tropical')}
+                                    className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    See All Tropical Itineraries
+                                    <span>→</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Mountain Retreat Card */}
+                        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="text-xl font-semibold mb-2">Mountain Retreat</h3>
+                                    <p className="text-gray-600">Breathtaking peaks, alpine meadows, and cozy cabins</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button className="p-2 hover:bg-gray-50 rounded-full">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </button>
+                                    <button className="p-2 hover:bg-gray-50 rounded-full">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                {itineraries
+                                    .filter(itinerary => sectionAssignments['Mountain Retreat']?.includes(itinerary.id))
+                                    .slice(0, 4)
+                                    .map((itinerary) => (
+                                        <div
+                                            key={itinerary.id}
+                                            onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                            className="aspect-[4/3] rounded-lg overflow-hidden cursor-pointer"
+                                        >
+                                            <img
+                                                src={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                                alt={itinerary.trip_name}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                    ))}
+                            </div>
+
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-gray-600">Perfect for:</span>
+                                    <div className="flex gap-2">
+                                        {Array.from(new Set(
+                                            itineraries
+                                                .filter(itinerary => sectionAssignments['Mountain Retreat']?.includes(itinerary.id))
+                                                .map(itinerary => itinerary.country)
+                                        ))
+                                            .filter(Boolean)
+                                            .slice(0, 3)
+                                            .map((country, index, array) => (
+                                                <React.Fragment key={country}>
+                                                    <span className="text-[#0096FF] hover:underline cursor-pointer">{country}</span>
+                                                    {index < array.length - 1 && <span className="text-gray-300">•</span>}
+                                                </React.Fragment>
+                                            ))}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span>📅</span>
+                                    <span className="text-gray-600">Best time: Spring to Fall</span>
+                                </div>
+                                <button
+                                    onClick={() => navigate('/itineraries?section=mountain')}
+                                    className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    See All Mountain Itineraries
+                                    <span>→</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Urban Adventure Card */}
+                        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="text-xl font-semibold mb-2">Urban Adventure</h3>
+                                    <p className="text-gray-600">Vibrant city life, iconic architecture, and cultural hotspots</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button className="p-2 hover:bg-gray-50 rounded-full">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </button>
+                                    <button className="p-2 hover:bg-gray-50 rounded-full">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                {itineraries
+                                    .filter(itinerary => sectionAssignments['Urban Adventure']?.includes(itinerary.id))
+                                    .slice(0, 4)
+                                    .map((itinerary) => (
+                                        <div
+                                            key={itinerary.id}
+                                            onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                            className="aspect-[4/3] rounded-lg overflow-hidden cursor-pointer"
+                                        >
+                                            <img
+                                                src={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                                alt={itinerary.trip_name}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                    ))}
+                            </div>
+
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-gray-600">Perfect for:</span>
+                                    <div className="flex gap-2">
+                                        {Array.from(new Set(
+                                            itineraries
+                                                .filter(itinerary => sectionAssignments['Urban Adventure']?.includes(itinerary.id))
+                                                .map(itinerary => itinerary.country)
+                                        ))
+                                            .filter(Boolean)
+                                            .slice(0, 3)
+                                            .map((country, index, array) => (
+                                                <React.Fragment key={country}>
+                                                    <span className="text-[#0096FF] hover:underline cursor-pointer">{country}</span>
+                                                    {index < array.length - 1 && <span className="text-gray-300">•</span>}
+                                                </React.Fragment>
+                                            ))}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span>📅</span>
+                                    <span className="text-gray-600">Best time: Year-round</span>
+                                </div>
+                                <button
+                                    onClick={() => navigate('/itineraries?section=urban')}
+                                    className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    See All Urban Itineraries
+                                    <span>→</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Historical Journey Card */}
+                        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 className="text-xl font-semibold mb-2">Historical Journey</h3>
+                                    <p className="text-gray-600">Ancient ruins, preserved architecture, and cultural heritage</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button className="p-2 hover:bg-gray-50 rounded-full">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </button>
+                                    <button className="p-2 hover:bg-gray-50 rounded-full">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                {itineraries
+                                    .filter(itinerary => sectionAssignments['Historical Journey']?.includes(itinerary.id))
+                                    .slice(0, 4)
+                                    .map((itinerary) => (
+                                        <div
+                                            key={itinerary.id}
+                                            onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                            className="aspect-[4/3] rounded-lg overflow-hidden cursor-pointer"
+                                        >
+                                            <img
+                                                src={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                                alt={itinerary.trip_name}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                    ))}
+                            </div>
+
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-gray-600">Perfect for:</span>
+                                    <div className="flex gap-2">
+                                        {Array.from(new Set(
+                                            itineraries
+                                                .filter(itinerary => sectionAssignments['Historical Journey']?.includes(itinerary.id))
+                                                .map(itinerary => itinerary.country)
+                                        ))
+                                            .filter(Boolean)
+                                            .slice(0, 3)
+                                            .map((country, index, array) => (
+                                                <React.Fragment key={country}>
+                                                    <span className="text-[#0096FF] hover:underline cursor-pointer">{country}</span>
+                                                    {index < array.length - 1 && <span className="text-gray-300">•</span>}
+                                                </React.Fragment>
+                                            ))}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span>📅</span>
+                                    <span className="text-gray-600">Best time: Spring or Fall</span>
+                                </div>
+                                <button
+                                    onClick={() => navigate('/itineraries?section=historical')}
+                                    className="w-full py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    See All Historical Itineraries
+                                    <span>→</span>
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
 
                 {/* Short Trips Section */}
-                <ScrollableSection title="Short Trips">
-                    {itineraries
-                        .filter(itinerary => itinerary.tags?.includes('short'))
-                        .map((itinerary) => (
-                            <div
-                                key={itinerary.id}
-                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
-                                className="cursor-pointer w-[300px]"
-                            >
-                                <ItineraryTile
-                                    id={itinerary.id}
-                                    title={itinerary.trip_name}
-                                    description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => cleanDestination(d.destination))
-                                        .join(', ')}`}
-                                    imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
-                                    duration={itinerary.duration}
-                                    cities={itinerary.destinations.map(d =>
-                                        cleanDestination(d.destination)
-                                    )}
-                                    createdAt={itinerary.created_at}
-                                    loading="lazy"
-                                />
-                            </div>
-                        ))}
-                </ScrollableSection>
+                <div className="mb-12">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold text-gray-900">Short Trips</h2>
+                        <button
+                            onClick={() => navigate('/itineraries?section=short')}
+                            className="text-[#0096FF] hover:text-[#0077CC] font-medium"
+                        >
+                            View all →
+                        </button>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <div className="flex gap-4">
+                            {itineraries
+                                .filter(itinerary => itinerary.tags?.includes('short'))
+                                .map((itinerary) => (
+                                    <div
+                                        key={itinerary.id}
+                                        onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                        className="cursor-pointer w-[300px]"
+                                    >
+                                        <ItineraryTile
+                                            id={itinerary.id}
+                                            title={itinerary.trip_name}
+                                            description={`${itinerary.duration} days in ${itinerary.destinations
+                                                .map(d => cleanDestination(d.destination))
+                                                .join(', ')}`}
+                                            imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                            duration={itinerary.duration}
+                                            cities={itinerary.destinations.map(d =>
+                                                cleanDestination(d.destination)
+                                            )}
+                                            createdAt={itinerary.created_at}
+                                            loading="lazy"
+                                        />
+                                    </div>
+                                ))}
+                        </div>
+                    </div>
+                </div>
 
-                {/* Multi Countries Section */}
-                <ScrollableSection title="Multi Countries">
-                    {itineraries
-                        .filter(itinerary => itinerary.tags?.includes('multi-country'))
-                        .map((itinerary) => (
-                            <div
-                                key={itinerary.id}
-                                onClick={() => navigate(`/view-itinerary/${itinerary.id}`)}
-                                className="cursor-pointer w-[300px]"
-                            >
-                                <ItineraryTile
-                                    id={itinerary.id}
-                                    title={itinerary.trip_name}
-                                    description={`${itinerary.duration} days in ${itinerary.destinations
-                                        .map(d => cleanDestination(d.destination))
-                                        .join(', ')}`}
-                                    imageUrl={selectedImages[itinerary.id] || '/images/empty-state.svg'}
-                                    duration={itinerary.duration}
-                                    cities={itinerary.destinations.map(d =>
-                                        cleanDestination(d.destination)
-                                    )}
-                                    createdAt={itinerary.created_at}
-                                    loading="lazy"
-                                />
+                {/* Hidden Gems Section */}
+                <div className="mb-12">
+                    <h2 className="text-3xl font-bold mb-2">Hidden Gems</h2>
+                    <p className="text-gray-600 mb-6">Extraordinary destinations off the beaten path for unique travel experiences</p>
+
+                    <div className="text-sm bg-blue-50 text-blue-700 p-4 rounded-lg mb-6">
+                        These lesser-known destinations offer authentic experiences away from the crowds
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {itineraries
+                            .filter(itinerary => sectionAssignments['Hidden Gems']?.includes(itinerary.id))
+                            .slice(0, 3)
+                            .map((itinerary) => (
+                                <div key={itinerary.id} className="bg-white rounded-lg overflow-hidden shadow-lg flex flex-col">
+                                    <div className="relative">
+                                        <img
+                                            src={selectedImages[itinerary.id] || '/images/empty-state.svg'}
+                                            alt={itinerary.trip_name}
+                                            className="w-full h-64 object-cover"
+                                        />
+                                        <div className="absolute top-4 right-4 bg-white text-gray-900 px-2 py-1 rounded text-sm">
+                                            Hidden Gem
+                                        </div>
+                                        <div className="absolute bottom-4 left-4 text-white">
+                                            <div className="flex items-center gap-1">
+                                                <span>📍</span>
+                                                <span className="font-medium">{itinerary.country}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="p-6 flex flex-col flex-grow">
+                                        <div className="flex-grow">
+                                            <h3 className="text-xl font-semibold mb-2">{itinerary.trip_name}</h3>
+                                            <p className="text-gray-600 mb-4">
+                                                {itinerary.destinations.map(d => cleanDestination(d.destination)).join(', ')}
+                                            </p>
+                                            <div className="flex items-center gap-4 text-gray-500 text-sm">
+                                                <span className="flex items-center gap-1">
+                                                    <span>⏱️</span>
+                                                    {itinerary.duration} days
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                                            className="w-full bg-[#18181B] text-white py-3 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 mt-6"
+                                        >
+                                            Discover Itinerary
+                                            <span>→</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                    </div>
+                </div>
+
+                {/* Travellers with most Trips Section */}
+                <div className="mb-12">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold text-gray-900">Travellers with most Trips</h2>
+                        <button
+                            onClick={() => navigate('/community')}
+                            className="text-[#0096FF] hover:text-[#0077CC] font-medium"
+                        >
+                            View all →
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {topTravellers.map((traveller) => (
+                            <div key={traveller.id} className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col h-full">
+                                <div className="relative h-48">
+                                    <img
+                                        src={traveller.avatar_url}
+                                        alt={traveller.full_name}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => handleImageError(e, "https://api.dicebear.com/7.x/avataaars/svg?seed=" + traveller.id)}
+                                    />
+                                    <div className="absolute top-4 left-4">
+                                        <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 text-sm font-medium flex items-center gap-1.5">
+                                            <span className="text-blue-600">🌍</span>
+                                            <span className="text-gray-800">{traveller.countriesVisited.length} Countries</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="p-6 flex flex-col flex-grow">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <img
+                                            src={traveller.avatar_url}
+                                            alt={traveller.full_name}
+                                            className="w-12 h-12 rounded-full object-cover border-2 border-blue-100"
+                                        />
+                                        <div>
+                                            <h3 className="font-semibold text-gray-900">{traveller.full_name}</h3>
+                                            <p className="text-sm text-gray-600">{traveller.bio || "Travel Enthusiast"}</p>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-3 mb-4 bg-gray-50 p-4 rounded-xl">
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-gray-600 flex items-center gap-2">
+                                                <span className="text-blue-500">🎯</span>
+                                                Trips Last Month
+                                            </span>
+                                            <span className="font-medium text-blue-600">{traveller.lastMonthTrips}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-gray-600 flex items-center gap-2">
+                                                <span className="text-blue-500">✈️</span>
+                                                Total Trips
+                                            </span>
+                                            <span className="font-medium text-blue-600">{traveller.totalTrips}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-gray-600 flex items-center gap-2">
+                                                <span className="text-blue-500">🗺️</span>
+                                                Countries
+                                            </span>
+                                            <span className="font-medium text-blue-600">{traveller.countriesVisited.length}</span>
+                                        </div>
+                                    </div>
+                                    <div className="text-sm text-gray-600 mb-6 bg-blue-50 p-3 rounded-lg flex items-start gap-2">
+                                        <span className="text-blue-500 mt-0.5">📍</span>
+                                        <span>
+                                            Recent: {traveller.countriesVisited.slice(0, 3).join(', ')}
+                                            {traveller.countriesVisited.length > 3 && ' and more...'}
+                                        </span>
+                                    </div>
+                                    <div className="mt-auto">
+                                        <button
+                                            onClick={() => navigate(`/profile/${traveller.id}`)}
+                                            className="w-full bg-blue-600 hover:bg-blue-700 text-white text-center py-2.5 rounded-full transition-colors flex items-center justify-center gap-2 font-medium"
+                                        >
+                                            <span>View Profile</span>
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M9 18L15 12L9 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         ))}
-                </ScrollableSection>
+                    </div>
+                </div>
+
+                {/* Ready for Adventure Section */}
+                <div className="bg-[#0096FF] rounded-2xl p-12 text-center text-white mb-12">
+                    <h2 className="text-4xl font-bold mb-4">Ready for your next adventure?</h2>
+                    <p className="text-xl mb-8">Create a personalized itinerary tailored to your preferences and travel style</p>
+                    <div className="flex justify-center gap-4">
+                        <button className="bg-white text-[#0096FF] px-6 py-3 rounded-full font-medium hover:bg-gray-100 transition-colors">
+                            Create Itinerary
+                        </button>
+                        <button className="bg-transparent border-2 border-white text-white px-6 py-3 rounded-full font-medium hover:bg-white/10 transition-colors">
+                            Explore More
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );

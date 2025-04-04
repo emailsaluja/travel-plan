@@ -5,13 +5,15 @@ import { cleanDestination } from '../utils/stringUtils';
 interface Destination {
     destination: string;
     nights: number;
-    discover: string;
-    manual_discover: string;
-    manual_discover_desc: string;
+    discover?: string;
+    manual_discover?: string;
+    manual_discover_desc?: string;
     discover_descriptions?: { [key: string]: string };
-    transport: string;
-    notes: string;
-    food: string;
+    food_descriptions?: { [key: string]: string };
+    transport?: string;
+    notes?: string;
+    food?: string;
+    food_desc?: string;
 }
 
 interface DestinationsListProps {
@@ -20,8 +22,8 @@ interface DestinationsListProps {
 }
 
 const DestinationsList: React.FC<DestinationsListProps> = ({ destinations, startDate }) => {
-    const getTransportIcon = (transport: string) => {
-        const lowerTransport = transport.toLowerCase();
+    const getTransportIcon = (transport: string | undefined) => {
+        const lowerTransport = transport?.toLowerCase() || '';
         if (lowerTransport.includes('fly') || lowerTransport.includes('plane') || lowerTransport.includes('air')) {
             return Plane;
         } else if (lowerTransport.includes('train')) {

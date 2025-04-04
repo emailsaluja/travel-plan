@@ -256,7 +256,7 @@ const LikedTrips: React.FC = () => {
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            navigate(`/view-itinerary/${trip.id}`);
+                                            navigate(`/viewmyitinerary/${trip.id}`);
                                         }}
                                         className="p-2 rounded-full bg-white/90 hover:bg-white text-gray-700 hover:text-gray-900 transition-colors shadow-sm"
                                         title="View itinerary"
@@ -266,7 +266,7 @@ const LikedTrips: React.FC = () => {
                                 </div>
 
                                 <div
-                                    onClick={() => navigate(`/view-itinerary/${trip.id}`)}
+                                    onClick={() => navigate(`/viewmyitinerary/${trip.id}`)}
                                     className="cursor-pointer"
                                 >
                                     <div className="h-40 bg-gray-100 relative">
