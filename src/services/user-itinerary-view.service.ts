@@ -49,15 +49,19 @@ export interface UserItineraryView {
     day_overview?: string;
   }[];
   day_food_options: {
+    id: string;
+    itinerary_id: string;
     day_index: number;
-    food_options: {
+    name: Array<{
       id: string;
       name: {
         text: string;
         cuisine?: string;
         known_for?: string;
       };
-    }[];
+    }>;
+    created_at: string;
+    updated_at: string;
   }[];
 }
 
@@ -173,10 +177,7 @@ export const UserItineraryViewService = {
           notes: dn.notes,
           day_overview: dn.day_overview
         })),
-        day_food_options: dayFoodOptions.map(df => ({
-          day_index: df.day_index,
-          food_options: df.food_options
-        }))
+        day_food_options: dayFoodOptions
       };
 
       return {

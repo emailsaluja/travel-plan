@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { UserItineraryViewService, UserItineraryView } from '../services/user-itinerary-view.service';
+import { UserItineraryViewService } from '../services/user-itinerary-view.service';
+import type { UserItineraryView as UserItineraryViewType } from '../services/user-itinerary-view.service';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 import { Calendar, Utensils, MapPin, ArrowLeft, Youtube, Instagram } from 'lucide-react';
 import mapboxgl from 'mapbox-gl';
@@ -44,6 +45,24 @@ interface FoodOption {
         cuisine?: string;
         known_for?: string;
     };
+}
+
+interface FoodItemData {
+    id: string;
+    name: {
+        text: string;
+        cuisine?: string;
+        known_for?: string;
+    };
+}
+
+interface DayFoodOptions {
+    id: string;
+    itinerary_id: string;
+    day_index: number;
+    name: FoodItemData[];
+    created_at: string;
+    updated_at: string;
 }
 
 const getHeroImage = async (tripName: string, country: string): Promise<string> => {
@@ -161,7 +180,7 @@ const getHeroImage = async (tripName: string, country: string): Promise<string> 
 
 const ViewMyItinerary: React.FC = () => {
     const { id } = useParams<{ id: string }>();
-    const [itinerary, setItinerary] = useState<UserItineraryView | null>(null);
+    const [itinerary, setItinerary] = useState<UserItineraryViewType | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedDestIndex, setSelectedDestIndex] = useState(0);
     const [selectedDayIndex, setSelectedDayIndex] = useState(0);
@@ -170,7 +189,16 @@ const ViewMyItinerary: React.FC = () => {
     // New state variables for preloaded data
     const [preloadedData, setPreloadedData] = useState<{
         allAttractions: { [key: string]: Attraction[] };
-        allFoodOptions: { [key: string]: any[] };
+        allFoodOptions: {
+            [key: string]: Array<{
+                id: string;
+                name: {
+                    text: string;
+                    cuisine?: string;
+                    known_for?: string;
+                };
+            }>
+        };
         dayHotels: { [key: string]: string };
         day_notes: { [key: string]: string };
     }>({
@@ -231,11 +259,20 @@ const ViewMyItinerary: React.FC = () => {
 
     // Preload all data when itinerary changes
     useEffect(() => {
-        if (!itinerary) return;
-
         const preloadAllData = () => {
+            if (!itinerary) return;
+
             const attractions: { [key: string]: Attraction[] } = {};
-            const foodOptions: { [key: string]: any[] } = {};
+            const foodOptions: {
+                [key: string]: Array<{
+                    id: string;
+                    name: {
+                        text: string;
+                        cuisine?: string;
+                        known_for?: string;
+                    };
+                }>
+            } = {};
             const hotels: { [key: string]: string } = {};
             const notes: { [key: string]: string } = {};
 
@@ -268,8 +305,23 @@ const ViewMyItinerary: React.FC = () => {
                     // Load food options
                     const dayFoodOptions = itinerary.day_food_options?.find(
                         d => d.day_index === currentDayNumber - 1
-                    )?.food_options || [];
-                    foodOptions[key] = dayFoodOptions;
+                    );
+
+                    if (dayFoodOptions?.name) {
+                        foodOptions[key] = dayFoodOptions.name;
+                    } else {
+                        // Try to get food options from the destination's food array
+                        const destinationFoodItems = destination.food?.split(',').filter(Boolean) || [];
+                        const destinationFoodDescriptions = destination.food_desc?.split(',').filter(Boolean) || [];
+
+                        foodOptions[key] = destinationFoodItems.map((text, index) => ({
+                            id: `dest-food-${index}`,
+                            name: {
+                                text: text.trim(),
+                                known_for: destinationFoodDescriptions[index]?.trim()
+                            }
+                        }));
+                    }
 
                     // Load hotels
                     const hotel = itinerary.day_hotels?.find(d => d.day_index === currentDayNumber - 1)?.hotel;
@@ -307,76 +359,62 @@ const ViewMyItinerary: React.FC = () => {
 
     // Update the renderFoodOptions function to use preloaded data
     const renderFoodOptions = (dayIndex: number) => {
-        const key = `${selectedDestIndex}-${dayIndex}`;
         const currentDayNumber = getDayNumber(selectedDestIndex, dayIndex);
 
-        // Get food options directly from the API data
+        // Get food options from the API response
         const dayFoodOptions = itinerary?.day_food_options?.find(
             d => d.day_index === currentDayNumber - 1
-        )?.food_options || [];
+        );
 
-        console.log('Food options to render:', dayFoodOptions);
+        console.log('Current day number:', currentDayNumber);
+        console.log('Day food options:', dayFoodOptions);
 
-        if (!dayFoodOptions || dayFoodOptions.length === 0) {
-            return <p className="text-gray-500 py-4">No dining options added for this day.</p>;
+        // Get the food options array from the name property
+        const foodItems = dayFoodOptions?.name || [];
+        console.log('Food items:', foodItems);
+
+        if (!foodItems || foodItems.length === 0) {
+            return <div className="text-[#64748B] text-sm py-4">No dining options added for this day.</div>;
         }
 
-        // Deduplicate food options based on restaurant name
-        const uniqueFoodOptions = dayFoodOptions.reduce((acc: Array<{
-            id: string;
-            name: {
-                text: string;
-                cuisine?: string;
-                known_for?: string;
-            };
-        }>, current) => {
-            const currentName = current?.name?.text;
-            if (!currentName) return acc;
-
-            const exists = acc.find(item => {
-                const itemName = item?.name?.text;
-                return itemName && itemName.toLowerCase() === currentName.toLowerCase();
-            });
-
-            if (!exists) {
-                acc.push(current);
-            }
-            return acc;
-        }, []);
-
-        console.log('Unique food options:', uniqueFoodOptions);
-
         return (
-            <div className="divide-y divide-[#E2E8F0]">
-                {uniqueFoodOptions.map((food, index) => (
-                    <div key={food.id || index} className="grid grid-cols-[2fr,1.5fr,2.5fr] py-4">
-                        <div className="flex flex-col gap-1">
-                            <div className="text-[#0F172A] text-sm font-medium">{food.name?.text || 'N/A'}</div>
-                        </div>
-                        <div className="text-[#64748B] text-sm">{food.name?.cuisine || 'N/A'}</div>
-                        <div className="text-[#64748B] text-sm">
-                            {(() => {
-                                const knownFor = food.name?.known_for || 'N/A';
-                                const { url, cleanText } = extractUrl(knownFor);
-                                return (
-                                    <>
-                                        {cleanText}
-                                        {url && (
-                                            <a
-                                                href={url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="ml-2 inline-block bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-0.5 rounded-md transition-colors"
-                                            >
-                                                Book Table
-                                            </a>
-                                        )}
-                                    </>
-                                );
-                            })()}
-                        </div>
-                    </div>
-                ))}
+            <div className="mt-6">
+                {/* Header Row */}
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                    <div className="text-[#64748B] text-lg font-medium">Restaurant</div>
+                    <div className="text-[#64748B] text-lg font-medium">Cuisine</div>
+                    <div className="text-[#64748B] text-lg font-medium">Known For</div>
+                </div>
+
+                {/* Food Items */}
+                <div className="space-y-6">
+                    {foodItems.map((food: FoodItem, index: number) => {
+                        const { url, cleanText } = extractUrl(food.name?.known_for || '');
+                        return (
+                            <div key={food.id || index} className="grid grid-cols-3 gap-4 py-4 border-t border-[#E2E8F0] first:border-t-0">
+                                <div className="text-[#0F172A] text-base">
+                                    {food.name?.text || 'N/A'}
+                                </div>
+                                <div className="text-[#64748B] text-base">
+                                    {food.name?.cuisine || 'N/A'}
+                                </div>
+                                <div className="text-[#64748B] text-base">
+                                    {cleanText || 'N/A'}
+                                    {url && (
+                                        <a
+                                            href={url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="ml-2 inline-block bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-0.5 rounded-md transition-colors"
+                                        >
+                                            Book Now
+                                        </a>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
         );
     };
@@ -421,6 +459,28 @@ const ViewMyItinerary: React.FC = () => {
         );
     };
 
+    // Add this function at the top level of the component
+    const renderTextWithLinks = (text: string | undefined): React.ReactNode => {
+        if (!text) return null;
+        const { url, cleanText } = extractUrl(text);
+
+        return (
+            <div className="text-sm text-[#64748B]">
+                {cleanText}
+                {url && (
+                    <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-2 inline-block bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-0.5 rounded-md transition-colors"
+                    >
+                        Click here
+                    </a>
+                )}
+            </div>
+        );
+    };
+
     if (loading) {
         return <div className="container mx-auto px-4 py-8 mt-16">Loading...</div>;
     }
@@ -441,7 +501,7 @@ const ViewMyItinerary: React.FC = () => {
     const dayHotelDesc = dayHotelData?.hotel_desc;
     const dayNotes = itinerary?.day_notes?.find(n => n.day_index === currentDayNumber - 1)?.notes;
     const dayOverview = itinerary?.day_notes?.find(n => n.day_index === currentDayNumber - 1)?.day_overview;
-    const dayFoodOptions = itinerary?.day_food_options?.[currentDayNumber - 1]?.food_options || [];
+    const dayFoodItems = itinerary?.day_food_options?.find(d => d.day_index === currentDayNumber - 1)?.name || [];
 
     // Get discover items for the current destination
     const currentDestination = itinerary?.destinations[selectedDestIndex];
@@ -506,12 +566,6 @@ const ViewMyItinerary: React.FC = () => {
     const destinationFoodItems = currentDestination?.food?.split(',').filter(Boolean) || [];
     const destinationFoodDescriptions = currentDestination?.food_desc?.split(',').filter(Boolean) || [];
 
-    // Combine day food options with destination food items
-    const allFoodOptions = dayFoodOptions.map((dayFood: any) => ({
-        dayIndex: dayFood.day_index,
-        foodOptions: dayFood.food_options || []
-    }));
-
     // Add this function to extract URL from text and remove it from display
     const extractUrl = (text: string): { url: string | null, cleanText: string } => {
         const urlPattern = /(https?:\/\/[^\s]+)/g;
@@ -519,50 +573,6 @@ const ViewMyItinerary: React.FC = () => {
         const url = match ? match[0] : null;
         const cleanText = text?.replace(urlPattern, '').trim();
         return { url, cleanText };
-    };
-
-    const getFoodDetails = (food: FoodOption) => {
-        return {
-            cuisine: food.name.cuisine || '',
-            description: food.name.known_for || ''
-        };
-    };
-
-    const uniqueFoodItems = (foodItems: FoodOption[]): FoodOption[] => {
-        return foodItems.reduce((acc: FoodOption[], current: FoodOption) => {
-            if (!acc.some(item => item.id === current.id)) {
-                acc.push(current);
-            }
-            return acc;
-        }, [] as FoodOption[]);
-    };
-
-    const renderFoodItems = (foodItems: FoodOption[]) => {
-        return foodItems.map((food, index) => {
-            const details = getFoodDetails(food);
-            return (
-                <div key={index} className="flex items-start justify-between p-4 border border-[#E2E8F0] rounded-lg">
-                    <div className="flex items-start gap-3">
-                        <div className="mt-1">
-                            <Utensils className="w-4 h-4 text-[#0EA5E9]" />
-                        </div>
-                        <div>
-                            <h4 className="text-[#0F172A] font-medium">{food.name.text}</h4>
-                            {details.cuisine && (
-                                <p className="text-sm text-[#64748B] mt-1">
-                                    <span className="font-medium">Cuisine:</span> {details.cuisine}
-                                </p>
-                            )}
-                            {details.description && (
-                                <p className="text-sm text-[#64748B] mt-1">
-                                    <span className="font-medium">Known for:</span> {details.description}
-                                </p>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            );
-        });
     };
 
     return (
@@ -686,284 +696,334 @@ const ViewMyItinerary: React.FC = () => {
                                             </div>
 
                                             {destination.destination_overview && (
-                                                <div className="mb-4 bg-gray-50 p-3 rounded text-sm text-[#64748B]">
-                                                    {destination.destination_overview}
+                                                <div className="mb-4 bg-gray-50 p-3 rounded">
+                                                    {renderTextWithLinks(destination.destination_overview)}
                                                 </div>
                                             )}
 
+                                            {/* Day Tabs */}
                                             <div className="mt-8">
-                                                <div className="flex items-center gap-4 mb-6">
-                                                    <div className="w-12 h-12 bg-[#EEF2FF] rounded-full flex items-center justify-center text-2xl text-[#6366F1]">
-                                                        {getDayNumber(destIndex, selectedDayIndex)}
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-[#64748B] text-sm font-medium flex items-center gap-2">
-                                                            <Calendar className="w-4 h-4" />
-                                                            {formatDate(calculateStartDate(destIndex, selectedDayIndex).toISOString())}
-                                                        </div>
-                                                        {dayHotel && (
-                                                            <div className="flex items-center gap-2 text-[#64748B] text-sm mt-0.5">
-                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                                                </svg>
-                                                                <span className="font-medium">{dayHotel}</span>
-                                                                {dayHotelDesc && (() => {
-                                                                    const { url } = extractUrl(dayHotelDesc);
-                                                                    return url ? (
-                                                                        <a
-                                                                            href={url}
-                                                                            target="_blank"
-                                                                            rel="noopener noreferrer"
-                                                                            className="ml-2 bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 rounded-md transition-colors"
-                                                                        >
-                                                                            Book Hotel
-                                                                        </a>
-                                                                    ) : null;
-                                                                })()}
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                <div className="flex space-x-2 mb-6 overflow-x-auto pb-2">
+                                                    {Array.from({ length: destination.nights }).map((_, dayIndex) => (
+                                                        <button
+                                                            key={dayIndex}
+                                                            onClick={() => setSelectedDayIndex(dayIndex)}
+                                                            className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${selectedDayIndex === dayIndex
+                                                                ? 'bg-[#0EA5E9] text-white'
+                                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                                }`}
+                                                        >
+                                                            Day {getDayNumber(destIndex, dayIndex)}
+                                                        </button>
+                                                    ))}
                                                 </div>
 
-                                                {/* Day Content */}
                                                 <div className="mt-6">
-                                                    {/* Day Overview */}
-                                                    {dayOverview && (
-                                                        <div className="mb-4 bg-gray-50 p-3 rounded text-sm text-[#64748B]">
-                                                            {dayOverview}
+                                                    <div className="flex items-center gap-4 mb-6">
+                                                        <div className="w-12 h-12 bg-[#EEF2FF] rounded-full flex items-center justify-center text-2xl text-[#6366F1]">
+                                                            {getDayNumber(destIndex, selectedDayIndex)}
                                                         </div>
-                                                    )}
+                                                        <div>
+                                                            <div className="text-[#64748B] text-sm font-medium flex items-center gap-2">
+                                                                <Calendar className="w-4 h-4" />
+                                                                {formatDate(calculateStartDate(destIndex, selectedDayIndex).toISOString())}
+                                                            </div>
+                                                            {dayHotel && (
+                                                                <div className="flex items-center gap-2 text-[#64748B] text-sm mt-0.5">
+                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                                                    </svg>
+                                                                    {dayHotelDesc ? (
+                                                                        <div className="group relative">
+                                                                            <span className="font-medium cursor-help">{dayHotel}</span>
+                                                                            <div className="absolute left-0 bottom-full mb-2 w-64 p-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                                                                                {extractUrl(dayHotelDesc).cleanText}
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="font-medium">{dayHotel}</span>
+                                                                    )}
+                                                                    {dayHotelDesc && (() => {
+                                                                        const { url } = extractUrl(dayHotelDesc);
+                                                                        if (!url) return null;
+                                                                        return (
+                                                                            <a
+                                                                                href={url}
+                                                                                target="_blank"
+                                                                                rel="noopener noreferrer"
+                                                                                className="ml-1 inline-block bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-0.5 rounded-md transition-colors"
+                                                                            >
+                                                                                Book Hotel
+                                                                            </a>
+                                                                        );
+                                                                    })()}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
 
-                                                    {/* Attractions */}
-                                                    <div className="space-y-6">
-                                                        {uniqueAttractions.map((attraction, index) => (
-                                                            <div key={index} className="flex items-start justify-between p-4 border border-[#E2E8F0] rounded-lg">
-                                                                <div className="flex items-start gap-3">
-                                                                    <div className="mt-1">
-                                                                        <svg className="w-4 h-4 text-[#0EA5E9]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                                            <path d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                                        </svg>
-                                                                    </div>
-                                                                    <div>
-                                                                        <h4 className="text-[#0F172A] text-base font-medium">{attraction.name}</h4>
-                                                                        {attraction.description && (
-                                                                            <>
-                                                                                {(() => {
-                                                                                    const { url, cleanText } = extractUrl(attraction.description);
-                                                                                    return (
-                                                                                        <>
-                                                                                            <p className="text-[#64748B] text-sm mt-1">
+                                                    {/* Day Content */}
+                                                    <div className="mt-6">
+                                                        {/* Day Overview */}
+                                                        {dayOverview && (
+                                                            <div className="mb-4 bg-gray-50 p-3 rounded">
+                                                                {renderTextWithLinks(dayOverview)}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Things to Do & See Section */}
+                                                        <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden mt-4">
+                                                            <div className="p-4">
+                                                                <div className="flex items-center gap-2">
+                                                                    <MapPin className="w-4 h-4 text-[#0EA5E9]" />
+                                                                    <h3 className="text-[#0F172A] text-base font-semibold">Things to Do & See</h3>
+                                                                </div>
+                                                                <p className="text-[#64748B] text-xs ml-6">Attractions and activities for the day</p>
+
+                                                                {/* Attractions */}
+                                                                <div className="space-y-3 mt-3">
+                                                                    {uniqueAttractions.map((attraction, index) => {
+                                                                        const { url, cleanText } = extractUrl(attraction.description || '');
+                                                                        return (
+                                                                            <div key={index} className="flex items-start justify-between p-3 border border-[#E2E8F0] rounded-lg">
+                                                                                <div className="flex items-start gap-2">
+                                                                                    <div className="mt-1">
+                                                                                        <svg className="w-3 h-3 text-[#0EA5E9]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                                                            <path d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                                                        </svg>
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <h4 className="text-[#0F172A] text-sm font-medium">{attraction.name}</h4>
+                                                                                        {cleanText && (
+                                                                                            <p className="text-[#64748B] text-xs mt-0.5">
                                                                                                 {cleanText}
                                                                                             </p>
-                                                                                            {url && (
-                                                                                                <a
-                                                                                                    href={url}
-                                                                                                    target="_blank"
-                                                                                                    rel="noopener noreferrer"
-                                                                                                    className="mt-1 inline-block bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-0.5 rounded-md transition-colors"
-                                                                                                >
-                                                                                                    Book Now
-                                                                                                </a>
-                                                                                            )}
-                                                                                        </>
+                                                                                        )}
+                                                                                        {url && (
+                                                                                            <a
+                                                                                                href={url}
+                                                                                                target="_blank"
+                                                                                                rel="noopener noreferrer"
+                                                                                                className="mt-1 inline-block bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-0.5 rounded-md transition-colors"
+                                                                                            >
+                                                                                                Book Now
+                                                                                            </a>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </div>
+                                                                                {(() => {
+                                                                                    const description = (cleanText || '').toLowerCase();
+                                                                                    let timeText = attraction.isDiscover ? 'Not scheduled' : 'All Day';
+                                                                                    let colorClasses = 'bg-gray-50 text-gray-600';
+
+                                                                                    if (!attraction.isDiscover) {
+                                                                                        if (description.includes('morning')) {
+                                                                                            timeText = 'Morning';
+                                                                                            colorClasses = 'bg-amber-50 text-amber-600';
+                                                                                        } else if (description.includes('afternoon')) {
+                                                                                            timeText = 'Afternoon';
+                                                                                            colorClasses = 'bg-sky-50 text-sky-600';
+                                                                                        } else if (description.includes('evening')) {
+                                                                                            timeText = 'Evening';
+                                                                                            colorClasses = 'bg-indigo-50 text-indigo-600';
+                                                                                        } else if (description.includes('night')) {
+                                                                                            timeText = 'Night';
+                                                                                            colorClasses = 'bg-purple-50 text-purple-600';
+                                                                                        }
+                                                                                    }
+
+                                                                                    return (
+                                                                                        <div className={`px-2 py-0.5 rounded text-xs font-medium ${colorClasses}`}>
+                                                                                            {timeText}
+                                                                                        </div>
                                                                                     );
                                                                                 })()}
-                                                                            </>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                                {(() => {
-                                                                    const description = (attraction.description || '').toLowerCase();
-                                                                    let timeText = attraction.isDiscover ? 'Not scheduled' : 'All Day';
-                                                                    let colorClasses = 'bg-gray-50 text-gray-600';
-
-                                                                    if (!attraction.isDiscover) {
-                                                                        if (description.includes('morning')) {
-                                                                            timeText = 'Morning';
-                                                                            colorClasses = 'bg-amber-50 text-amber-600';
-                                                                        } else if (description.includes('afternoon')) {
-                                                                            timeText = 'Afternoon';
-                                                                            colorClasses = 'bg-sky-50 text-sky-600';
-                                                                        } else if (description.includes('evening')) {
-                                                                            timeText = 'Evening';
-                                                                            colorClasses = 'bg-indigo-50 text-indigo-600';
-                                                                        } else if (description.includes('night')) {
-                                                                            timeText = 'Night';
-                                                                            colorClasses = 'bg-purple-50 text-purple-600';
-                                                                        }
-                                                                    }
-
-                                                                    return (
-                                                                        <div className={`px-3 py-1 rounded text-sm font-medium ${colorClasses}`}>
-                                                                            {timeText}
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                    {currentAttractions.length === 0 && (
+                                                                        <div className="p-3 text-[#64748B] text-xs">
+                                                                            No activities scheduled for this day.
                                                                         </div>
-                                                                    );
-                                                                })()}
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                        ))}
-                                                        {currentAttractions.length === 0 && (
-                                                            <div className="p-6 text-[#64748B] text-sm">
-                                                                No activities scheduled for this day.
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Food & Dining Options Section */}
+                                                    <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden mt-4">
+                                                        <div className="p-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <Utensils className="w-4 h-4 text-[#F59E0B]" />
+                                                                <h3 className="text-[#0F172A] text-base font-semibold">Food & Dining Options</h3>
+                                                            </div>
+                                                            <p className="text-[#64748B] text-xs ml-6">Recommended restaurants and eateries</p>
+
+                                                            <div className="mt-3">
+                                                                {/* Header Row */}
+                                                                <div className="grid grid-cols-3 gap-3 mb-2">
+                                                                    <div className="text-[#64748B] text-xs font-medium">Restaurant</div>
+                                                                    <div className="text-[#64748B] text-xs font-medium">Cuisine</div>
+                                                                    <div className="text-[#64748B] text-xs font-medium">Known For</div>
+                                                                </div>
+
+                                                                {/* Food Items */}
+                                                                <div className="space-y-2">
+                                                                    {dayFoodItems.map((food: { id: string; name: { text: string; cuisine?: string; known_for?: string; } }, index: number) => {
+                                                                        const { url, cleanText } = extractUrl(food.name?.known_for || '');
+                                                                        return (
+                                                                            <div key={food.id || index} className="grid grid-cols-3 gap-3 py-2 border-t border-[#E2E8F0] first:border-t-0">
+                                                                                <div className="text-[#0F172A] text-xs">
+                                                                                    {food.name?.text || 'N/A'}
+                                                                                </div>
+                                                                                <div className="text-[#64748B] text-xs">
+                                                                                    {food.name?.cuisine || 'N/A'}
+                                                                                </div>
+                                                                                <div className="text-[#64748B] text-xs">
+                                                                                    {cleanText || 'N/A'}
+                                                                                    {url && (
+                                                                                        <a
+                                                                                            href={url}
+                                                                                            target="_blank"
+                                                                                            rel="noopener noreferrer"
+                                                                                            className="ml-1 inline-block bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-0.5 rounded-md transition-colors"
+                                                                                        >
+                                                                                            Book Now
+                                                                                        </a>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Notes Section */}
+                                                    <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden mt-4">
+                                                        <div className="p-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                                    <path d="M6.66667 5H13.3333M6.66667 9.16667H13.3333M6.66667 13.3333H10M17.5 9.16667V14.1667C17.5 15.0871 17.5 15.5474 17.3183 15.9081C17.1586 16.2293 16.8959 16.4919 16.5748 16.6517C16.214 16.8333 15.7537 16.8333 14.8333 16.8333H5.16667C4.24619 16.8333 3.78595 16.8333 3.42515 16.6517C3.10398 16.4919 2.84135 16.2293 2.68162 15.9081C2.5 15.5474 2.5 15.0871 2.5 14.1667V5.83333C2.5 4.91286 2.5 4.45262 2.68162 4.09182C2.84135 3.77065 3.10398 3.50802 3.42515 3.34829C3.78595 3.16667 4.24619 3.16667 5.16667 3.16667H14.8333C15.7537 3.16667 16.214 3.16667 16.5748 3.34829C16.8959 3.50802 17.1586 3.77065 17.3183 4.09182C17.5 4.45262 17.5 4.91286 17.5 5.83333V9.16667Z" stroke="#3B82F6" strokeWidth="1.67" strokeLinecap="round" strokeLinejoin="round" />
+                                                                </svg>
+                                                                <h3 className="text-[#0F172A] text-base font-semibold">Notes</h3>
+                                                            </div>
+                                                            <div className="text-[#64748B] text-xs mt-3">
+                                                                {currentNotes ? renderNotesWithLinks(currentNotes) : 'No notes added for this day.'}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Travel Content & Guides Section */}
+                                                    {((destination.youtube_videos && destination.youtube_videos.length > 0) ||
+                                                        (destination.youtube_playlists && destination.youtube_playlists.length > 0) ||
+                                                        (destination.instagram_videos && destination.instagram_videos.length > 0)) && (
+                                                            <div className="bg-white rounded-xl border border-[#E2E8F0] overflow-hidden mt-4">
+                                                                <div className="p-4">
+                                                                    <div className="flex items-center gap-2 mb-3">
+                                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                                            <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="#3B82F6" strokeWidth="2" />
+                                                                            <path d="M15 12L10 15V9L15 12Z" fill="#3B82F6" />
+                                                                        </svg>
+                                                                        <h3 className="text-[#0F172A] text-base font-semibold">Travel Content & Guides</h3>
+                                                                    </div>
+
+                                                                    {/* YouTube Videos */}
+                                                                    {destination.youtube_videos && destination.youtube_videos.length > 0 && (
+                                                                        <div className="space-y-2 mb-4">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <Youtube className="w-4 h-4 text-red-600" />
+                                                                                <h4 className="text-[#64748B] text-xs font-medium">Destination Videos</h4>
+                                                                            </div>
+                                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                                                {destination.youtube_videos.map((url, index) => {
+                                                                                    const videoId = url.match(/(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/watch\?.+&v=))([^"&?\/\s]{11})/)?.[1];
+                                                                                    return videoId ? (
+                                                                                        <div key={index} className="aspect-video rounded-lg overflow-hidden shadow-sm">
+                                                                                            <iframe
+                                                                                                width="100%"
+                                                                                                height="100%"
+                                                                                                src={`https://www.youtube.com/embed/${videoId}`}
+                                                                                                title={`YouTube video ${index + 1}`}
+                                                                                                frameBorder="0"
+                                                                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                                                                allowFullScreen
+                                                                                            />
+                                                                                        </div>
+                                                                                    ) : null;
+                                                                                })}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* YouTube Playlists */}
+                                                                    {destination.youtube_playlists && destination.youtube_playlists.length > 0 && (
+                                                                        <div className="space-y-2 mb-4">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <Youtube className="w-4 h-4 text-red-600" />
+                                                                                <h4 className="text-[#64748B] text-xs font-medium">Travel Guides</h4>
+                                                                            </div>
+                                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                                                {destination.youtube_playlists.map((url, index) => {
+                                                                                    const playlistId = url.match(/[&?]list=([^&]+)/)?.[1];
+                                                                                    return playlistId ? (
+                                                                                        <div key={index} className="aspect-video rounded-lg overflow-hidden shadow-sm">
+                                                                                            <iframe
+                                                                                                width="100%"
+                                                                                                height="100%"
+                                                                                                src={`https://www.youtube.com/embed/videoseries?list=${playlistId}`}
+                                                                                                title={`YouTube playlist ${index + 1}`}
+                                                                                                frameBorder="0"
+                                                                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                                                                allowFullScreen
+                                                                                            />
+                                                                                        </div>
+                                                                                    ) : null;
+                                                                                })}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* Instagram Videos */}
+                                                                    {destination.instagram_videos && destination.instagram_videos.length > 0 && (
+                                                                        <div className="space-y-2">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <Instagram className="w-4 h-4 text-pink-600" />
+                                                                                <h4 className="text-[#64748B] text-xs font-medium">Travel Reels</h4>
+                                                                            </div>
+                                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                                                {destination.instagram_videos.map((url, index) => {
+                                                                                    const videoId = url.match(/instagram\.com\/(?:p|reel)\/([^/?]+)/)?.[1];
+                                                                                    if (!videoId) {
+                                                                                        return (
+                                                                                            <div key={index} className="aspect-square rounded-lg bg-gray-50 flex items-center justify-center text-gray-500 text-xs p-3 text-center">
+                                                                                                Invalid Instagram URL format
+                                                                                            </div>
+                                                                                        );
+                                                                                    }
+                                                                                    return (
+                                                                                        <div key={index} className="aspect-square rounded-lg overflow-hidden shadow-sm border border-gray-100">
+                                                                                            <iframe
+                                                                                                width="100%"
+                                                                                                height="100%"
+                                                                                                src={`https://www.instagram.com/p/${videoId}/embed`}
+                                                                                                title={`Instagram video ${index + 1}`}
+                                                                                                frameBorder="0"
+                                                                                                scrolling="no"
+                                                                                                allowTransparency
+                                                                                            />
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         )}
-                                                    </div>
                                                 </div>
-
-                                                {/* Food & Dining Options Section */}
-                                                <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden mt-8">
-                                                    <div className="p-6">
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <Utensils className="w-5 h-5 text-[#F59E0B]" />
-                                                            <h3 className="text-[#0F172A] text-lg font-semibold">Food & Dining Options</h3>
-                                                        </div>
-                                                        <p className="text-[#64748B] text-sm">Recommended restaurants and eateries</p>
-                                                    </div>
-
-                                                    <div className="px-6">
-                                                        <div className="grid grid-cols-[2fr,1.5fr,2.5fr] text-[#64748B] text-sm font-medium">
-                                                            <div className="pb-2">Restaurant</div>
-                                                            <div className="pb-2">Cuisine</div>
-                                                            <div className="pb-2">Known For</div>
-                                                        </div>
-                                                        {renderFoodOptions(selectedDayIndex)}
-                                                    </div>
-                                                </div>
-
-                                                {/* Notes Section */}
-                                                <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden mt-8">
-                                                    <div className="p-6">
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                                <path d="M6.66667 5H13.3333M6.66667 9.16667H13.3333M6.66667 13.3333H10M17.5 9.16667V14.1667C17.5 15.0871 17.5 15.5474 17.3183 15.9081C17.1586 16.2293 16.8959 16.4919 16.5748 16.6517C16.214 16.8333 15.7537 16.8333 14.8333 16.8333H5.16667C4.24619 16.8333 3.78595 16.8333 3.42515 16.6517C3.10398 16.4919 2.84135 16.2293 2.68162 15.9081C2.5 15.5474 2.5 15.0871 2.5 14.1667V5.83333C2.5 4.91286 2.5 4.45262 2.68162 4.09182C2.84135 3.77065 3.10398 3.50802 3.42515 3.34829C3.78595 3.16667 4.24619 3.16667 5.16667 3.16667H14.8333C15.7537 3.16667 16.214 3.16667 16.5748 3.34829C16.8959 3.50802 17.1586 3.77065 17.3183 4.09182C17.5 4.45262 17.5 4.91286 17.5 5.83333V9.16667Z" stroke="#3B82F6" strokeWidth="1.67" strokeLinecap="round" strokeLinejoin="round" />
-                                                            </svg>
-                                                            <h3 className="text-[#0F172A] text-lg font-semibold">Notes</h3>
-                                                        </div>
-                                                        <div className="text-[#64748B] text-sm mt-4">
-                                                            {currentNotes ? renderNotesWithLinks(currentNotes) : 'No notes added for this day.'}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* YouTube Videos and Playlists Section */}
-                                                {((destination.youtube_videos && destination.youtube_videos.length > 0) || (destination.youtube_playlists && destination.youtube_playlists.length > 0)) && (
-                                                    <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden mt-8">
-                                                        <div className="p-6">
-                                                            {destination.youtube_videos && destination.youtube_videos.length > 0 && (
-                                                                <div className="space-y-3">
-                                                                    <div className="flex items-center gap-2 mb-1">
-                                                                        <Youtube className="w-5 h-5 text-red-600" />
-                                                                        <h3 className="text-[#0F172A] text-lg font-semibold">Destination Videos</h3>
-                                                                    </div>
-                                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                                        {destination.youtube_videos.map((url, index) => {
-                                                                            const videoId = url.match(/(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/watch\?.+&v=))([^"&?\/\s]{11})/)?.[1];
-                                                                            return videoId ? (
-                                                                                <div key={index} className="aspect-video rounded-lg overflow-hidden shadow-sm">
-                                                                                    <iframe
-                                                                                        width="100%"
-                                                                                        height="100%"
-                                                                                        src={`https://www.youtube.com/embed/${videoId}`}
-                                                                                        title={`YouTube video ${index + 1}`}
-                                                                                        frameBorder="0"
-                                                                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                                                        allowFullScreen
-                                                                                    />
-                                                                                </div>
-                                                                            ) : null;
-                                                                        })}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-
-                                                            {destination.youtube_playlists && destination.youtube_playlists.length > 0 && (
-                                                                <div className="space-y-3 mt-6">
-                                                                    <div className="flex items-center gap-2 mb-1">
-                                                                        <Youtube className="w-5 h-5 text-red-600" />
-                                                                        <h3 className="text-[#0F172A] text-lg font-semibold">Destination Playlists</h3>
-                                                                    </div>
-                                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                                        {destination.youtube_playlists.map((url, index) => {
-                                                                            const playlistId = url.match(/[&?]list=([^&]+)/)?.[1];
-                                                                            return playlistId ? (
-                                                                                <div key={index} className="aspect-video rounded-lg overflow-hidden shadow-sm">
-                                                                                    <iframe
-                                                                                        width="100%"
-                                                                                        height="100%"
-                                                                                        src={`https://www.youtube.com/embed/videoseries?list=${playlistId}`}
-                                                                                        title={`YouTube playlist ${index + 1}`}
-                                                                                        frameBorder="0"
-                                                                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                                                        allowFullScreen
-                                                                                    />
-                                                                                </div>
-                                                                            ) : null;
-                                                                        })}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {/* Instagram Videos Section */}
-                                                {(() => {
-                                                    const debugInstagram = () => {
-                                                        console.log('Destination data:', {
-                                                            destination: destination?.destination,
-                                                            hasInstagramVideos: Boolean(destination?.instagram_videos),
-                                                            instagramVideosLength: destination?.instagram_videos?.length,
-                                                            instagramVideos: destination?.instagram_videos
-                                                        });
-                                                    };
-                                                    debugInstagram();
-
-                                                    if (!destination?.instagram_videos || destination.instagram_videos.length === 0) {
-                                                        return null;
-                                                    }
-
-                                                    return (
-                                                        <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden mt-8">
-                                                            <div className="p-6">
-                                                                <div className="space-y-3">
-                                                                    <div className="flex items-center gap-2 mb-1">
-                                                                        <Instagram className="w-5 h-5 text-pink-600" />
-                                                                        <h3 className="text-[#0F172A] text-lg font-semibold">Instagram Videos</h3>
-                                                                    </div>
-                                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                                        {destination.instagram_videos.map((url, index) => {
-                                                                            console.log('Processing Instagram URL:', url);
-                                                                            // Extract Instagram video ID from URL
-                                                                            const videoId = url.match(/instagram\.com\/(?:p|reel)\/([^/?]+)/)?.[1];
-                                                                            console.log('Extracted video ID:', videoId);
-
-                                                                            if (!videoId) {
-                                                                                return (
-                                                                                    <div key={index} className="aspect-square rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 text-sm p-4 text-center">
-                                                                                        Invalid Instagram URL format. URL should be like: https://instagram.com/p/VIDEO_ID
-                                                                                    </div>
-                                                                                );
-                                                                            }
-
-                                                                            return (
-                                                                                <div key={index} className="aspect-square rounded-lg overflow-hidden shadow-sm border border-gray-200">
-                                                                                    <iframe
-                                                                                        width="100%"
-                                                                                        height="100%"
-                                                                                        src={`https://www.instagram.com/p/${videoId}/embed`}
-                                                                                        title={`Instagram video ${index + 1}`}
-                                                                                        frameBorder="0"
-                                                                                        scrolling="no"
-                                                                                        allowTransparency
-                                                                                    />
-                                                                                </div>
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })() as React.ReactNode}
                                             </div>
                                         </div>
                                     </TabsContent>
