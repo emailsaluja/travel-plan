@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { UserItineraryViewService, UserItineraryView } from '../services/user-itinerary-view.service';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
-import { Calendar, Utensils, MapPin, ArrowLeft, Youtube } from 'lucide-react';
+import { Calendar, Utensils, MapPin, ArrowLeft, Youtube, Instagram } from 'lucide-react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { config } from '../config/config';
@@ -32,8 +32,17 @@ interface FoodItem {
     id: string;
     name: {
         text: string;
-        cuisine: string;
-        known_for: string;
+        cuisine?: string;
+        known_for?: string;
+    };
+}
+
+interface FoodOption {
+    id: string;
+    name: {
+        text: string;
+        cuisine?: string;
+        known_for?: string;
     };
 }
 
@@ -312,18 +321,15 @@ const ViewMyItinerary: React.FC = () => {
             return <p className="text-gray-500 py-4">No dining options added for this day.</p>;
         }
 
-        // Convert to proper format
-        const foodItems = dayFoodOptions.map(option => ({
-            id: option.id || '',
-            name: {
-                text: option.name || '',
-                cuisine: option.cuisine || 'Local Cuisine',
-                known_for: option.description || '-'
-            }
-        }));
-
         // Deduplicate food options based on restaurant name
-        const uniqueFoodOptions = foodItems.reduce((acc: FoodItem[], current: FoodItem) => {
+        const uniqueFoodOptions = dayFoodOptions.reduce((acc: Array<{
+            id: string;
+            name: {
+                text: string;
+                cuisine?: string;
+                known_for?: string;
+            };
+        }>, current) => {
             const currentName = current?.name?.text;
             if (!currentName) return acc;
 
@@ -336,13 +342,13 @@ const ViewMyItinerary: React.FC = () => {
                 acc.push(current);
             }
             return acc;
-        }, [] as FoodItem[]);
+        }, []);
 
         console.log('Unique food options:', uniqueFoodOptions);
 
         return (
             <div className="divide-y divide-[#E2E8F0]">
-                {uniqueFoodOptions.map((food: FoodItem, index: number) => (
+                {uniqueFoodOptions.map((food, index) => (
                     <div key={food.id || index} className="grid grid-cols-[2fr,1.5fr,2.5fr] py-4">
                         <div className="flex flex-col gap-1">
                             <div className="text-[#0F172A] text-sm font-medium">{food.name?.text || 'N/A'}</div>
@@ -513,6 +519,50 @@ const ViewMyItinerary: React.FC = () => {
         const url = match ? match[0] : null;
         const cleanText = text?.replace(urlPattern, '').trim();
         return { url, cleanText };
+    };
+
+    const getFoodDetails = (food: FoodOption) => {
+        return {
+            cuisine: food.name.cuisine || '',
+            description: food.name.known_for || ''
+        };
+    };
+
+    const uniqueFoodItems = (foodItems: FoodOption[]): FoodOption[] => {
+        return foodItems.reduce((acc: FoodOption[], current: FoodOption) => {
+            if (!acc.some(item => item.id === current.id)) {
+                acc.push(current);
+            }
+            return acc;
+        }, [] as FoodOption[]);
+    };
+
+    const renderFoodItems = (foodItems: FoodOption[]) => {
+        return foodItems.map((food, index) => {
+            const details = getFoodDetails(food);
+            return (
+                <div key={index} className="flex items-start justify-between p-4 border border-[#E2E8F0] rounded-lg">
+                    <div className="flex items-start gap-3">
+                        <div className="mt-1">
+                            <Utensils className="w-4 h-4 text-[#0EA5E9]" />
+                        </div>
+                        <div>
+                            <h4 className="text-[#0F172A] font-medium">{food.name.text}</h4>
+                            {details.cuisine && (
+                                <p className="text-sm text-[#64748B] mt-1">
+                                    <span className="font-medium">Cuisine:</span> {details.cuisine}
+                                </p>
+                            )}
+                            {details.description && (
+                                <p className="text-sm text-[#64748B] mt-1">
+                                    <span className="font-medium">Known for:</span> {details.description}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        });
     };
 
     return (
@@ -795,10 +845,10 @@ const ViewMyItinerary: React.FC = () => {
                                                 </div>
 
                                                 {/* YouTube Videos and Playlists Section */}
-                                                {(destination.youtube_videos?.length > 0 || destination.youtube_playlists?.length > 0) && (
+                                                {((destination.youtube_videos && destination.youtube_videos.length > 0) || (destination.youtube_playlists && destination.youtube_playlists.length > 0)) && (
                                                     <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden mt-8">
                                                         <div className="p-6">
-                                                            {destination.youtube_videos?.length > 0 && (
+                                                            {destination.youtube_videos && destination.youtube_videos.length > 0 && (
                                                                 <div className="space-y-3">
                                                                     <div className="flex items-center gap-2 mb-1">
                                                                         <Youtube className="w-5 h-5 text-red-600" />
@@ -825,7 +875,7 @@ const ViewMyItinerary: React.FC = () => {
                                                                 </div>
                                                             )}
 
-                                                            {destination.youtube_playlists?.length > 0 && (
+                                                            {destination.youtube_playlists && destination.youtube_playlists.length > 0 && (
                                                                 <div className="space-y-3 mt-6">
                                                                     <div className="flex items-center gap-2 mb-1">
                                                                         <Youtube className="w-5 h-5 text-red-600" />
@@ -854,6 +904,66 @@ const ViewMyItinerary: React.FC = () => {
                                                         </div>
                                                     </div>
                                                 )}
+
+                                                {/* Instagram Videos Section */}
+                                                {(() => {
+                                                    const debugInstagram = () => {
+                                                        console.log('Destination data:', {
+                                                            destination: destination?.destination,
+                                                            hasInstagramVideos: Boolean(destination?.instagram_videos),
+                                                            instagramVideosLength: destination?.instagram_videos?.length,
+                                                            instagramVideos: destination?.instagram_videos
+                                                        });
+                                                    };
+                                                    debugInstagram();
+
+                                                    if (!destination?.instagram_videos || destination.instagram_videos.length === 0) {
+                                                        return null;
+                                                    }
+
+                                                    return (
+                                                        <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden mt-8">
+                                                            <div className="p-6">
+                                                                <div className="space-y-3">
+                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                        <Instagram className="w-5 h-5 text-pink-600" />
+                                                                        <h3 className="text-[#0F172A] text-lg font-semibold">Instagram Videos</h3>
+                                                                    </div>
+                                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                                        {destination.instagram_videos.map((url, index) => {
+                                                                            console.log('Processing Instagram URL:', url);
+                                                                            // Extract Instagram video ID from URL
+                                                                            const videoId = url.match(/instagram\.com\/(?:p|reel)\/([^/?]+)/)?.[1];
+                                                                            console.log('Extracted video ID:', videoId);
+
+                                                                            if (!videoId) {
+                                                                                return (
+                                                                                    <div key={index} className="aspect-square rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 text-sm p-4 text-center">
+                                                                                        Invalid Instagram URL format. URL should be like: https://instagram.com/p/VIDEO_ID
+                                                                                    </div>
+                                                                                );
+                                                                            }
+
+                                                                            return (
+                                                                                <div key={index} className="aspect-square rounded-lg overflow-hidden shadow-sm border border-gray-200">
+                                                                                    <iframe
+                                                                                        width="100%"
+                                                                                        height="100%"
+                                                                                        src={`https://www.instagram.com/p/${videoId}/embed`}
+                                                                                        title={`Instagram video ${index + 1}`}
+                                                                                        frameBorder="0"
+                                                                                        scrolling="no"
+                                                                                        allowTransparency
+                                                                                    />
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })() as React.ReactNode}
                                             </div>
                                         </div>
                                     </TabsContent>

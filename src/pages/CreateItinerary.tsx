@@ -92,6 +92,7 @@ interface ItineraryDay {
   destination_overview?: string;
   youtube_videos?: string[];
   youtube_playlists?: string[];
+  instagram_videos?: string[];
 }
 
 interface TripSummary {
@@ -232,6 +233,7 @@ interface ItineraryDestination {
   destination_overview?: string;
   youtube_videos?: string[];
   youtube_playlists?: string[];
+  instagram_videos?: string[];
   order_index: number;
 }
 
@@ -388,7 +390,8 @@ const CreateItinerary: React.FC = () => {
               manual_hotel_desc: dest.manual_hotel_desc || '',
               destination_overview: dest.destination_overview || '',
               youtube_videos: dest.youtube_videos || [],
-              youtube_playlists: dest.youtube_playlists || []
+              youtube_playlists: dest.youtube_playlists || [],
+              instagram_videos: dest.instagram_videos || []
             }));
 
             console.log('Setting sorted destinations with hotels:', destinationsWithHotels);
@@ -1774,6 +1777,7 @@ const CreateItinerary: React.FC = () => {
                   destination_overview: '',
                   youtube_videos: [],
                   youtube_playlists: [],
+                  instagram_videos: [],
                   order_index: itineraryDays.length
                 }
               ]);
@@ -2662,7 +2666,7 @@ const CreateItinerary: React.FC = () => {
                 setActiveDestinationForNotes(null);
               }}
               destination={activeDestinationForNotes}
-              onSave={(notes, youtubeVideos, youtubePlaylists) => {
+              onSave={(notes: string, youtubeVideos: string[], youtubePlaylists: string[], instagramVideos: string[]) => {
                 const updatedDays = [...itineraryDays];
                 const dayIndex = updatedDays.findIndex((d: ItineraryDay) => cleanDestination(d.destination) === activeDestinationForNotes);
                 if (dayIndex !== -1) {
@@ -2670,7 +2674,8 @@ const CreateItinerary: React.FC = () => {
                     ...updatedDays[dayIndex],
                     destination_overview: notes,
                     youtube_videos: youtubeVideos,
-                    youtube_playlists: youtubePlaylists
+                    youtube_playlists: youtubePlaylists,
+                    instagram_videos: instagramVideos
                   };
                   setItineraryDays(updatedDays);
                 }
@@ -2680,6 +2685,7 @@ const CreateItinerary: React.FC = () => {
               initialNotes={itineraryDays.find((d: ItineraryDay) => cleanDestination(d.destination) === activeDestinationForNotes)?.destination_overview || ''}
               initialYoutubeVideos={itineraryDays.find((d: ItineraryDay) => cleanDestination(d.destination) === activeDestinationForNotes)?.youtube_videos || []}
               initialYoutubePlaylists={itineraryDays.find((d: ItineraryDay) => cleanDestination(d.destination) === activeDestinationForNotes)?.youtube_playlists || []}
+              initialInstagramVideos={itineraryDays.find((d: ItineraryDay) => cleanDestination(d.destination) === activeDestinationForNotes)?.instagram_videos || []}
               itineraryId={itineraryId ?? ''}
               destinationIndex={itineraryDays.findIndex((d: ItineraryDay) => cleanDestination(d.destination) === activeDestinationForNotes)}
             />

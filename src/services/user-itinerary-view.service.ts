@@ -25,6 +25,7 @@ export interface UserItineraryView {
     destination_overview?: string;
     youtube_videos?: string[];
     youtube_playlists?: string[];
+    instagram_videos?: string[];
     manual_discover?: string;
     manual_discover_desc?: string;
   }[];
@@ -154,6 +155,7 @@ export const UserItineraryViewService = {
           destination_overview: d.destination_overview,
           youtube_videos: d.youtube_videos,
           youtube_playlists: d.youtube_playlists,
+          instagram_videos: d.instagram_videos,
           manual_discover: d.manual_discover,
           manual_discover_desc: d.manual_discover_desc
         })),

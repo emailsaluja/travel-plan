@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Youtube } from 'lucide-react';
+import { X, Youtube, Instagram } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-toastify';
 
@@ -7,10 +7,11 @@ interface DestinationNotesProps {
     isOpen: boolean;
     onClose: () => void;
     destination: string;
-    onSave: (notes: string, youtubeVideos: string[], youtubePlaylists: string[]) => void;
+    onSave: (notes: string, youtubeVideos: string[], youtubePlaylists: string[], instagramVideos: string[]) => void;
     initialNotes: string;
     initialYoutubeVideos?: string[];
     initialYoutubePlaylists?: string[];
+    initialInstagramVideos?: string[];
     itineraryId: string;
     destinationIndex: number;
 }
@@ -23,14 +24,17 @@ const DestinationNotes: React.FC<DestinationNotesProps> = ({
     initialNotes,
     initialYoutubeVideos = [],
     initialYoutubePlaylists = [],
+    initialInstagramVideos = [],
     itineraryId,
     destinationIndex
 }) => {
     const [notes, setNotes] = useState(initialNotes || '');
     const [youtubeVideos, setYoutubeVideos] = useState<string[]>(initialYoutubeVideos || []);
     const [youtubePlaylists, setYoutubePlaylists] = useState<string[]>(initialYoutubePlaylists || []);
+    const [instagramVideos, setInstagramVideos] = useState<string[]>(initialInstagramVideos || []);
     const [newVideoUrl, setNewVideoUrl] = useState('');
     const [newPlaylistUrl, setNewPlaylistUrl] = useState('');
+    const [newInstagramUrl, setNewInstagramUrl] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
@@ -44,8 +48,12 @@ const DestinationNotes: React.FC<DestinationNotesProps> = ({
             if (JSON.stringify(youtubePlaylists) !== JSON.stringify(initialYoutubePlaylists || [])) {
                 setYoutubePlaylists(initialYoutubePlaylists || []);
             }
+            if (JSON.stringify(instagramVideos) !== JSON.stringify(initialInstagramVideos || [])) {
+                setInstagramVideos(initialInstagramVideos || []);
+            }
             setNewVideoUrl('');
             setNewPlaylistUrl('');
+            setNewInstagramUrl('');
         }
     }, [isOpen]);
 
@@ -63,12 +71,23 @@ const DestinationNotes: React.FC<DestinationNotesProps> = ({
         }
     };
 
+    const handleAddInstagramVideo = () => {
+        if (newInstagramUrl && !instagramVideos.includes(newInstagramUrl)) {
+            setInstagramVideos([...instagramVideos, newInstagramUrl]);
+            setNewInstagramUrl('');
+        }
+    };
+
     const handleRemoveVideo = (url: string) => {
         setYoutubeVideos(youtubeVideos.filter(v => v !== url));
     };
 
     const handleRemovePlaylist = (url: string) => {
         setYoutubePlaylists(youtubePlaylists.filter(p => p !== url));
+    };
+
+    const handleRemoveInstagramVideo = (url: string) => {
+        setInstagramVideos(instagramVideos.filter(v => v !== url));
     };
 
     const handleSave = async () => {
@@ -80,7 +99,8 @@ const DestinationNotes: React.FC<DestinationNotesProps> = ({
                 .update({
                     destination_overview: notes,
                     youtube_videos: youtubeVideos,
-                    youtube_playlists: youtubePlaylists
+                    youtube_playlists: youtubePlaylists,
+                    instagram_videos: instagramVideos
                 })
                 .eq('itinerary_id', itineraryId)
                 .eq('order_index', destinationIndex);
@@ -89,7 +109,7 @@ const DestinationNotes: React.FC<DestinationNotesProps> = ({
                 throw dbError;
             }
 
-            onSave(notes, youtubeVideos, youtubePlaylists);
+            onSave(notes, youtubeVideos, youtubePlaylists, instagramVideos);
             toast.success('Overview saved successfully');
             onClose();
         } catch (error) {
@@ -193,6 +213,42 @@ const DestinationNotes: React.FC<DestinationNotesProps> = ({
                                     <button
                                         onClick={() => handleRemovePlaylist(url)}
                                         className="ml-2 text-red-600 hover:text-red-700"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Instagram Videos Section */}
+                    <div className="space-y-3">
+                        <h3 className="text-sm font-medium flex items-center gap-2 text-gray-700">
+                            <Instagram className="w-4 h-4 text-pink-600" />
+                            Instagram Videos
+                        </h3>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={newInstagramUrl}
+                                onChange={(e) => setNewInstagramUrl(e.target.value)}
+                                placeholder="Paste Instagram video URL"
+                                className="flex-1 p-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C48C]"
+                            />
+                            <button
+                                onClick={handleAddInstagramVideo}
+                                className="px-4 py-2 bg-pink-600 text-white rounded-lg text-sm hover:bg-pink-700 transition-colors"
+                            >
+                                Add Video
+                            </button>
+                        </div>
+                        <div className="space-y-2">
+                            {instagramVideos.map((url, index) => (
+                                <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg">
+                                    <span className="text-sm text-gray-600 truncate flex-1">{url}</span>
+                                    <button
+                                        onClick={() => handleRemoveInstagramVideo(url)}
+                                        className="ml-2 text-pink-600 hover:text-pink-700"
                                     >
                                         <X className="w-4 h-4" />
                                     </button>
