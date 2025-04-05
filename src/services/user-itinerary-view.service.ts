@@ -22,6 +22,7 @@ export interface UserItineraryView {
     order_index: number;
     food: string;
     food_desc?: string;
+    destination_overview?: string;
   }[];
   discover_descriptions?: {
     [destination: string]: {
@@ -145,7 +146,8 @@ export const UserItineraryViewService = {
           notes: d.notes,
           order_index: d.order_index,
           food: d.food,
-          food_desc: d.food_desc
+          food_desc: d.food_desc,
+          destination_overview: d.destination_overview
         })),
         day_attractions: dayAttractions.map(da => ({
           day_index: da.day_index,

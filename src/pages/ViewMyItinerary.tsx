@@ -555,11 +555,10 @@ const ViewMyItinerary: React.FC = () => {
             {/* Trip Description - Added right after hero section */}
             {itinerary?.trip_description && (
                 <div className="bg-gray-50">
-                    <div className="max-w-[1400px] mx-auto px-8 py-12">
-                        <div className="bg-white rounded-lg p-8 shadow-sm">
-                            <h2 className="text-2xl font-semibold mb-6 text-gray-900">About This Trip</h2>
+                    <div className="max-w-[1400px] mx-auto px-8 py-6">
+                        <div className="bg-white rounded p-3">
                             <div
-                                className="prose prose-lg max-w-none prose-p:text-gray-600 prose-headings:text-gray-900 prose-a:text-[#00C48C] prose-strong:text-gray-900 prose-strong:font-semibold"
+                                className="text-sm text-[#64748B]"
                                 dangerouslySetInnerHTML={{
                                     __html: DOMPurify.sanitize(itinerary.trip_description)
                                 }}
@@ -636,6 +635,12 @@ const ViewMyItinerary: React.FC = () => {
                                                 </div>
                                             </div>
 
+                                            {destination.destination_overview && (
+                                                <div className="mb-4 bg-gray-50 p-3 rounded text-sm text-[#64748B]">
+                                                    {destination.destination_overview}
+                                                </div>
+                                            )}
+
                                             <div className="flex flex-wrap gap-2 mb-6">
                                                 {Array.from({ length: destination.nights }).map((_, dayIndex) => (
                                                     <button
@@ -689,9 +694,8 @@ const ViewMyItinerary: React.FC = () => {
                                                 <div className="mt-6">
                                                     {/* Day Overview */}
                                                     {dayOverview && (
-                                                        <div className="mb-6 bg-gray-50 p-4 rounded-lg">
-                                                            <h3 className="text-lg font-semibold mb-2">Day Overview</h3>
-                                                            <p className="text-gray-700">{dayOverview}</p>
+                                                        <div className="mb-4 bg-gray-50 p-3 rounded text-sm text-[#64748B]">
+                                                            {dayOverview}
                                                         </div>
                                                     )}
 
