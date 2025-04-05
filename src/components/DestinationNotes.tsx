@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Youtube } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-toastify';
 
@@ -7,8 +7,10 @@ interface DestinationNotesProps {
     isOpen: boolean;
     onClose: () => void;
     destination: string;
-    onSave: (notes: string) => void;
+    onSave: (notes: string, youtubeVideos: string[], youtubePlaylists: string[]) => void;
     initialNotes: string;
+    initialYoutubeVideos?: string[];
+    initialYoutubePlaylists?: string[];
     itineraryId: string;
     destinationIndex: number;
 }
@@ -19,28 +21,67 @@ const DestinationNotes: React.FC<DestinationNotesProps> = ({
     destination,
     onSave,
     initialNotes,
+    initialYoutubeVideos = [],
+    initialYoutubePlaylists = [],
     itineraryId,
     destinationIndex
 }) => {
-    const [notes, setNotes] = useState('');
+    const [notes, setNotes] = useState(initialNotes || '');
+    const [youtubeVideos, setYoutubeVideos] = useState<string[]>(initialYoutubeVideos || []);
+    const [youtubePlaylists, setYoutubePlaylists] = useState<string[]>(initialYoutubePlaylists || []);
+    const [newVideoUrl, setNewVideoUrl] = useState('');
+    const [newPlaylistUrl, setNewPlaylistUrl] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
-            setNotes(initialNotes || '');
+            if (notes !== (initialNotes || '')) {
+                setNotes(initialNotes || '');
+            }
+            if (JSON.stringify(youtubeVideos) !== JSON.stringify(initialYoutubeVideos || [])) {
+                setYoutubeVideos(initialYoutubeVideos || []);
+            }
+            if (JSON.stringify(youtubePlaylists) !== JSON.stringify(initialYoutubePlaylists || [])) {
+                setYoutubePlaylists(initialYoutubePlaylists || []);
+            }
+            setNewVideoUrl('');
+            setNewPlaylistUrl('');
         }
-    }, [isOpen, initialNotes]);
+    }, [isOpen]);
 
-    if (!isOpen) return null;
+    const handleAddVideo = () => {
+        if (newVideoUrl && !youtubeVideos.includes(newVideoUrl)) {
+            setYoutubeVideos([...youtubeVideos, newVideoUrl]);
+            setNewVideoUrl('');
+        }
+    };
+
+    const handleAddPlaylist = () => {
+        if (newPlaylistUrl && !youtubePlaylists.includes(newPlaylistUrl)) {
+            setYoutubePlaylists([...youtubePlaylists, newPlaylistUrl]);
+            setNewPlaylistUrl('');
+        }
+    };
+
+    const handleRemoveVideo = (url: string) => {
+        setYoutubeVideos(youtubeVideos.filter(v => v !== url));
+    };
+
+    const handleRemovePlaylist = (url: string) => {
+        setYoutubePlaylists(youtubePlaylists.filter(p => p !== url));
+    };
 
     const handleSave = async () => {
         try {
             setIsSaving(true);
 
-            // Update the database
             const { error: dbError } = await supabase
                 .from('user_itinerary_destinations')
-                .update({ destination_overview: notes })
+                .update({
+                    destination_overview: notes,
+                    youtube_videos: youtubeVideos,
+                    youtube_playlists: youtubePlaylists
+                })
                 .eq('itinerary_id', itineraryId)
                 .eq('order_index', destinationIndex);
 
@@ -48,8 +89,7 @@ const DestinationNotes: React.FC<DestinationNotesProps> = ({
                 throw dbError;
             }
 
-            // Update the local state through the parent component
-            onSave(notes);
+            onSave(notes, youtubeVideos, youtubePlaylists);
             toast.success('Overview saved successfully');
             onClose();
         } catch (error) {
@@ -59,6 +99,8 @@ const DestinationNotes: React.FC<DestinationNotesProps> = ({
             setIsSaving(false);
         }
     };
+
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -77,13 +119,87 @@ const DestinationNotes: React.FC<DestinationNotesProps> = ({
                 </div>
 
                 {/* Content */}
-                <div className="p-6">
-                    <textarea
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        placeholder="Add your overview for this destination..."
-                        className="w-full h-64 p-4 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C48C] resize-none"
-                    />
+                <div className="p-6 space-y-6">
+                    <div>
+                        <textarea
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            placeholder="Add your overview for this destination..."
+                            className="w-full h-32 p-4 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C48C] resize-none"
+                        />
+                    </div>
+
+                    {/* YouTube Videos Section */}
+                    <div className="space-y-3">
+                        <h3 className="text-sm font-medium flex items-center gap-2 text-gray-700">
+                            <Youtube className="w-4 h-4 text-red-600" />
+                            YouTube Videos
+                        </h3>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={newVideoUrl}
+                                onChange={(e) => setNewVideoUrl(e.target.value)}
+                                placeholder="Paste YouTube video URL"
+                                className="flex-1 p-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C48C]"
+                            />
+                            <button
+                                onClick={handleAddVideo}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+                            >
+                                Add Video
+                            </button>
+                        </div>
+                        <div className="space-y-2">
+                            {youtubeVideos.map((url, index) => (
+                                <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg">
+                                    <span className="text-sm text-gray-600 truncate flex-1">{url}</span>
+                                    <button
+                                        onClick={() => handleRemoveVideo(url)}
+                                        className="ml-2 text-red-600 hover:text-red-700"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* YouTube Playlists Section */}
+                    <div className="space-y-3">
+                        <h3 className="text-sm font-medium flex items-center gap-2 text-gray-700">
+                            <Youtube className="w-4 h-4 text-red-600" />
+                            YouTube Playlists
+                        </h3>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={newPlaylistUrl}
+                                onChange={(e) => setNewPlaylistUrl(e.target.value)}
+                                placeholder="Paste YouTube playlist URL"
+                                className="flex-1 p-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C48C]"
+                            />
+                            <button
+                                onClick={handleAddPlaylist}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+                            >
+                                Add Playlist
+                            </button>
+                        </div>
+                        <div className="space-y-2">
+                            {youtubePlaylists.map((url, index) => (
+                                <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg">
+                                    <span className="text-sm text-gray-600 truncate flex-1">{url}</span>
+                                    <button
+                                        onClick={() => handleRemovePlaylist(url)}
+                                        className="ml-2 text-red-600 hover:text-red-700"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
 
                 {/* Footer */}

@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { UserItineraryViewService, UserItineraryView } from '../services/user-itinerary-view.service';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
-import { Calendar, Utensils, MapPin, ArrowLeft } from 'lucide-react';
+import { Calendar, Utensils, MapPin, ArrowLeft, Youtube } from 'lucide-react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { config } from '../config/config';
@@ -641,21 +641,6 @@ const ViewMyItinerary: React.FC = () => {
                                                 </div>
                                             )}
 
-                                            <div className="flex flex-wrap gap-2 mb-6">
-                                                {Array.from({ length: destination.nights }).map((_, dayIndex) => (
-                                                    <button
-                                                        key={dayIndex}
-                                                        onClick={() => setSelectedDayIndex(dayIndex)}
-                                                        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${dayIndex === selectedDayIndex
-                                                            ? 'bg-[#6366F1] text-white'
-                                                            : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:border-[#CBD5E1]'
-                                                            }`}
-                                                    >
-                                                        Day {getDayNumber(destIndex, dayIndex)}
-                                                    </button>
-                                                ))}
-                                            </div>
-
                                             <div className="mt-8">
                                                 <div className="flex items-center gap-4 mb-6">
                                                     <div className="w-12 h-12 bg-[#EEF2FF] rounded-full flex items-center justify-center text-2xl text-[#6366F1]">
@@ -808,6 +793,67 @@ const ViewMyItinerary: React.FC = () => {
                                                         </div>
                                                     </div>
                                                 </div>
+
+                                                {/* YouTube Videos and Playlists Section */}
+                                                {(destination.youtube_videos?.length > 0 || destination.youtube_playlists?.length > 0) && (
+                                                    <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden mt-8">
+                                                        <div className="p-6">
+                                                            {destination.youtube_videos?.length > 0 && (
+                                                                <div className="space-y-3">
+                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                        <Youtube className="w-5 h-5 text-red-600" />
+                                                                        <h3 className="text-[#0F172A] text-lg font-semibold">Destination Videos</h3>
+                                                                    </div>
+                                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                                        {destination.youtube_videos.map((url, index) => {
+                                                                            const videoId = url.match(/(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/watch\?.+&v=))([^"&?\/\s]{11})/)?.[1];
+                                                                            return videoId ? (
+                                                                                <div key={index} className="aspect-video rounded-lg overflow-hidden shadow-sm">
+                                                                                    <iframe
+                                                                                        width="100%"
+                                                                                        height="100%"
+                                                                                        src={`https://www.youtube.com/embed/${videoId}`}
+                                                                                        title={`YouTube video ${index + 1}`}
+                                                                                        frameBorder="0"
+                                                                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                                                        allowFullScreen
+                                                                                    />
+                                                                                </div>
+                                                                            ) : null;
+                                                                        })}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {destination.youtube_playlists?.length > 0 && (
+                                                                <div className="space-y-3 mt-6">
+                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                        <Youtube className="w-5 h-5 text-red-600" />
+                                                                        <h3 className="text-[#0F172A] text-lg font-semibold">Destination Playlists</h3>
+                                                                    </div>
+                                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                                        {destination.youtube_playlists.map((url, index) => {
+                                                                            const playlistId = url.match(/[&?]list=([^&]+)/)?.[1];
+                                                                            return playlistId ? (
+                                                                                <div key={index} className="aspect-video rounded-lg overflow-hidden shadow-sm">
+                                                                                    <iframe
+                                                                                        width="100%"
+                                                                                        height="100%"
+                                                                                        src={`https://www.youtube.com/embed/videoseries?list=${playlistId}`}
+                                                                                        title={`YouTube playlist ${index + 1}`}
+                                                                                        frameBorder="0"
+                                                                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                                                        allowFullScreen
+                                                                                    />
+                                                                                </div>
+                                                                            ) : null;
+                                                                        })}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </TabsContent>

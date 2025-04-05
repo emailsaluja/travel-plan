@@ -23,6 +23,10 @@ export interface UserItineraryView {
     food: string;
     food_desc?: string;
     destination_overview?: string;
+    youtube_videos?: string[];
+    youtube_playlists?: string[];
+    manual_discover?: string;
+    manual_discover_desc?: string;
   }[];
   discover_descriptions?: {
     [destination: string]: {
@@ -147,7 +151,11 @@ export const UserItineraryViewService = {
           order_index: d.order_index,
           food: d.food,
           food_desc: d.food_desc,
-          destination_overview: d.destination_overview
+          destination_overview: d.destination_overview,
+          youtube_videos: d.youtube_videos,
+          youtube_playlists: d.youtube_playlists,
+          manual_discover: d.manual_discover,
+          manual_discover_desc: d.manual_discover_desc
         })),
         day_attractions: dayAttractions.map(da => ({
           day_index: da.day_index,
