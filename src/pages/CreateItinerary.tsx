@@ -36,7 +36,8 @@ import {
   Plane,
   Train,
   Bus as BusIcon,
-  Heart
+  Heart,
+  FileText
 } from 'lucide-react';
 import { countries } from '../data/countries';
 import PlaceAutocomplete from '../components/PlaceAutocomplete';
@@ -54,6 +55,7 @@ import MapboxMap from '../components/MapboxMap';
 import DestinationDiscover from '../components/DestinationDiscover';
 import { toast } from 'react-toastify';
 import NotesPopup from '../components/NotesPopup';
+import DestinationNotes from '../components/DestinationNotes';
 
 interface DestinationData {
   destination: string;
@@ -87,6 +89,10 @@ interface ItineraryDay {
   manual_hotel?: string;
   manual_hotel_desc?: string;
   order_index?: number;
+  destination_overview?: string;
+  youtube_videos?: string[];
+  youtube_playlists?: string[];
+  instagram_videos?: string[];
 }
 
 interface TripSummary {
@@ -224,6 +230,10 @@ interface ItineraryDestination {
   manual_hotel_desc: string;
   manual_discover: string;
   manual_discover_desc: string;
+  destination_overview?: string;
+  youtube_videos?: string[];
+  youtube_playlists?: string[];
+  instagram_videos?: string[];
   order_index: number;
 }
 
@@ -326,6 +336,10 @@ const CreateItinerary: React.FC = () => {
     dayFoodOptions: []
   });
 
+  // Add state for managing destination notes popup
+  const [showDestinationNotes, setShowDestinationNotes] = useState(false);
+  const [activeDestinationForNotes, setActiveDestinationForNotes] = useState<string | null>(null);
+
   useEffect(() => {
     const loadExistingItinerary = async () => {
       if (itineraryId) {
@@ -373,7 +387,11 @@ const CreateItinerary: React.FC = () => {
               food_desc: dest.food_desc || '',
               hotel: dest.hotel || '',
               manual_hotel: dest.manual_hotel || '',
-              manual_hotel_desc: dest.manual_hotel_desc || ''
+              manual_hotel_desc: dest.manual_hotel_desc || '',
+              destination_overview: dest.destination_overview || '',
+              youtube_videos: dest.youtube_videos || [],
+              youtube_playlists: dest.youtube_playlists || [],
+              instagram_videos: dest.instagram_videos || []
             }));
 
             console.log('Setting sorted destinations with hotels:', destinationsWithHotels);
@@ -723,6 +741,7 @@ const CreateItinerary: React.FC = () => {
           manual_hotel_desc: day.manual_hotel_desc || '',
           manual_discover: day.manual_discover || '',
           manual_discover_desc: day.manual_discover_desc || '',
+          destination_overview: day.destination_overview || '',
           order_index: day.order_index
         })),
         dayAttractions: dayByDayData.dayAttractions.map(da => ({
@@ -1483,7 +1502,7 @@ const CreateItinerary: React.FC = () => {
     return (
       <div className="space-y-4">
         {/* Column Headers */}
-        <div className="grid grid-cols-[200px,100px,180px,120px,120px] gap-0 px-4 py-2 text-xs text-[#0f3e4a] border-b border-gray-200">
+        <div className="grid grid-cols-[200px,100px,180px,120px,120px,120px] gap-0 px-4 py-2 text-xs text-[#0f3e4a] border-b border-gray-200">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 destination-icon" />
             <span className="font-[600] font-['Inter_var']">DESTINATION</span>
@@ -1504,13 +1523,17 @@ const CreateItinerary: React.FC = () => {
             <Utensils className="w-4 h-4 food-icon" />
             <span className="font-[600] font-['Inter_var']">FOOD</span>
           </div>
+          <div className="flex items-center justify-center gap-2">
+            <FileText className="w-4 h-4 notes-icon" />
+            <span className="font-[600] font-['Inter_var']">NOTES</span>
+          </div>
         </div>
 
         {/* Destinations List */}
         <div className="space-y-1">
           {itineraryDays.map((day, index) => (
             <React.Fragment key={index}>
-              <div className="grid grid-cols-[200px,100px,180px,120px,120px] gap-0 items-center bg-white px-4 py-2 hover:bg-[#f1f8fa] transition-colors">
+              <div className="grid grid-cols-[200px,100px,180px,120px,120px,120px] gap-0 items-center bg-white px-4 py-2 hover:bg-[#f1f8fa] transition-colors">
                 <div className="pr-0">
                   <div className="flex items-center gap-2">
                     <div className="relative group">
@@ -1684,6 +1707,33 @@ const CreateItinerary: React.FC = () => {
                   })()}
                 </div>
                 <div>
+                  {day.notes ? (
+                    <div className="flex items-center justify-center">
+                      <button
+                        onClick={() => {
+                          setActiveDestinationForNotes(cleanDestination(day.destination));
+                          setShowDestinationNotes(true);
+                        }}
+                        className="font-['Inter_var'] font-[600] text-sm text-[#0f3e4a] hover:text-[#00C48C] transition-colors"
+                      >
+                        View Notes
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      <button
+                        onClick={() => {
+                          setActiveDestinationForNotes(cleanDestination(day.destination));
+                          setShowDestinationNotes(true);
+                        }}
+                        className="notes-action column-action"
+                      >
+                        <Plus className="w-4 h-4" strokeWidth={2.5} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div>
                   <div className="flex items-center justify-center gap-2">
                   </div>
                 </div>
@@ -1691,7 +1741,8 @@ const CreateItinerary: React.FC = () => {
               {index < itineraryDays.length - 1 && (
                 <div className="relative">
                   <div className="border-b border-gray-200"></div>
-                  <div className="grid grid-cols-[200px,100px,180px,120px,120px] gap-0">
+                  <div className="grid grid-cols-[200px,100px,180px,120px,120px,120px] gap-0">
+                    <div></div>
                     <div></div>
                     <div></div>
                     <div></div>
@@ -1710,7 +1761,25 @@ const CreateItinerary: React.FC = () => {
             onClick={() => {
               setItineraryDays([
                 ...itineraryDays,
-                { destination: '', nights: 1, discover: '', manual_discover: '', manual_discover_desc: '', transport: '', notes: '', food: '', food_desc: '', hotel: '', manual_hotel: '', manual_hotel_desc: '' }
+                {
+                  destination: '',
+                  nights: 1,
+                  discover: '',
+                  manual_discover: '',
+                  manual_discover_desc: '',
+                  transport: '',
+                  notes: '',
+                  food: '',
+                  food_desc: '',
+                  hotel: '',
+                  manual_hotel: '',
+                  manual_hotel_desc: '',
+                  destination_overview: '',
+                  youtube_videos: [],
+                  youtube_playlists: [],
+                  instagram_videos: [],
+                  order_index: itineraryDays.length
+                }
               ]);
             }}
             className="flex items-center gap-2 text-sm text-[#0f3e4a] hover:text-[#00C48C] transition-colors font-['Inter_var'] font-[600]"
@@ -2580,6 +2649,47 @@ const CreateItinerary: React.FC = () => {
             itineraryId={itineraryId}
             dayIndex={selectedDayForNotes.dayIndex}
           />
+        )}
+
+        {/* Destination Notes Popup */}
+        {showDestinationNotes && activeDestinationForNotes && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="destination-notes-title"
+          >
+            <DestinationNotes
+              isOpen={showDestinationNotes}
+              onClose={() => {
+                setShowDestinationNotes(false);
+                setActiveDestinationForNotes(null);
+              }}
+              destination={activeDestinationForNotes}
+              onSave={(notes: string, youtubeVideos: string[], youtubePlaylists: string[], instagramVideos: string[]) => {
+                const updatedDays = [...itineraryDays];
+                const dayIndex = updatedDays.findIndex((d: ItineraryDay) => cleanDestination(d.destination) === activeDestinationForNotes);
+                if (dayIndex !== -1) {
+                  updatedDays[dayIndex] = {
+                    ...updatedDays[dayIndex],
+                    destination_overview: notes,
+                    youtube_videos: youtubeVideos,
+                    youtube_playlists: youtubePlaylists,
+                    instagram_videos: instagramVideos
+                  };
+                  setItineraryDays(updatedDays);
+                }
+                setShowDestinationNotes(false);
+                setActiveDestinationForNotes(null);
+              }}
+              initialNotes={itineraryDays.find((d: ItineraryDay) => cleanDestination(d.destination) === activeDestinationForNotes)?.destination_overview || ''}
+              initialYoutubeVideos={itineraryDays.find((d: ItineraryDay) => cleanDestination(d.destination) === activeDestinationForNotes)?.youtube_videos || []}
+              initialYoutubePlaylists={itineraryDays.find((d: ItineraryDay) => cleanDestination(d.destination) === activeDestinationForNotes)?.youtube_playlists || []}
+              initialInstagramVideos={itineraryDays.find((d: ItineraryDay) => cleanDestination(d.destination) === activeDestinationForNotes)?.instagram_videos || []}
+              itineraryId={itineraryId ?? ''}
+              destinationIndex={itineraryDays.findIndex((d: ItineraryDay) => cleanDestination(d.destination) === activeDestinationForNotes)}
+            />
+          </div>
         )}
       </div>
     );

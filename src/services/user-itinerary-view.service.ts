@@ -22,6 +22,12 @@ export interface UserItineraryView {
     order_index: number;
     food: string;
     food_desc?: string;
+    destination_overview?: string;
+    youtube_videos?: string[];
+    youtube_playlists?: string[];
+    instagram_videos?: string[];
+    manual_discover?: string;
+    manual_discover_desc?: string;
   }[];
   discover_descriptions?: {
     [destination: string]: {
@@ -43,15 +49,19 @@ export interface UserItineraryView {
     day_overview?: string;
   }[];
   day_food_options: {
+    id: string;
+    itinerary_id: string;
     day_index: number;
-    food_options: {
+    name: Array<{
       id: string;
       name: {
         text: string;
         cuisine?: string;
         known_for?: string;
       };
-    }[];
+    }>;
+    created_at: string;
+    updated_at: string;
   }[];
 }
 
@@ -145,7 +155,13 @@ export const UserItineraryViewService = {
           notes: d.notes,
           order_index: d.order_index,
           food: d.food,
-          food_desc: d.food_desc
+          food_desc: d.food_desc,
+          destination_overview: d.destination_overview,
+          youtube_videos: d.youtube_videos,
+          youtube_playlists: d.youtube_playlists,
+          instagram_videos: d.instagram_videos,
+          manual_discover: d.manual_discover,
+          manual_discover_desc: d.manual_discover_desc
         })),
         day_attractions: dayAttractions.map(da => ({
           day_index: da.day_index,
@@ -161,10 +177,7 @@ export const UserItineraryViewService = {
           notes: dn.notes,
           day_overview: dn.day_overview
         })),
-        day_food_options: dayFoodOptions.map(df => ({
-          day_index: df.day_index,
-          food_options: df.food_options
-        }))
+        day_food_options: dayFoodOptions
       };
 
       return {
