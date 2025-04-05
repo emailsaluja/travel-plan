@@ -14,6 +14,8 @@ import SavedItineraries from './pages/SavedItineraries';
 import MyItineraries from './pages/MyItineraries';
 import CreateItinerary from './pages/CreateItinerary';
 import CreateAIItinerary from './pages/CreateAIItinerary';
+import CreatePremiumItinerary from './pages/CreatePremiumItinerary';
+import ViewPremiumItinerary from './pages/ViewPremiumItinerary';
 import How from './pages/How';
 import WhyTravel from './pages/WhyTravel';
 import ViewUserItinerary from './pages/ViewUserItinerary';
@@ -35,7 +37,7 @@ import ViewAIItinerary from './pages/ViewAIItinerary';
 
 const RootLayout = () => {
   const location = useLocation();
-  const useTopNav = ['/discover', '/create-itinerary', '/create-ai-itinerary'].some(path =>
+  const useTopNav = ['/discover', '/create-itinerary', '/create-ai-itinerary', '/create-premium-itinerary', '/premium-itinerary'].some(path =>
     location.pathname.startsWith(path)
   );
 
@@ -114,6 +116,30 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <CreateAIItinerary />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/create-premium-itinerary",
+        element: (
+          <ProtectedRoute>
+            <CreatePremiumItinerary />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/create-premium-itinerary/:id",
+        element: (
+          <ProtectedRoute>
+            <CreatePremiumItinerary />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/premium-itinerary/:id",
+        element: (
+          <ProtectedRoute>
+            <ViewPremiumItinerary />
           </ProtectedRoute>
         ),
       },

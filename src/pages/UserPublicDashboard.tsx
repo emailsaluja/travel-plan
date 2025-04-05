@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { MapPin, Calendar, Clock, Users, Search, X, Globe, MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CountryImagesService } from '../services/country-images.service';
@@ -190,6 +190,7 @@ interface BlogPost {
     title: string;
     slug: string;
     excerpt: string;
+    content: string;
     category: 'tips' | 'guides' | 'stories';
     featured_image_url: string;
     reading_time_minutes: number;
@@ -198,10 +199,31 @@ interface BlogPost {
     published_at: string;
 }
 
+interface PremiumItinerary {
+    id: string;
+    user_id: string;
+    title: string;
+    description: string;
+    price: number;
+    currency: string;
+    inclusions: string[];
+    exclusions: string[];
+    terms_and_conditions: string;
+    cancellation_policy: string;
+    featured_image_url: string;
+    gallery_image_urls: string[];
+    status: 'draft' | 'published' | 'archived';
+    created_at: string;
+    updated_at: string;
+    country: string;
+    duration: number;
+}
+
 const UserPublicDashboard = () => {
     const { username } = useParams<{ username: string }>();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [itineraries, setItineraries] = useState<Itinerary[]>([]);
+    const [premiumItineraries, setPremiumItineraries] = useState<PremiumItinerary[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [countryImages, setCountryImages] = useState<{ [key: string]: string[] }>({});
@@ -228,6 +250,7 @@ const UserPublicDashboard = () => {
         reading_time_minutes: 5
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const navigate = useNavigate();
 
     // Add this constant for regions
     const REGIONS: Record<RegionKey, string> = {
@@ -407,6 +430,19 @@ const UserPublicDashboard = () => {
                 return;
             }
 
+            // Get premium itineraries
+            const { data: premiumData, error: premiumError } = await supabase
+                .from('premium_itineraries')
+                .select('*')
+                .eq('user_id', profileData.user_id)
+                .eq('status', 'published')
+                .order('created_at', { ascending: false });
+
+            if (premiumError) {
+                console.error('Premium itineraries fetch error:', premiumError);
+                return;
+            }
+
             // Transform the data to match our interface
             const transformedItineraries = (itinerariesData || []).map(itinerary => ({
                 ...itinerary,
@@ -414,6 +450,7 @@ const UserPublicDashboard = () => {
             }));
 
             setItineraries(transformedItineraries);
+            setPremiumItineraries(premiumData || []);
 
         } catch (error: any) {
             console.error('Error loading profile:', error);
@@ -1036,142 +1073,103 @@ const UserPublicDashboard = () => {
                 </div>
 
                 {/* Premium Itineraries Section */}
-                <div className="relative -mx-[calc(50vw-50%)] px-6 py-16 bg-[rgb(248,245,255)]">
-                    <div className="max-w-[1400px] mx-auto">
-                        <div className="text-[#C2410C] text-sm font-semibold tracking-wide mb-2">CRAFTED WITH CARE</div>
-                        <h2 className="text-[32px] text-[#1e293b] font-medium mb-3">Premium Itineraries</h2>
+                <div className="mb-16">
+                    <div className="text-center">
+                        <div className="text-[#C2410C] text-sm font-semibold tracking-wide uppercase mb-2">CRAFTED WITH CARE</div>
+                        <h2 className="text-[32px] font-medium text-[#1e293b] mb-3">Premium Itineraries</h2>
                         <p className="text-[#64748b] text-lg mb-8">
                             Detailed travel guides with insider tips, restaurant recommendations, and custom maps.
                         </p>
+                    </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            {/* Ultimate Japan Guide */}
-                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex">
-                                <div className="relative w-[45%] overflow-hidden">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {premiumItineraries.map((itinerary) => (
+                            <div key={itinerary.id} className="flex bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all">
+                                {/* Image Section */}
+                                <div className="relative w-[45%]">
+                                    <div className="absolute top-4 left-4 z-10">
+                                        <div className="px-3 py-1.5 bg-[#EAB308] text-white text-sm font-medium rounded-full">
+                                            {itinerary.currency} {itinerary.price}
+                                        </div>
+                                    </div>
+                                    <div className="absolute bottom-4 right-4 z-10">
+                                        <div className="px-3 py-1.5 bg-black/50 backdrop-blur-sm text-white text-sm font-medium rounded-lg">
+                                            {itinerary.country}
+                                        </div>
+                                    </div>
                                     <img
-                                        src="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?q=80&w=1000&auto=format&fit=crop"
-                                        alt="Japan Temple"
+                                        src={itinerary.featured_image_url || `https://source.unsplash.com/random/800x600/?${itinerary.country}`}
+                                        alt={itinerary.title}
                                         className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            const img = e.target as HTMLImageElement;
+                                            img.src = `https://source.unsplash.com/random/800x600/?${itinerary.country}`;
+                                        }}
                                     />
-                                    <div className="absolute top-4 left-4">
-                                        <div className="px-3 py-1.5 bg-[#EAB308] text-white text-[13px] font-medium rounded-full">
-                                            $29.99
-                                        </div>
-                                    </div>
                                 </div>
+
+                                {/* Content Section */}
                                 <div className="flex-1 p-6">
-                                    <h3 className="text-[22px] font-medium text-[#1e293b] mb-3">Ultimate Japan Guide</h3>
-                                    <p className="text-[#64748b] text-[15px] mb-6">
-                                        Complete 2-week itinerary with insider tips, restaurant reservations, and hidden spots.
+                                    <h3 className="text-xl font-medium text-[#1e293b] mb-3">
+                                        {itinerary.title}
+                                    </h3>
+                                    <p className="text-[#64748b] text-sm mb-6 line-clamp-3">
+                                        {itinerary.description}
                                     </p>
-                                    <div className="bg-[#F8FAFC] rounded-xl p-4 mb-6">
-                                        <div className="text-[15px] font-medium text-[#1e293b] mb-3">What's included:</div>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2 text-[15px] text-[#64748b]">
-                                                <svg className="w-[18px] h-[18px] text-[#00C48C]" viewBox="0 0 24 24" fill="none">
-                                                    <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                </svg>
-                                                PDF Guide
-                                            </div>
-                                            <div className="flex items-center gap-2 text-[15px] text-[#64748b]">
-                                                <svg className="w-[18px] h-[18px] text-[#00C48C]" viewBox="0 0 24 24" fill="none">
-                                                    <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                </svg>
-                                                Interactive Map
-                                            </div>
-                                            <div className="flex items-center gap-2 text-[15px] text-[#64748b]">
-                                                <svg className="w-[18px] h-[18px] text-[#00C48C]" viewBox="0 0 24 24" fill="none">
-                                                    <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                </svg>
-                                                Restaurant List
-                                            </div>
-                                        </div>
+
+                                    <div className="space-y-3">
+                                        <h4 className="text-sm font-medium text-[#1e293b]">What's included:</h4>
+                                        <ul className="space-y-2">
+                                            {itinerary.inclusions.slice(0, 3).map((item, index) => (
+                                                <li key={index} className="flex items-center gap-2 text-sm text-[#64748b]">
+                                                    <svg className="w-4 h-4 text-[#00C48C]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                        <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    </svg>
+                                                    {item}
+                                                </li>
+                                            ))}
+                                        </ul>
                                     </div>
-                                    <div className="flex items-center justify-between">
-                                        <button className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#C2410C] text-white text-[15px] font-medium rounded-xl hover:bg-[#B23A0B] transition-colors">
-                                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-                                                <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                            </svg>
-                                            Purchase Guide
-                                        </button>
-                                        <div className="flex items-center gap-1 text-[#64748b] text-[15px]">
-                                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-                                                <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M4 8h16M4 8V7a3 3 0 013-3h10a3 3 0 013 3v1M4 8v8m16-8v8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                                            </svg>
-                                            124 sold
+
+                                    {itinerary.exclusions && itinerary.exclusions.length > 0 && (
+                                        <div className="space-y-3 mt-4">
+                                            <h4 className="text-sm font-medium text-[#1e293b]">Not included:</h4>
+                                            <ul className="space-y-2">
+                                                {itinerary.exclusions.slice(0, 2).map((item, index) => (
+                                                    <li key={index} className="flex items-center gap-2 text-sm text-[#64748b]">
+                                                        <svg className="w-4 h-4 text-[#EF4444]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                            <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+                                                        </svg>
+                                                        {item}
+                                                    </li>
+                                                ))}
+                                            </ul>
                                         </div>
+                                    )}
+
+                                    <div className="mt-6">
+                                        <button
+                                            onClick={() => navigate(`/premium-itinerary/${itinerary.id}`)}
+                                            className="w-full px-4 py-2 bg-[#EAB308] hover:bg-[#CA8A04] text-white text-sm font-medium rounded-lg transition-colors"
+                                        >
+                                            Purchase
+                                        </button>
                                     </div>
                                 </div>
                             </div>
+                        ))}
+                    </div>
 
-                            {/* Bali Honeymoon Package */}
-                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex">
-                                <div className="relative w-[45%] overflow-hidden">
-                                    <img
-                                        src="https://images.unsplash.com/photo-1537996194471-e657df975ab4?q=80&w=1000&auto=format&fit=crop"
-                                        alt="Bali Temple"
-                                        className="w-full h-full object-cover"
-                                    />
-                                    <div className="absolute top-4 left-4">
-                                        <div className="px-3 py-1.5 bg-[#EAB308] text-white text-[13px] font-medium rounded-full">
-                                            $39.99
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex-1 p-6">
-                                    <h3 className="text-[22px] font-medium text-[#1e293b] mb-3">Bali Honeymoon Package</h3>
-                                    <p className="text-[#64748b] text-[15px] mb-6">
-                                        Romantic 10-day itinerary with luxury accommodations and private experiences.
-                                    </p>
-                                    <div className="bg-[#F8FAFC] rounded-xl p-4 mb-6">
-                                        <div className="text-[15px] font-medium text-[#1e293b] mb-3">What's included:</div>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2 text-[15px] text-[#64748b]">
-                                                <svg className="w-[18px] h-[18px] text-[#00C48C]" viewBox="0 0 24 24" fill="none">
-                                                    <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                </svg>
-                                                PDF Guide
-                                            </div>
-                                            <div className="flex items-center gap-2 text-[15px] text-[#64748b]">
-                                                <svg className="w-[18px] h-[18px] text-[#00C48C]" viewBox="0 0 24 24" fill="none">
-                                                    <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                </svg>
-                                                Hotel Recommendations
-                                            </div>
-                                            <div className="flex items-center gap-2 text-[15px] text-[#64748b]">
-                                                <svg className="w-[18px] h-[18px] text-[#00C48C]" viewBox="0 0 24 24" fill="none">
-                                                    <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                </svg>
-                                                Activity Bookings
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <button className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#C2410C] text-white text-[15px] font-medium rounded-xl hover:bg-[#B23A0B] transition-colors">
-                                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-                                                <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                            </svg>
-                                            Purchase Guide
-                                        </button>
-                                        <div className="flex items-center gap-1 text-[#64748b] text-[15px]">
-                                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-                                                <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M4 8h16M4 8V7a3 3 0 013-3h10a3 3 0 013 3v1M4 8v8m16-8v8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                                            </svg>
-                                            87 sold
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-8 flex justify-center">
-                            <button className="inline-flex items-center gap-2 px-6 py-3 bg-white rounded-xl border border-gray-200 text-[15px] font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                                <svg className="w-5 h-5 text-[#C2410C]" viewBox="0 0 24 24" fill="none">
-                                    <path d="M12 4v16m8-8H4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                                </svg>
-                                Create a Premium Guide
-                            </button>
-                        </div>
+                    <div className="mt-8 flex justify-center">
+                        <Link
+                            to="/create-premium-itinerary"
+                            className="inline-flex items-center gap-2 px-6 py-3 bg-white rounded-xl border border-gray-200 text-[15px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                            <svg className="w-5 h-5 text-[#C2410C]" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 4v16m8-8H4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                            </svg>
+                            Create a Premium Guide
+                        </Link>
                     </div>
                 </div>
 

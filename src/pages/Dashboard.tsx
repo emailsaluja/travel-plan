@@ -54,20 +54,44 @@ interface Itinerary {
   likesCount?: number;
 }
 
+interface PremiumItinerary {
+  id: string;
+  user_id: string;
+  base_itinerary_id: string;
+  title: string;
+  description: string;
+  price: number;
+  currency: string;
+  inclusions: string[];
+  exclusions: string[];
+  terms_and_conditions: string;
+  cancellation_policy: string;
+  featured_image_url: string;
+  gallery_image_urls: string[];
+  status: 'draft' | 'published' | 'archived';
+  created_at: string;
+  updated_at: string;
+  country: string;
+  duration: number;
+}
+
 interface UserSettings {
+  user_id: string;
   username: string;
   full_name: string;
   bio: string;
-  profilePicture?: string;
-  heroBanner?: string;
-  website_url?: string;
-  youtube_url?: string;
-  instagram_url?: string;
+  profile_picture_url: string;
+  hero_banner_url: string;
+  website_url: string;
+  youtube_url: string;
+  instagram_url: string;
+  updated_at?: string;
 }
 
-interface LikesState {
-  counts: Record<string, number>;
+interface LikesData {
+  counts: { [key: string]: number };
   userLikes: Set<string>;
+  error: string | null;
 }
 
 interface AIItinerary {
@@ -97,15 +121,24 @@ interface AIItinerary {
   };
 }
 
+interface DataCache {
+  itineraries: Itinerary[];
+  likedTrips: Itinerary[];
+  premiumItineraries: PremiumItinerary[];
+  userSettings: UserSettings | null;
+  lastFetch: number;
+}
+
 const Dashboard = () => {
-  const { userEmail, signOut } = useAuth();
+  const { userEmail, user, signOut } = useAuth();
   const [userId, setUserId] = useState<string | null>(null);
   const username = '@amandeepsingh';
   const navigate = useNavigate();
   const [itineraries, setItineraries] = useState<Itinerary[]>([]);
+  const [premiumItineraries, setPremiumItineraries] = useState<PremiumItinerary[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [view, setView] = useState<'trips' | 'countries' | 'upcoming' | 'past' | 'liked' | 'aiItineraries'>('trips');
+  const [view, setView] = useState<'trips' | 'countries' | 'upcoming' | 'past' | 'liked' | 'aiItineraries' | 'premium'>('trips');
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [countryImages, setCountryImages] = useState<Record<string, string[]>>({});
   const [selectedImages, setSelectedImages] = useState<Record<string, string>>({});
@@ -142,25 +175,20 @@ const Dashboard = () => {
   const [isUsernameSet, setIsUsernameSet] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
-  const dataCache = useRef<{
-    itineraries: Itinerary[];
-    likedTrips: Itinerary[];
-    userSettings: UserSettingsType | null;
-    lastFetch: number;
-  }>({
+  const dataCache = useRef<DataCache>({
     itineraries: [],
     likedTrips: [],
+    premiumItineraries: [],
     userSettings: null,
     lastFetch: 0
   });
 
-  // Update likes data state with proper typing
-  const [likesData, setLikesData] = useState<LikesState>({
+  const [likesData, setLikesData] = useState<LikesData>({
     counts: {},
-    userLikes: new Set<string>()
+    userLikes: new Set(),
+    error: null
   });
 
-  // Add state for AI itineraries
   const [aiItineraries, setAiItineraries] = useState<SavedAIItinerary[]>([]);
 
   const stats = {
@@ -169,99 +197,61 @@ const Dashboard = () => {
     countries: 9
   };
 
-  // Memoize the data loading function
   const loadAllData = useCallback(async (forceRefresh = false) => {
-    // If data is less than 1 minute old and no force refresh, use cached data
-    const now = Date.now();
-    if (!forceRefresh &&
-      dataCache.current.lastFetch > 0 &&
-      now - dataCache.current.lastFetch < 60000) {
-      setItineraries(dataCache.current.itineraries);
-      setLikedTrips(dataCache.current.likedTrips);
-      if (dataCache.current.userSettings) {
-        setSettings(dataCache.current.userSettings);
-      }
-      return;
-    }
-
-    setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-
-        // Fetch all data in parallel including likes
-        const [
-          { data: userItineraries },
-          { data: likedItinerariesData },
-          userSettings,
-          { counts, userLikes, error: likesError }
-        ] = await Promise.all([
-          UserItineraryService.getUserItineraries(),
-          UserItineraryService.getLikedItineraries(),
-          UserSettingsService.getUserSettings(user.id),
-          LikesService.getAllLikesData()
-        ]);
-
-        // Update likes data state
-        if (!likesError && counts && userLikes) {
-          setLikesData({
-            counts: counts as Record<string, number>,
-            userLikes: userLikes as Set<string>
-          });
-        }
-
-        if (userItineraries?.length) {
-          // Process itineraries with likes
-          const itinerariesWithLikes = userItineraries.map(itinerary => ({
-            ...itinerary,
-            likesCount: counts?.[itinerary.id] || 0
-          }));
-
-          // Sort by date
-          const sortedItineraries = itinerariesWithLikes.sort((a, b) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          );
-
-          setItineraries(sortedItineraries);
-          dataCache.current.itineraries = sortedItineraries;
-        }
-
-        // Process liked trips
-        if (likedItinerariesData) {
-          const processedLikedTrips = likedItinerariesData.map((item: any) => ({
-            id: item.id,
-            trip_name: item.trip_name,
-            country: item.country,
-            start_date: item.start_date,
-            duration: item.duration,
-            passengers: item.passengers,
-            created_at: item.created_at,
-            destinations: item.destinations,
-            likesCount: counts?.[item.id] || 0
-          }));
-          setLikedTrips(processedLikedTrips);
-          dataCache.current.likedTrips = processedLikedTrips;
-        }
-
-        // Process user settings
-        if (userSettings) {
-          setSettings(userSettings);
-          setIsUsernameSet(!!userSettings.username && userSettings.username !== '@user');
-          if (userSettings.profile_picture_url) {
-            setProfilePicturePreview(userSettings.profile_picture_url);
+      const now = Date.now();
+      if (!forceRefresh && dataCache.current.lastFetch && now - dataCache.current.lastFetch < 60000) {
+        if (dataCache.current.itineraries) setItineraries(dataCache.current.itineraries);
+        if (dataCache.current.likedTrips) setLikedTrips(dataCache.current.likedTrips);
+        if (dataCache.current.userSettings) {
+          setSettings(dataCache.current.userSettings);
+          setIsUsernameSet(!!dataCache.current.userSettings.username && dataCache.current.userSettings.username !== '@user');
+          if (dataCache.current.userSettings.profile_picture_url) {
+            setProfilePicturePreview(dataCache.current.userSettings.profile_picture_url);
           }
-          if (userSettings.hero_banner_url) {
-            setHeroBannerPreview(userSettings.hero_banner_url);
+          if (dataCache.current.userSettings.hero_banner_url) {
+            setHeroBannerPreview(dataCache.current.userSettings.hero_banner_url);
           }
-          dataCache.current.userSettings = userSettings;
         }
-
-        // Update cache timestamp
-        dataCache.current.lastFetch = now;
+        return;
       }
 
-      // Load AI itineraries
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user found');
+      setUserId(user.id);
+
+      const { data: itinerariesData } = await supabase
+        .from('user_itineraries')
+        .select(`
+          *,
+          destinations:user_itinerary_destinations(
+            destination,
+            nights
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (itinerariesData) {
+        setItineraries(itinerariesData);
+        dataCache.current.itineraries = itinerariesData;
+      }
+
+      const { data: premiumData } = await supabase
+        .from('premium_itineraries')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (premiumData) {
+        setPremiumItineraries(premiumData);
+        dataCache.current.premiumItineraries = premiumData;
+      }
+
+      await loadUserSettings(user.id);
+
+      dataCache.current.lastFetch = now;
+
       await loadAIItineraries();
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -269,20 +259,44 @@ const Dashboard = () => {
       setLoading(false);
       setIsDataLoaded(true);
     }
-  }, []);
+  }, [user]);
 
-  // Initial data load
+  useEffect(() => {
+    if (user) {
+      setUserId(user.id);
+      loadUserSettings(user.id);
+    }
+  }, [user]);
+
+  const loadUserSettings = async (userId: string) => {
+    try {
+      const userSettings = await UserSettingsService.getUserSettings(userId);
+      if (userSettings) {
+        setSettings(userSettings);
+        setOriginalSettings(userSettings);
+        setIsUsernameSet(!!userSettings.username && userSettings.username !== '@user');
+        if (userSettings.profile_picture_url) {
+          setProfilePicturePreview(userSettings.profile_picture_url);
+        }
+        if (userSettings.hero_banner_url) {
+          setHeroBannerPreview(userSettings.hero_banner_url);
+        }
+        dataCache.current.userSettings = userSettings;
+      }
+    } catch (error) {
+      console.error('Error fetching user settings:', error);
+      setError('Failed to load user settings');
+    }
+  };
+
   useEffect(() => {
     loadAllData();
   }, [loadAllData]);
 
-  // Replace existing loadItineraries function
   const loadItineraries = () => loadAllData(true);
 
-  // Replace existing loadLikedTrips function
   const loadLikedTrips = () => loadAllData(true);
 
-  // Add URL query parameter handling
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab');
@@ -291,19 +305,16 @@ const Dashboard = () => {
     }
   }, []);
 
-  // Update handleViewChange to handle URL updates
-  const handleViewChange = (newView: 'trips' | 'countries' | 'upcoming' | 'past' | 'liked' | 'aiItineraries') => {
+  const handleViewChange = (newView: 'trips' | 'countries' | 'upcoming' | 'past' | 'liked' | 'aiItineraries' | 'premium') => {
     setView(newView);
     setSelectedCountry(null);
 
-    // Update URL hash and search params
     if (newView === 'liked') {
       window.location.hash = 'liked';
     } else if (window.location.hash === '#liked') {
       window.location.hash = '';
     }
 
-    // Update search params for AI itineraries tab
     const params = new URLSearchParams(window.location.search);
     if (newView === 'aiItineraries') {
       params.set('tab', 'aiItineraries');
@@ -313,15 +324,12 @@ const Dashboard = () => {
     window.history.pushState({}, '', `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`);
   };
 
-  // Optimize handleUnlike with proper typing
   const handleUnlike = async (id: string) => {
     try {
       await LikesService.unlikeItinerary(id);
 
-      // Update local state immediately
       setLikedTrips(prev => prev.filter(trip => trip.id !== id));
 
-      // Update likes data with proper typing
       setLikesData(prev => {
         const newUserLikes = new Set(Array.from(prev.userLikes));
         newUserLikes.delete(id);
@@ -335,15 +343,12 @@ const Dashboard = () => {
         };
       });
 
-      // Update cache
-      dataCache.current.likedTrips = dataCache.current.likedTrips.filter(trip => trip.id !== id);
-
-      // Refresh likes data in background
       const { counts, userLikes } = await LikesService.getAllLikesData();
       if (counts && userLikes) {
         setLikesData({
           counts: counts as Record<string, number>,
-          userLikes: userLikes as Set<string>
+          userLikes: userLikes as Set<string>,
+          error: null
         });
       }
     } catch (error) {
@@ -351,7 +356,6 @@ const Dashboard = () => {
     }
   };
 
-  // Group itineraries by country
   const countryStats = React.useMemo(() => {
     const stats: Record<string, { count: number; itineraries: Itinerary[] }> = {};
     itineraries.forEach(itinerary => {
@@ -364,11 +368,9 @@ const Dashboard = () => {
     return stats;
   }, [itineraries]);
 
-  // Fetch country images
   useEffect(() => {
     const fetchCountryImages = async () => {
       try {
-        // Fetch all country images in one call
         const allImages = await CountryImagesService.getAllCountryImages();
         setCountryImages(allImages);
       } catch (error) {
@@ -390,14 +392,11 @@ const Dashboard = () => {
     setSelectedCountry(country);
   };
 
-  // Add hash change handler
   useEffect(() => {
-    // Set initial view based on hash
     if (window.location.hash === '#liked') {
       setView('liked');
     }
 
-    // Listen for hash changes
     const handleHashChange = () => {
       if (window.location.hash === '#liked') {
         setView('liked');
@@ -466,7 +465,7 @@ const Dashboard = () => {
     if (!files || files.length === 0) return;
 
     const file = files[0];
-    if (file.size > 2 * 1024 * 1024) { // 2MB limit
+    if (file.size > 2 * 1024 * 1024) {
       alert('Profile picture must be less than 2MB');
       return;
     }
@@ -477,10 +476,8 @@ const Dashboard = () => {
       size: file.size
     });
 
-    // Store the raw file object
     setProfilePictureFile(file);
 
-    // Create a local preview
     const reader = new FileReader();
     reader.onload = () => {
       setProfilePicturePreview(reader.result as string);
@@ -493,7 +490,7 @@ const Dashboard = () => {
     if (!files || files.length === 0) return;
 
     const file = files[0];
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+    if (file.size > 5 * 1024 * 1024) {
       alert('Hero banner must be less than 5MB');
       return;
     }
@@ -504,10 +501,8 @@ const Dashboard = () => {
       size: file.size
     });
 
-    // Store the raw file object
     setHeroBannerFile(file);
 
-    // Create a local preview
     const reader = new FileReader();
     reader.onload = () => {
       setHeroBannerPreview(reader.result as string);
@@ -517,7 +512,6 @@ const Dashboard = () => {
 
   const checkUsernameUniqueness = async (username: string, currentUserId: string): Promise<boolean> => {
     try {
-      // Get all matching usernames
       const { data, error } = await supabase
         .from('user_profiles')
         .select('user_id')
@@ -528,17 +522,14 @@ const Dashboard = () => {
         return false;
       }
 
-      // If no data or empty array, username is available
       if (!data || data.length === 0) {
         return true;
       }
 
-      // If there is exactly one result and it's the current user, username is available
       if (data.length === 1 && data[0].user_id === currentUserId) {
         return true;
       }
 
-      // Username is taken by another user
       return false;
     } catch (error) {
       console.error('Error checking username uniqueness:', error);
@@ -551,7 +542,6 @@ const Dashboard = () => {
       setIsSaving(true);
       setError(null);
 
-      // Check username uniqueness before saving
       if (settings.username !== originalSettings.username) {
         const isUnique = await checkUsernameUniqueness(settings.username, settings.user_id);
         if (!isUnique) {
@@ -561,11 +551,9 @@ const Dashboard = () => {
         }
       }
 
-      // Handle file uploads first if there are any
       let profilePictureUrl = settings.profile_picture_url;
       let heroBannerUrl = settings.hero_banner_url;
 
-      // Upload profile picture if there's a new file
       if (profilePictureFile) {
         console.log('Starting profile picture upload');
 
@@ -584,7 +572,6 @@ const Dashboard = () => {
         }
       }
 
-      // Upload hero banner if there's a new file
       if (heroBannerFile) {
         console.log('Starting hero banner upload');
 
@@ -603,7 +590,6 @@ const Dashboard = () => {
         }
       }
 
-      // Update the profile with all fields
       const updateData = {
         username: settings.username,
         full_name: settings.full_name,
@@ -627,7 +613,6 @@ const Dashboard = () => {
         throw updateError;
       }
 
-      // Update local settings
       setSettings(prev => ({
         ...prev,
         profile_picture_url: profilePictureUrl,
@@ -642,7 +627,6 @@ const Dashboard = () => {
 
       setIsSettingsOpen(false);
 
-      // Reset file states
       setProfilePictureFile(null);
       setHeroBannerFile(null);
     } catch (error: any) {
@@ -652,7 +636,6 @@ const Dashboard = () => {
     }
   };
 
-  // Add this new function to get upcoming trips
   const getUpcomingTrips = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -672,7 +655,6 @@ const Dashboard = () => {
 
   const upcomingTrips = getUpcomingTrips();
 
-  // Add this new function to get past trips
   const getPastTrips = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -686,7 +668,7 @@ const Dashboard = () => {
       .sort((a, b) => {
         const startDateA = new Date(a.start_date);
         const startDateB = new Date(b.start_date);
-        return startDateB.getTime() - startDateA.getTime(); // Most recent first
+        return startDateB.getTime() - startDateA.getTime();
       });
   };
 
@@ -697,13 +679,12 @@ const Dashboard = () => {
       await UserItineraryService.copyItinerary(id);
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
-      await loadItineraries(); // Refresh the trips list
+      await loadItineraries();
     } catch (error) {
       console.error('Error copying itinerary:', error);
     }
   };
 
-  // Add click handler for closing menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
@@ -716,7 +697,6 @@ const Dashboard = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Add function to load AI itineraries
   const loadAIItineraries = async () => {
     try {
       const itineraries = await aiItineraryService.getItineraries();
@@ -726,14 +706,47 @@ const Dashboard = () => {
     }
   };
 
+  const handleEditPremiumItinerary = (id: string) => {
+    navigate(`/create-premium-itinerary/${id}`);
+  };
+
+  const handleLike = async (itineraryId: string) => {
+    try {
+      const newUserLikes = new Set(likesData.userLikes);
+      const isLiked = newUserLikes.has(itineraryId);
+      const newCount = likesData.counts[itineraryId] + (isLiked ? -1 : 1);
+
+      if (isLiked) {
+        newUserLikes.delete(itineraryId);
+        await LikesService.unlikeItinerary(itineraryId);
+      } else {
+        newUserLikes.add(itineraryId);
+        await LikesService.likeItinerary(itineraryId);
+      }
+
+      setLikesData(prev => ({
+        counts: {
+          ...prev.counts,
+          [itineraryId]: newCount
+        },
+        userLikes: newUserLikes,
+        error: null
+      }));
+    } catch (error) {
+      console.error('Error updating like:', error);
+      setLikesData(prev => ({
+        ...prev,
+        error: 'Failed to update like'
+      }));
+    }
+  };
+
   return (
     <div className="min-h-screen">
       <TopNavigation />
 
       <div className="flex min-h-screen pt-[60px]">
-        {/* Left Sidebar - 20% width */}
         <div className="w-[20%] bg-[#F0F8FF] border-r border-gray-300 min-h-screen fixed left-0 px-6 pt-0 flex flex-col">
-          {/* Profile Section */}
           <div className="py-8">
             <div className="w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-[#00C48C] to-[#00B380] mb-4 shadow-md">
               <img
@@ -766,7 +779,6 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Search */}
           <div className="relative mb-6">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
             <input
@@ -779,7 +791,6 @@ const Dashboard = () => {
             </button>
           </div>
 
-          {/* Navigation Links */}
           <div className="space-y-4 flex-1">
             <div>
               <button
@@ -805,6 +816,19 @@ const Dashboard = () => {
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
                   </svg>
                   <span>AI Itineraries</span>
+                </div>
+              </button>
+            </div>
+            <div>
+              <button
+                onClick={() => handleViewChange('premium')}
+                className={`w-full flex items-center justify-between font-[600] font-['Inter_var'] p-2 rounded-lg transition-colors ${view === 'premium' ? 'bg-[#e5f8f3] text-[#13c892]' : 'text-[#1e293b] hover:bg-[#e5f8f3] hover:text-[#13c892]'}`}
+              >
+                <div className="flex items-center gap-2">
+                  <svg viewBox="0 0 24 24" className={`w-4 h-4 ${view === 'premium' ? 'text-[#13c892]' : 'text-[#00C48C]'}`} fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                  </svg>
+                  <span>Premium Itineraries</span>
                 </div>
               </button>
             </div>
@@ -866,7 +890,6 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Share Profile and Settings */}
           <div className="mt-auto pt-6 border-t border-gray-200 mb-8">
             <div className="space-y-2">
               <button
@@ -893,10 +916,8 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Main Content - 80% width */}
         <div className="w-[80%] ml-[20%]">
           <div className="max-w-[1400px] px-8 py-8">
-            {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 {view === 'trips' ? (
@@ -952,7 +973,6 @@ const Dashboard = () => {
                 <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#00C48C] border-t-transparent"></div>
               </div>
             ) : view === 'countries' && !selectedCountry ? (
-              // Countries Grid View
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {Object.entries(countryStats).map(([country, { count }]) => (
                   <div
@@ -992,7 +1012,6 @@ const Dashboard = () => {
                           alt={itinerary.trip_name}
                           className="w-full h-full object-cover"
                         />
-                        {/* Action Buttons */}
                         <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
                           <button
                             onClick={(e) => {
@@ -1007,7 +1026,7 @@ const Dashboard = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleUnlike(itinerary.id);
+                              handleLike(itinerary.id);
                             }}
                             className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-white hover:scale-105 transition-all duration-200"
                             title="Unlike itinerary"
@@ -1093,11 +1112,84 @@ const Dashboard = () => {
                   ))}
                 </div>
               </div>
+            ) : view === 'premium' ? (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-lg font-medium text-[#1e293b]">
+                    Premium Itineraries
+                  </h2>
+                  <button
+                    onClick={() => navigate('/create-premium-itinerary')}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#00C48C] text-white rounded-lg hover:bg-[#00B380] transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Create Premium Itinerary</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {premiumItineraries.map((itinerary) => (
+                    <div
+                      key={itinerary.id}
+                      className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all overflow-hidden"
+                    >
+                      <div className="relative h-64">
+                        <img
+                          src={itinerary.featured_image_url || 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=2074&auto=format&fit=crop'}
+                          alt={itinerary.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=2074&auto=format&fit=crop';
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                        <div className="absolute bottom-5 left-5 right-5">
+                          <div className="flex items-center gap-1.5 text-white/90 text-[15px] mb-1.5">
+                            <MapPin className="w-[18px] h-[18px]" />
+                            {itinerary.country}
+                          </div>
+                          <h3 className="text-[22px] font-medium text-white leading-tight">
+                            {itinerary.title}
+                          </h3>
+                        </div>
+                        <div className="absolute top-4 right-4">
+                          <div className="px-3 py-1.5 bg-[#EAB308] text-white text-[13px] font-medium rounded-full">
+                            {itinerary.currency} {itinerary.price}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-6">
+                        <p className="text-[15px] text-gray-600 mb-4 line-clamp-2">
+                          {itinerary.description}
+                        </p>
+                        <div className="flex items-center gap-2 text-[15px] text-gray-500 mb-4">
+                          <Calendar className="w-[18px] h-[18px] text-[#00C48C]" />
+                          {itinerary.duration} days
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <button
+                            onClick={() => navigate(`/premium-itinerary/${itinerary.id}`)}
+                            className="flex items-center gap-2 px-4 py-2 bg-[#00C48C] text-white rounded-lg hover:bg-[#00B380] transition-colors"
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span>View Details</span>
+                          </button>
+                          <button
+                            onClick={() => handleEditPremiumItinerary(itinerary.id)}
+                            className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             ) : (
-              // Trip Grid
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
-                  {/* Create New Trip Card - Only show in main trips view */}
                   {(view === 'trips' || (view === 'countries' && selectedCountry)) && (
                     <div
                       onClick={() => navigate('/create-itinerary')}
@@ -1112,7 +1204,6 @@ const Dashboard = () => {
                     </div>
                   )}
 
-                  {/* Trip Tiles */}
                   {(view === 'upcoming'
                     ? upcomingTrips
                     : view === 'past'
@@ -1150,7 +1241,6 @@ const Dashboard = () => {
                           </div>
                         </div>
                       </div>
-                      {/* Action Buttons */}
                       <div className="absolute top-4 right-4 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
                         <button
                           onClick={(e) => {
@@ -1182,7 +1272,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Settings Popup */}
       {isSettingsOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-6 overflow-y-auto">
           <div className="bg-white rounded-xl p-6 w-full max-w-4xl">
@@ -1203,9 +1292,7 @@ const Dashboard = () => {
             )}
 
             <div className="grid grid-cols-2 gap-6">
-              {/* Left Column */}
               <div className="space-y-6">
-                {/* Profile Picture Upload */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Profile Picture
@@ -1246,7 +1333,6 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* Username */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Username
@@ -1267,7 +1353,6 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* Full Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Full Name
@@ -1280,7 +1365,6 @@ const Dashboard = () => {
                   />
                 </div>
 
-                {/* Bio */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Bio
@@ -1294,9 +1378,7 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Right Column */}
               <div className="space-y-6">
-                {/* Hero Banner Upload */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Hero Banner
@@ -1335,7 +1417,6 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* Website URL */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Website URL
@@ -1349,7 +1430,6 @@ const Dashboard = () => {
                   />
                 </div>
 
-                {/* YouTube URL */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     YouTube Channel
@@ -1363,7 +1443,6 @@ const Dashboard = () => {
                   />
                 </div>
 
-                {/* Instagram URL */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Instagram Profile
@@ -1379,7 +1458,6 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Save Button - Full Width */}
             <div className="mt-6">
               <button
                 onClick={handleSaveSettings}
