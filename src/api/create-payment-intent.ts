@@ -1,0 +1,1 @@
+// Delete this file as we'll use Supabase Edge Functions instead 

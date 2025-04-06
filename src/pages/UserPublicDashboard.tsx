@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase';
 import { CountryImagesService } from '../services/country-images.service';
 import { cleanDestination } from '../utils/stringUtils';
 import StaticWorldMap from '../components/StaticWorldMap';
+import { PaymentModal } from '../components/PaymentModal';
+import { useUser } from '../hooks/useUser';
 
 // Add country code mapping
 const COUNTRY_CODES: { [key: string]: string } = {
@@ -251,6 +253,9 @@ const UserPublicDashboard = () => {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const navigate = useNavigate();
+    const { user } = useUser();
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [selectedItineraryId, setSelectedItineraryId] = useState<string | null>(null);
 
     // Add this constant for regions
     const REGIONS: Record<RegionKey, string> = {
@@ -728,6 +733,43 @@ const UserPublicDashboard = () => {
         }
     };
 
+    const handlePurchaseClick = (itineraryId: string) => {
+        if (!user) {
+            // Redirect to login if user is not authenticated
+            navigate('/login', { state: { returnTo: location.pathname } });
+            return;
+        }
+        setSelectedItineraryId(itineraryId);
+        setIsPaymentModalOpen(true);
+    };
+
+    const handlePaymentSuccess = async () => {
+        if (selectedItineraryId && user) {
+            try {
+                // Refresh the premium itineraries list
+                const { data: premiumData } = await supabase
+                    .from('premium_itineraries')
+                    .select('*')
+                    .eq('user_id', profile.user_id)
+                    .eq('status', 'published')
+                    .order('created_at', { ascending: false });
+
+                if (premiumData) {
+                    setPremiumItineraries(premiumData);
+                }
+
+                // Close the payment modal
+                setIsPaymentModalOpen(false);
+                setSelectedItineraryId(null);
+
+                // Show success message or redirect to the purchased itinerary
+                navigate(`/premium-itinerary/${selectedItineraryId}`);
+            } catch (error) {
+                console.error('Error handling payment success:', error);
+            }
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -1149,7 +1191,7 @@ const UserPublicDashboard = () => {
 
                                     <div className="mt-6">
                                         <button
-                                            onClick={() => navigate(`/premium-itinerary/${itinerary.id}`)}
+                                            onClick={() => handlePurchaseClick(itinerary.id)}
                                             className="w-full px-4 py-2 bg-[#EAB308] hover:bg-[#CA8A04] text-white text-sm font-medium rounded-lg transition-colors"
                                         >
                                             Purchase
@@ -2022,6 +2064,18 @@ const UserPublicDashboard = () => {
                     </div>
                 )}
             </div>
+            {isPaymentModalOpen && selectedItineraryId && user && (
+                <PaymentModal
+                    isOpen={isPaymentModalOpen}
+                    onClose={() => {
+                        setIsPaymentModalOpen(false);
+                        setSelectedItineraryId(null);
+                    }}
+                    itineraryId={selectedItineraryId}
+                    userId={user.id}
+                    onSuccess={handlePaymentSuccess}
+                />
+            )}
         </div>
     );
 };
