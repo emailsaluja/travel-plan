@@ -34,6 +34,7 @@ import BlogPost from './pages/BlogPost';
 import BlogList from './pages/BlogList';
 import { useLocation } from 'react-router-dom';
 import ViewAIItinerary from './pages/ViewAIItinerary';
+import UserDashboard from './pages/UserDashboard';
 
 const RootLayout = () => {
   const location = useLocation();
@@ -142,6 +143,13 @@ export const router = createBrowserRouter([
             <ViewPremiumItinerary />
           </ProtectedRoute>
         ),
+      },
+      {
+        path: '/dashboard/purchased-itineraries',
+        element: <UserDashboard />,
+        loader: () => {
+          return { defaultTab: 'purchasedItineraries' };
+        },
       },
     ]
   }

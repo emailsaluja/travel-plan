@@ -762,8 +762,7 @@ const UserPublicDashboard = () => {
                 setIsPaymentModalOpen(false);
                 setSelectedItineraryId(null);
 
-                // Show success message or redirect to the purchased itinerary
-                navigate(`/premium-itinerary/${selectedItineraryId}`);
+                // Remove the redirect since it's handled in PaymentModal
             } catch (error) {
                 console.error('Error handling payment success:', error);
             }

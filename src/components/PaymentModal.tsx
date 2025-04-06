@@ -3,18 +3,47 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 import { stripePromise } from '../lib/stripe';
 import { PaymentService } from '../services/payment.service';
 import { X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface PaymentFormProps {
     clientSecret: string;
     onSuccess: () => void;
     onCancel: () => void;
+    itineraryId: string;
+    userId: string;
 }
 
-const PaymentForm: React.FC<PaymentFormProps> = ({ clientSecret, onSuccess, onCancel }) => {
+const PaymentForm: React.FC<PaymentFormProps> = ({ clientSecret, onSuccess, onCancel, itineraryId, userId }) => {
     const stripe = useStripe();
     const elements = useElements();
     const [error, setError] = useState<string | null>(null);
     const [processing, setProcessing] = useState(false);
+    const navigate = useNavigate();
+    const paymentService = new PaymentService();
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 1000; // 1 second
+
+    const recordPurchaseWithRetry = async (itineraryId: string, userId: string, paymentIntentId: string, retries = 0): Promise<boolean> => {
+        try {
+            const recorded = await paymentService.recordPurchase(itineraryId, userId, paymentIntentId);
+            if (recorded) {
+                return true;
+            }
+
+            if (retries < MAX_RETRIES) {
+                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+                return recordPurchaseWithRetry(itineraryId, userId, paymentIntentId, retries + 1);
+            }
+
+            return false;
+        } catch (err) {
+            if (retries < MAX_RETRIES) {
+                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+                return recordPurchaseWithRetry(itineraryId, userId, paymentIntentId, retries + 1);
+            }
+            throw err;
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -26,19 +55,58 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ clientSecret, onSuccess, onCa
         setProcessing(true);
         setError(null);
 
-        const { error: submitError } = await stripe.confirmPayment({
-            elements,
-            confirmParams: {
-                return_url: `${window.location.origin}/payment-success`,
-            },
-            redirect: 'if_required',
-        });
+        try {
+            const { error: submitError, paymentIntent } = await stripe.confirmPayment({
+                elements,
+                redirect: 'if_required',
+            });
 
-        if (submitError) {
-            setError(submitError.message || 'An error occurred');
+            if (submitError) {
+                setError(submitError.message || 'An error occurred');
+                setProcessing(false);
+                return;
+            }
+
+            if (paymentIntent && paymentIntent.status === 'succeeded') {
+                try {
+                    // Record the purchase with retry mechanism
+                    const recorded = await recordPurchaseWithRetry(itineraryId, userId, paymentIntent.id);
+
+                    if (recorded) {
+                        onSuccess();
+                        // Redirect to purchased itineraries page with success message
+                        navigate('/dashboard/purchased-itineraries', {
+                            state: {
+                                showThankYou: true,
+                                message: 'Thank you for your purchase! Your itinerary is now available.'
+                            }
+                        });
+                    } else {
+                        // If all retries failed, show a more detailed error message
+                        setError(
+                            'Payment successful but failed to record purchase after multiple attempts. ' +
+                            'Please contact support with this payment ID: ' + paymentIntent.id
+                        );
+                        // Log the error for monitoring
+                        console.error('Failed to record purchase after all retries:', {
+                            paymentIntentId: paymentIntent.id,
+                            itineraryId,
+                            userId
+                        });
+                    }
+                } catch (err) {
+                    console.error('Error recording purchase:', err);
+                    setError(
+                        'Payment successful but failed to record purchase. ' +
+                        'Please contact support with this payment ID: ' + paymentIntent.id
+                    );
+                }
+            }
+        } catch (err) {
+            console.error('Payment confirmation error:', err);
+            setError('An unexpected error occurred during payment. Please try again.');
+        } finally {
             setProcessing(false);
-        } else {
-            onSuccess();
         }
     };
 
@@ -135,6 +203,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                                     clientSecret={clientSecret}
                                     onSuccess={onSuccess}
                                     onCancel={onClose}
+                                    itineraryId={itineraryId}
+                                    userId={userId}
                                 />
                             </Elements>
                         ) : (

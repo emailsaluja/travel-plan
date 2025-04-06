@@ -25,7 +25,8 @@ import {
   Heart,
   Copy,
   Eye,
-  Sparkles
+  Sparkles,
+  ShoppingBag
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserItineraryService } from '../services/user-itinerary.service';
@@ -38,6 +39,7 @@ import ItineraryTile from '../components/ItineraryTile';
 import { LikesService } from '../services/likes.service';
 import TopNavigation from '../components/TopNavigation';
 import { aiItineraryService, SavedAIItinerary } from '../services/ai-itinerary.service';
+import { PaymentService, PurchasedItinerary } from '../services/payment.service';
 
 interface Itinerary {
   id: string;
@@ -136,9 +138,10 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [itineraries, setItineraries] = useState<Itinerary[]>([]);
   const [premiumItineraries, setPremiumItineraries] = useState<PremiumItinerary[]>([]);
+  const [purchasedItineraries, setPurchasedItineraries] = useState<PurchasedItinerary[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [view, setView] = useState<'trips' | 'countries' | 'upcoming' | 'past' | 'liked' | 'aiItineraries' | 'premium'>('trips');
+  const [view, setView] = useState<'trips' | 'countries' | 'upcoming' | 'past' | 'liked' | 'aiItineraries' | 'premium' | 'purchases'>('trips');
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [countryImages, setCountryImages] = useState<Record<string, string[]>>({});
   const [selectedImages, setSelectedImages] = useState<Record<string, string>>({});
@@ -197,6 +200,8 @@ const Dashboard = () => {
     countries: 9
   };
 
+  const paymentService = new PaymentService();
+
   const loadAllData = useCallback(async (forceRefresh = false) => {
     try {
       const now = Date.now();
@@ -219,6 +224,10 @@ const Dashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
       setUserId(user.id);
+
+      // Load purchased itineraries
+      const purchasedItineraries = await paymentService.getPurchasedItineraries(user.id);
+      setPurchasedItineraries(purchasedItineraries);
 
       const { data: itinerariesData } = await supabase
         .from('user_itineraries')
@@ -305,7 +314,7 @@ const Dashboard = () => {
     }
   }, []);
 
-  const handleViewChange = (newView: 'trips' | 'countries' | 'upcoming' | 'past' | 'liked' | 'aiItineraries' | 'premium') => {
+  const handleViewChange = (newView: 'trips' | 'countries' | 'upcoming' | 'past' | 'liked' | 'aiItineraries' | 'premium' | 'purchases') => {
     setView(newView);
     setSelectedCountry(null);
 
@@ -746,7 +755,7 @@ const Dashboard = () => {
       <TopNavigation />
 
       <div className="flex min-h-screen pt-[60px]">
-        <div className="w-[20%] bg-[#F0F8FF] border-r border-gray-300 min-h-screen fixed left-0 px-6 pt-0 flex flex-col">
+        <div className="w-[20%] bg-[#F0F8FF] border-r border-gray-300 min-h-screen fixed left-0 px-6 pt-0 flex flex-col overflow-hidden">
           <div className="py-8">
             <div className="w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-[#00C48C] to-[#00B380] mb-4 shadow-md">
               <img
@@ -791,7 +800,7 @@ const Dashboard = () => {
             </button>
           </div>
 
-          <div className="space-y-4 flex-1">
+          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
             <div>
               <button
                 onClick={() => handleViewChange('trips')}
@@ -804,6 +813,15 @@ const Dashboard = () => {
                 <span className="bg-[#00C48C]/10 text-[#00C48C] px-2 py-0.5 rounded-full text-sm">
                   {itineraries.length}
                 </span>
+              </button>
+            </div>
+            <div>
+              <button
+                onClick={() => handleViewChange('purchases')}
+                className={`w-full flex items-center gap-2 text-[#1e293b] font-[600] font-['Inter_var'] p-2 rounded-lg ${view === 'purchases' ? 'bg-[#e5f8f3] text-[#13c892]' : 'text-[#1e293b] hover:bg-[#e5f8f3] hover:text-[#13c892]'} transition-colors`}
+              >
+                <ShoppingBag className={`w-4 h-4 ${view === 'purchases' ? 'text-[#13c892]' : 'text-[#00C48C]'}`} />
+                <span>Purchases</span>
               </button>
             </div>
             <div>
@@ -1186,6 +1204,74 @@ const Dashboard = () => {
                     </div>
                   ))}
                 </div>
+              </div>
+            ) : view === 'purchases' ? (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-lg font-medium text-[#1e293b]">
+                    Purchased Itineraries
+                  </h2>
+                </div>
+
+                {purchasedItineraries.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500 mb-4">You haven't purchased any itineraries yet.</p>
+                    <button
+                      onClick={() => navigate('/discover')}
+                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#00C48C] hover:bg-[#00B380]"
+                    >
+                      Discover Itineraries
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {purchasedItineraries.map((itinerary) => (
+                      <div
+                        key={itinerary.id}
+                        className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all overflow-hidden"
+                      >
+                        <div className="relative h-64">
+                          <img
+                            src={itinerary.featured_image_url || '/images/placeholder.jpg'}
+                            alt={itinerary.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                          <div className="absolute bottom-5 left-5 right-5">
+                            <div className="flex items-center gap-1.5 text-white/90 text-[15px] mb-1.5">
+                              <MapPin className="w-[18px] h-[18px]" />
+                              {itinerary.country}
+                            </div>
+                            <h3 className="text-[22px] font-medium text-white leading-tight">
+                              {itinerary.title}
+                            </h3>
+                          </div>
+                          <div className="absolute top-4 right-4">
+                            <div className="px-3 py-1.5 bg-[#00C48C] text-white text-[13px] font-medium rounded-full">
+                              {itinerary.duration} days
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-6">
+                          <p className="text-[15px] text-gray-600 mb-4 line-clamp-2">
+                            {itinerary.description}
+                          </p>
+                          <div className="flex items-center gap-2 text-[15px] text-gray-500 mb-4">
+                            <Calendar className="w-[18px] h-[18px] text-[#00C48C]" />
+                            Purchased on {new Date(itinerary.purchase_date).toLocaleDateString()}
+                          </div>
+                          <button
+                            onClick={() => navigate(`/viewmyitinerary/${itinerary.base_itinerary_id}`)}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#00C48C] text-white rounded-lg hover:bg-[#00B380] transition-colors"
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span>View Itinerary</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

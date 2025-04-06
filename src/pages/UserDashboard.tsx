@@ -1,16 +1,69 @@
-import React, { useState } from 'react';
-import { User, Settings, LogOut, Plus, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Settings, LogOut, Plus, Sparkles, ShoppingBag, Globe, Star } from 'lucide-react';
 import { cleanDestination } from '../utils/stringUtils';
 import AIItineraryGenerator from '../components/AIItineraryGenerator';
 import { AIItineraryService } from '../services/ai-itinerary.service';
+import { PaymentService, PurchasedItinerary } from '../services/payment.service';
+import { useUser } from '../hooks/useUser';
+import { useLoaderData, useNavigate, useLocation } from 'react-router-dom';
+import TopNavigation from '../components/TopNavigation';
+
+interface LoaderData {
+  defaultTab?: string;
+}
 
 // This is a placeholder component for the user dashboard
 // In a real application, you would fetch the user data and their itineraries
 
 const UserDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('myItineraries');
+  const { defaultTab } = useLoaderData() as LoaderData;
+  const [activeTab, setActiveTab] = useState(defaultTab || 'myItineraries');
   const [aiGeneratedItineraries, setAiGeneratedItineraries] = useState<any[]>([]);
   const [showAIGenerator, setShowAIGenerator] = useState(false);
+  const [purchasedItineraries, setPurchasedItineraries] = useState<PurchasedItinerary[]>([]);
+  const { user } = useUser();
+  const paymentService = new PaymentService();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Show thank you message if redirected from successful purchase
+  const [showThankYou, setShowThankYou] = useState(false);
+  const [thankYouMessage, setThankYouMessage] = useState('');
+
+  useEffect(() => {
+    // Check if we have a thank you message in the location state
+    if (location.state?.showThankYou) {
+      setShowThankYou(true);
+      setThankYouMessage(location.state.message);
+      // Clear the message after 5 seconds
+      const timer = setTimeout(() => {
+        setShowThankYou(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [location]);
+
+  useEffect(() => {
+    if (user) {
+      loadPurchasedItineraries();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (defaultTab) {
+      setActiveTab(defaultTab);
+    }
+  }, [defaultTab]);
+
+  const loadPurchasedItineraries = async () => {
+    if (!user?.id) return;
+    try {
+      const itineraries = await paymentService.getPurchasedItineraries(user.id);
+      setPurchasedItineraries(itineraries);
+    } catch (error) {
+      console.error('Error loading purchased itineraries:', error);
+    }
+  };
 
   // Mock user data
   const userData = {
@@ -77,281 +130,122 @@ const UserDashboard: React.FC = () => {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        {/* Profile header */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+    <div className="min-h-screen">
+      <TopNavigation />
+
+      <div className="flex min-h-screen pt-[60px]">
+        {/* Left Side Navigation */}
+        <div className="w-[20%] bg-[#F0F8FF] border-r border-gray-300 min-h-screen fixed left-0 px-6 pt-0 flex flex-col">
+          <div className="py-8">
+            <div className="w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-[#00C48C] to-[#00B380] mb-4 shadow-md">
               <img
-                src={userData.profilePicture}
-                alt={userData.name}
-                className="w-16 h-16 rounded-full object-cover"
+                src={user?.user_metadata?.avatar_url || '/images/profile-icon.svg'}
+                alt="Profile"
+                className="w-full h-full object-cover"
               />
-              <div>
-                <h1 className="text-2xl font-bold">{userData.name}</h1>
-                <p className="text-gray-600">{userData.email}</p>
-              </div>
             </div>
+            {user?.user_metadata?.full_name && (
+              <p className="text-gray-700 font-medium mb-1">{user.user_metadata.full_name}</p>
+            )}
+          </div>
 
-            <div className="flex space-x-3">
-              <button className="flex items-center space-x-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-                <Settings className="h-4 w-4" />
-                <span>Settings</span>
-              </button>
-
+          <div className="space-y-4 flex-1">
+            <div>
               <button
-                onClick={handleLogout}
-                className="flex items-center space-x-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                onClick={() => navigate('/dashboard')}
+                className="w-full flex items-center gap-2 text-[#1e293b] font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
               >
-                <LogOut className="h-4 w-4" />
-                <span>Logout</span>
+                <Globe className="w-4 h-4 text-[#00C48C]" />
+                <span>My Trips</span>
+              </button>
+            </div>
+            <div>
+              <button
+                onClick={() => navigate('/dashboard?tab=aiItineraries')}
+                className="w-full flex items-center gap-2 text-[#1e293b] font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
+              >
+                <Sparkles className="w-4 h-4 text-[#00C48C]" />
+                <span>AI Itineraries</span>
+              </button>
+            </div>
+            <div>
+              <button
+                className="w-full flex items-center gap-2 text-[#1e293b] font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
+              >
+                <ShoppingBag className="w-4 h-4 text-[#00C48C]" />
+                <span>Purchases</span>
+              </button>
+            </div>
+            <div>
+              <button
+                onClick={() => navigate('/dashboard?tab=premium')}
+                className="w-full flex items-center gap-2 text-[#1e293b] font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
+              >
+                <Star className="w-4 h-4 text-[#00C48C]" />
+                <span>Premium Itineraries</span>
               </button>
             </div>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="border-b border-gray-200 mb-6">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => setActiveTab('myItineraries')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'myItineraries'
-                ? 'border-rose-500 text-rose-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-            >
-              My Itineraries
-            </button>
-
-            <button
-              onClick={() => setActiveTab('savedItineraries')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'savedItineraries'
-                ? 'border-rose-500 text-rose-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-            >
-              Saved Itineraries
-            </button>
-
-            <button
-              onClick={() => setActiveTab('aiItineraries')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'aiItineraries'
-                ? 'border-rose-500 text-rose-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-            >
-              AI Itineraries
-            </button>
-
-            <button
-              onClick={() => setActiveTab('profile')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'profile'
-                ? 'border-rose-500 text-rose-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-            >
-              Profile Settings
-            </button>
-          </nav>
-        </div>
-
-        {/* Tab content */}
-        {activeTab === 'myItineraries' && (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold">My Itineraries</h2>
-              <button
-                onClick={handleCreateItinerary}
-                className="flex items-center space-x-1 px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Create New Itinerary</span>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {userData.myItineraries.map((itinerary) => (
-                <div key={itinerary.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
-                  <img
-                    src={itinerary.imageUrl}
-                    alt={itinerary.title}
-                    className="w-full h-48 object-cover"
-                  />
-                  <div className="p-4">
-                    <h3 className="font-semibold text-lg">{itinerary.title}</h3>
-                    <p className="text-sm text-gray-500">
-                      {itinerary.duration} days - {itinerary.cities.map(city => cleanDestination(city)).join(', ')}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-2">Created {itinerary.createdAt}</p>
-                    <div className="mt-4 flex space-x-2">
-                      <button className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
-                        Edit
-                      </button>
-                      <button className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
-                        View
-                      </button>
-                      <button className="px-3 py-1 text-sm border border-rose-300 text-rose-500 rounded-md hover:bg-rose-50">
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'savedItineraries' && (
-          <div>
-            <h2 className="text-xl font-bold mb-6">Saved Itineraries</h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {userData.savedItineraries.map((itinerary) => (
-                <div key={itinerary.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
-                  <img
-                    src={itinerary.imageUrl}
-                    alt={itinerary.title}
-                    className="w-full h-48 object-cover"
-                  />
-                  <div className="p-4">
-                    <h3 className="font-semibold text-lg">{itinerary.title}</h3>
-                    <p className="text-sm text-gray-500">
-                      {itinerary.duration} days - {itinerary.cities.map(city => cleanDestination(city)).join(', ')}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">By {itinerary.author}</p>
-                    <p className="text-xs text-gray-400">Saved {itinerary.savedAt}</p>
-                    <div className="mt-4 flex space-x-2">
-                      <button className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
-                        View
-                      </button>
-                      <button className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
-                        Copy
-                      </button>
-                      <button className="px-3 py-1 text-sm border border-rose-300 text-rose-500 rounded-md hover:bg-rose-50">
-                        Unsave
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'aiItineraries' && (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold">AI-Generated Itineraries</h2>
-              <button
-                onClick={() => setShowAIGenerator(true)}
-                className="flex items-center space-x-1 px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600"
-              >
-                <Sparkles className="h-4 w-4" />
-                <span>Generate New Itinerary</span>
-              </button>
-            </div>
-
-            {showAIGenerator && (
-              <div className="mb-8">
-                <AIItineraryGenerator onItineraryGenerated={handleAIItineraryGenerated} />
+        {/* Main Content */}
+        <div className="w-[80%] ml-[20%]">
+          <div className="max-w-[1400px] px-8 py-8">
+            {/* Thank you message */}
+            {showThankYou && (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
+                {thankYouMessage}
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {aiGeneratedItineraries.map((itinerary) => (
-                <div key={itinerary.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
-                  <div className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Sparkles className="h-4 w-4 text-amber-500" />
-                      <h3 className="font-semibold text-lg">{itinerary.country} Adventure</h3>
-                    </div>
-                    <p className="text-sm text-gray-500">
-                      {itinerary.duration} days
-                    </p>
-                    <p className="text-xs text-gray-400 mt-2">
-                      Generated {new Date(itinerary.created_at).toLocaleDateString()}
-                    </p>
-                    <div className="mt-4 flex space-x-2">
-                      <button className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
-                        View
-                      </button>
-                      <button className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
-                        Edit
-                      </button>
-                      <button className="px-3 py-1 text-sm border border-rose-300 text-rose-500 rounded-md hover:bg-rose-50">
-                        Delete
-                      </button>
-                    </div>
+            {/* Content */}
+            <div className="bg-white rounded-xl shadow-sm">
+              <div className="p-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Purchased Itineraries</h2>
+                {purchasedItineraries.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500 mb-4">You haven't purchased any itineraries yet.</p>
+                    <button
+                      onClick={() => navigate('/discover')}
+                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#00C48C] hover:bg-[#00B380]"
+                    >
+                      Discover Itineraries
+                    </button>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'profile' && (
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-xl font-bold mb-6">Profile Settings</h2>
-
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Profile Picture
-                </label>
-                <div className="flex items-center space-x-4">
-                  <img
-                    src={userData.profilePicture}
-                    alt={userData.name}
-                    className="w-20 h-20 rounded-full object-cover"
-                  />
-                  <button className="px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50">
-                    Change Photo
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
-                  value={userData.name}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
-                  value={userData.email}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Bio
-                </label>
-                <textarea
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
-                  rows={4}
-                  placeholder="Tell us about yourself and your travel preferences..."
-                ></textarea>
-              </div>
-
-              <div>
-                <button className="px-4 py-2 bg-rose-500 text-white rounded-md hover:bg-rose-600">
-                  Save Changes
-                </button>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {purchasedItineraries.map((itinerary) => (
+                      <div key={itinerary.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="relative">
+                          <img
+                            src={itinerary.featured_image_url || '/images/placeholder.jpg'}
+                            alt={itinerary.title}
+                            className="w-full h-48 object-cover"
+                          />
+                          <div className="absolute top-4 right-4">
+                            <div className="px-3 py-1.5 bg-[#00C48C] text-white text-sm font-medium rounded-full">
+                              {itinerary.duration} days
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-6">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2">{itinerary.title}</h3>
+                          <p className="text-gray-600 text-sm mb-4 line-clamp-2">{itinerary.description}</p>
+                          <button
+                            onClick={() => navigate(`/premium-itinerary/${itinerary.id}`)}
+                            className="w-full px-4 py-2 bg-[#00C48C] text-white rounded-lg hover:bg-[#00B380] transition-colors"
+                          >
+                            View Itinerary
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

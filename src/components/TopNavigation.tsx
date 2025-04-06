@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, ShoppingBag } from 'lucide-react';
+import { useUser } from '../hooks/useUser';
 
 const TopNavigation = () => {
     const [showAddMenu, setShowAddMenu] = useState(false);
     const location = useLocation();
+    const { user } = useUser();
 
     // Add click handler for closing menu when clicking outside
     React.useEffect(() => {
@@ -36,6 +38,15 @@ const TopNavigation = () => {
                         {location.pathname !== '/discover' && (
                             <Link to="/discover" className="text-gray-500 font-['Inter_var'] font-[600]">
                                 <span>Discover</span>
+                            </Link>
+                        )}
+                        {user && (
+                            <Link
+                                to="/dashboard/purchased-itineraries"
+                                className="text-gray-500 font-['Inter_var'] font-[600] flex items-center gap-2"
+                            >
+                                <ShoppingBag className="w-4 h-4" />
+                                <span>My Purchases</span>
                             </Link>
                         )}
                     </div>
