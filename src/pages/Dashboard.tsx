@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
-  Search,
   Share2,
   MoreHorizontal,
   Settings,
@@ -28,7 +27,8 @@ import {
   Sparkles,
   ShoppingBag,
   Star,
-  MessageCircle
+  MessageCircle,
+  Search
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserItineraryService } from '../services/user-itinerary.service';
@@ -51,6 +51,7 @@ interface Itinerary {
   duration: number;
   passengers: number;
   created_at: string;
+  status?: 'draft' | 'published';
   destinations: {
     destination: string;
     nights: number;
@@ -77,6 +78,7 @@ interface PremiumItinerary {
   updated_at: string;
   country: string;
   duration: number;
+  purchase_date?: string;
 }
 
 interface UserSettings {
@@ -139,8 +141,11 @@ const Dashboard = () => {
   const username = '@amandeepsingh';
   const navigate = useNavigate();
   const [itineraries, setItineraries] = useState<Itinerary[]>([]);
+  const [filteredItineraries, setFilteredItineraries] = useState<Itinerary[] | null>(null);
+  const [activeTab, setActiveTab] = useState<'all' | 'upcoming' | 'draft' | 'completed'>('all');
   const [premiumItineraries, setPremiumItineraries] = useState<PremiumItinerary[]>([]);
   const [purchasedItineraries, setPurchasedItineraries] = useState<PurchasedItinerary[]>([]);
+  const [soldItineraries, setSoldItineraries] = useState<PremiumItinerary[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [view, setView] = useState<'overview' | 'trips' | 'countries' | 'upcoming' | 'past' | 'liked' | 'aiItineraries' | 'premium' | 'purchases'>('overview');
@@ -338,6 +343,36 @@ const Dashboard = () => {
       // Load purchased itineraries
       const purchasedItineraries = await paymentService.getPurchasedItineraries(user.id);
       setPurchasedItineraries(purchasedItineraries);
+
+      // Load sold itineraries
+      const { data: soldData } = await supabase
+        .from('premium_itinerary_purchases')
+        .select(`
+          premium_itineraries (
+            id,
+            title,
+            description,
+            price,
+            currency,
+            duration,
+            featured_image_url,
+            country,
+            base_itinerary_id
+          ),
+          purchase_date
+        `)
+        .eq('seller_id', user.id)
+        .order('purchase_date', { ascending: false });
+
+      if (soldData) {
+        const soldItineraries = soldData
+          .filter((sale: any) => sale.premium_itineraries !== null)
+          .map((sale: any) => ({
+            ...sale.premium_itineraries,
+            purchase_date: sale.purchase_date
+          }));
+        setSoldItineraries(soldItineraries);
+      }
 
       const { data: itinerariesData } = await supabase
         .from('user_itineraries')
@@ -867,170 +902,124 @@ const Dashboard = () => {
       <TopNavigation />
 
       <div className="flex min-h-screen pt-[60px]">
-        <div className="w-[20%] bg-white border-r border-gray-200 min-h-screen fixed left-0 px-6 pt-0 flex flex-col overflow-hidden">
-          <div className="py-8">
-            <div className="w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-[#00C48C] to-[#00B380] mb-4 shadow-md">
-              <img
-                src={settings.profile_picture_url || '/images/profile-icon.svg'}
-                alt="Profile"
-                className="w-full h-full object-cover"
-              />
+        <div className="w-[20%] bg-white border-r border-gray-200 fixed left-0 top-[60px] bottom-0 flex flex-col overflow-hidden">
+          <div className="h-full flex flex-col overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="px-6">
+              <div className="py-8">
+                <div className="w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-[#00C48C] to-[#00B380] mb-4 shadow-md">
+                  <img
+                    src={settings.profile_picture_url || '/images/profile-icon.svg'}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                {settings.full_name && (
+                  <p className="text-[#1e293b] text-[15px] font-medium mb-1">{settings.full_name}</p>
+                )}
+                <Link to={`/${cleanDestination(settings.username.replace('@', ''))}`} className="text-[#64748b] text-[13px] hover:text-[#00C48C] mb-4 inline-block">
+                  {`localhost:3000/${cleanDestination(settings.username.replace('@', ''))}`}
+                </Link>
+                {settings.bio && <p className="text-[13px] text-[#64748b] mb-4">{settings.bio}</p>}
+
+                <div className="space-y-1 pr-2">
+                  <button
+                    onClick={() => handleViewChange('overview')}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${view === 'overview' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
+                  >
+                    <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5zM14 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5zM4 16a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3zM14 13a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-6z" />
+                    </svg>
+                    <span className="text-[14px] font-medium">Overview</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleViewChange('trips')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${view === 'trips' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Globe className="w-[18px] h-[18px]" />
+                      <span className="text-[14px] font-medium">Trips</span>
+                    </div>
+                    <span className="bg-[#f1f5f9] text-[#64748b] px-2 py-0.5 rounded text-[13px]">
+                      {itineraries.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => handleViewChange('purchases')}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${view === 'purchases' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
+                  >
+                    <ShoppingBag className="w-[18px] h-[18px]" />
+                    <span className="text-[14px] font-medium">Purchases</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleViewChange('aiItineraries')}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${view === 'aiItineraries' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
+                  >
+                    <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
+                    </svg>
+                    <span className="text-[14px] font-medium">AI Itineraries</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleViewChange('premium')}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${view === 'premium' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
+                  >
+                    <Star className="w-[18px] h-[18px]" />
+                    <span className="text-[14px] font-medium">Premium Itineraries</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleViewChange('liked')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${view === 'liked' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Heart className="w-[18px] h-[18px]" />
+                      <span className="text-[14px] font-medium">Liked Trips</span>
+                    </div>
+                    <span className="bg-[#f1f5f9] text-[#64748b] px-2 py-0.5 rounded text-[13px]">
+                      {likedTrips.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => handleViewChange('countries')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${view === 'countries' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <MapPin className="w-[18px] h-[18px]" />
+                      <span className="text-[14px] font-medium">Countries</span>
+                    </div>
+                    <span className="bg-[#f1f5f9] text-[#64748b] px-2 py-0.5 rounded text-[13px]">
+                      {Object.keys(countryStats).length}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-auto px-6 py-6 border-t border-[#f1f5f9]">
+                <button className="w-full flex items-center gap-3 px-3 py-2.5 text-[#64748b] rounded-lg hover:bg-[#f8fafc] transition-colors">
+                  <Share2 className="w-[18px] h-[18px]" />
+                  <span className="text-[14px] font-medium">Share profile</span>
+                </button>
+                <button
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-[#64748b] rounded-lg hover:bg-[#f8fafc] transition-colors"
+                >
+                  <Settings className="w-[18px] h-[18px]" />
+                  <span className="text-[14px] font-medium">Settings</span>
+                </button>
+                <button
+                  onClick={handleSignOut}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-[#64748b] rounded-lg hover:bg-[#f8fafc] transition-colors"
+                >
+                  <LogOut className="w-[18px] h-[18px]" />
+                  <span className="text-[14px] font-medium">Sign out</span>
+                </button>
+              </div>
             </div>
-            {settings.full_name && (
-              <p className="text-[#1e293b] text-[15px] font-medium mb-1">{settings.full_name}</p>
-            )}
-            <Link to={`/${cleanDestination(settings.username.replace('@', ''))}`} className="text-[#64748b] text-[13px] hover:text-[#00C48C] mb-4 inline-block">
-              {`localhost:3000/${cleanDestination(settings.username.replace('@', ''))}`}
-            </Link>
-            {settings.bio && <p className="text-[13px] text-[#64748b] mb-4">{settings.bio}</p>}
-
-            <div className="flex items-center gap-6 text-[13px]">
-              <div className="text-center">
-                <div className="font-medium text-[#1e293b] mb-1">{stats.followers}</div>
-                <div className="text-[#64748b]">followers</div>
-              </div>
-              <div className="text-center">
-                <div className="font-medium text-[#1e293b] mb-1">{stats.following}</div>
-                <div className="text-[#64748b]">following</div>
-              </div>
-              <div className="text-center">
-                <div className="font-medium text-[#1e293b] mb-1">{stats.countries}</div>
-                <div className="text-[#64748b]">countries</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative mb-6">
-            <Search className="w-4 h-4 text-[#64748b] absolute left-3 top-1/2 transform -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search.."
-              className="w-full pl-9 pr-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg text-[13px] text-[#64748b] focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
-            />
-          </div>
-
-          <div className="flex-1 overflow-y-auto space-y-1 pr-2">
-            <button
-              onClick={() => handleViewChange('overview')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${view === 'overview' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
-            >
-              <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5zM14 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5zM4 16a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3zM14 13a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-6z" />
-              </svg>
-              <span className="text-[14px] font-medium">Overview</span>
-            </button>
-
-            <button
-              onClick={() => handleViewChange('trips')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${view === 'trips' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
-            >
-              <div className="flex items-center gap-3">
-                <Globe className="w-[18px] h-[18px]" />
-                <span className="text-[14px] font-medium">Trips</span>
-              </div>
-              <span className="bg-[#f1f5f9] text-[#64748b] px-2 py-0.5 rounded text-[13px]">
-                {itineraries.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => handleViewChange('purchases')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${view === 'purchases' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
-            >
-              <ShoppingBag className="w-[18px] h-[18px]" />
-              <span className="text-[14px] font-medium">Purchases</span>
-            </button>
-
-            <button
-              onClick={() => handleViewChange('aiItineraries')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${view === 'aiItineraries' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
-            >
-              <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
-              </svg>
-              <span className="text-[14px] font-medium">AI Itineraries</span>
-            </button>
-
-            <button
-              onClick={() => handleViewChange('premium')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${view === 'premium' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
-            >
-              <Star className="w-[18px] h-[18px]" />
-              <span className="text-[14px] font-medium">Premium Itineraries</span>
-            </button>
-
-            <button
-              onClick={() => handleViewChange('liked')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${view === 'liked' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
-            >
-              <div className="flex items-center gap-3">
-                <Heart className="w-[18px] h-[18px]" />
-                <span className="text-[14px] font-medium">Liked Trips</span>
-              </div>
-              <span className="bg-[#f1f5f9] text-[#64748b] px-2 py-0.5 rounded text-[13px]">
-                {likedTrips.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => handleViewChange('upcoming')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${view === 'upcoming' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
-            >
-              <div className="flex items-center gap-3">
-                <Clock className="w-[18px] h-[18px]" />
-                <span className="text-[14px] font-medium">Upcoming Trips</span>
-              </div>
-              <span className="bg-[#f1f5f9] text-[#64748b] px-2 py-0.5 rounded text-[13px]">
-                {upcomingTrips.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => handleViewChange('past')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${view === 'past' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
-            >
-              <div className="flex items-center gap-3">
-                <Calendar className="w-[18px] h-[18px]" />
-                <span className="text-[14px] font-medium">Past Trips</span>
-              </div>
-              <span className="bg-[#f1f5f9] text-[#64748b] px-2 py-0.5 rounded text-[13px]">
-                {pastTrips.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => handleViewChange('countries')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${view === 'countries' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
-            >
-              <div className="flex items-center gap-3">
-                <MapPin className="w-[18px] h-[18px]" />
-                <span className="text-[14px] font-medium">Countries</span>
-              </div>
-              <span className="bg-[#f1f5f9] text-[#64748b] px-2 py-0.5 rounded text-[13px]">
-                {Object.keys(countryStats).length}
-              </span>
-            </button>
-          </div>
-
-          <div className="mt-auto pt-6 border-t border-[#f1f5f9] space-y-1 mb-8">
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 text-[#64748b] rounded-lg hover:bg-[#f8fafc] transition-colors">
-              <Share2 className="w-[18px] h-[18px]" />
-              <span className="text-[14px] font-medium">Share profile</span>
-            </button>
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 text-[#64748b] rounded-lg hover:bg-[#f8fafc] transition-colors"
-            >
-              <Settings className="w-[18px] h-[18px]" />
-              <span className="text-[14px] font-medium">Settings</span>
-            </button>
-            <button
-              onClick={handleSignOut}
-              className="w-full flex items-center gap-3 px-3 py-2.5 text-[#64748b] rounded-lg hover:bg-[#f8fafc] transition-colors"
-            >
-              <LogOut className="w-[18px] h-[18px]" />
-              <span className="text-[14px] font-medium">Sign out</span>
-            </button>
           </div>
         </div>
 
@@ -1292,58 +1281,115 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl p-6 border border-gray-100">
-                  <div className="flex items-center justify-between mb-1">
-                    <h2 className="text-[#1e293b] text-base font-semibold">Recent Purchases</h2>
-                    <button
-                      onClick={() => handleViewChange('purchases')}
-                      className="text-[#00C48C] text-xs hover:underline"
-                    >
-                      View all
-                    </button>
-                  </div>
-                  <p className="text-[#64748b] text-sm mb-6">Your recently purchased itineraries</p>
-
-                  <div className="space-y-4">
-                    {purchasedItineraries.slice(0, 2).map((itinerary) => (
-                      <div
-                        key={itinerary.id}
-                        onClick={() => navigate(`/viewmyitinerary/${itinerary.base_itinerary_id}`)}
-                        className="flex items-center gap-4 cursor-pointer group"
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white rounded-xl p-6 border border-gray-100">
+                    <div className="flex items-center justify-between mb-1">
+                      <h2 className="text-[#1e293b] text-base font-semibold">Recent Purchases</h2>
+                      <button
+                        onClick={() => handleViewChange('purchases')}
+                        className="text-[#00C48C] text-xs hover:underline"
                       >
-                        <div className="w-20 h-20 rounded-lg overflow-hidden">
-                          <img
-                            src={itinerary.featured_image_url || getRandomImageForCountry(itinerary.country)}
-                            alt={itinerary.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        </div>
-                        <div>
-                          <h3 className="text-[#1e293b] font-medium mb-1">{itinerary.title}</h3>
-                          <div className="flex items-center text-sm text-[#64748b]">
-                            <Calendar className="w-4 h-4 mr-1" />
-                            {formatDate(itinerary.purchase_date)}
-                          </div>
-                          <div className="mt-1 flex items-center gap-2">
-                            <span className="text-[#00C48C] text-sm font-medium">{itinerary.currency} {itinerary.price}</span>
-                            <span className="text-gray-400">•</span>
-                            <span className="text-[#64748b] text-sm">{itinerary.duration} days</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                        View all
+                      </button>
+                    </div>
+                    <p className="text-[#64748b] text-sm mb-6">Your recently purchased itineraries</p>
 
-                    {purchasedItineraries.length === 0 && (
-                      <div className="text-center py-8">
-                        <p className="text-gray-500 mb-4">No purchases yet</p>
-                        <button
-                          onClick={() => navigate('/discover')}
-                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#00C48C] hover:bg-[#00B380]"
+                    <div className="space-y-4">
+                      {purchasedItineraries.slice(0, 2).map((itinerary) => (
+                        <div
+                          key={itinerary.id}
+                          onClick={() => navigate(`/viewmyitinerary/${itinerary.base_itinerary_id}`)}
+                          className="flex items-center gap-4 cursor-pointer group"
                         >
-                          Discover Itineraries
-                        </button>
-                      </div>
-                    )}
+                          <div className="w-20 h-20 rounded-lg overflow-hidden">
+                            <img
+                              src={itinerary.featured_image_url || getRandomImageForCountry(itinerary.country)}
+                              alt={itinerary.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          </div>
+                          <div>
+                            <h3 className="text-[#1e293b] font-medium mb-1">{itinerary.title}</h3>
+                            <div className="flex items-center text-sm text-[#64748b]">
+                              <Calendar className="w-4 h-4 mr-1" />
+                              {itinerary.purchase_date ? formatDate(itinerary.purchase_date) : formatDate(itinerary.created_at)}
+                            </div>
+                            <div className="mt-1 flex items-center gap-2">
+                              <span className="text-[#00C48C] text-sm font-medium">{itinerary.currency} {itinerary.price}</span>
+                              <span className="text-gray-400">•</span>
+                              <span className="text-[#64748b] text-sm">{itinerary.duration} days</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {purchasedItineraries.length === 0 && (
+                        <div className="text-center py-8">
+                          <p className="text-gray-500 mb-4">No purchases yet</p>
+                          <button
+                            onClick={() => navigate('/discover')}
+                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#00C48C] hover:bg-[#00B380]"
+                          >
+                            Discover Itineraries
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl p-6 border border-gray-100">
+                    <div className="flex items-center justify-between mb-1">
+                      <h2 className="text-[#1e293b] text-base font-semibold">Recently Sold</h2>
+                      <button
+                        onClick={() => handleViewChange('premium')}
+                        className="text-[#00C48C] text-xs hover:underline"
+                      >
+                        View all
+                      </button>
+                    </div>
+                    <p className="text-[#64748b] text-sm mb-6">Your recently sold premium itineraries</p>
+
+                    <div className="space-y-4">
+                      {soldItineraries.slice(0, 2).map((itinerary: PremiumItinerary) => (
+                        <div
+                          key={itinerary.id}
+                          onClick={() => navigate(`/premium-itinerary/${itinerary.id}`)}
+                          className="flex items-center gap-4 cursor-pointer group"
+                        >
+                          <div className="w-20 h-20 rounded-lg overflow-hidden">
+                            <img
+                              src={itinerary.featured_image_url || getRandomImageForCountry(itinerary.country)}
+                              alt={itinerary.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          </div>
+                          <div>
+                            <h3 className="text-[#1e293b] font-medium mb-1">{itinerary.title}</h3>
+                            <div className="flex items-center text-sm text-[#64748b]">
+                              <Calendar className="w-4 h-4 mr-1" />
+                              {itinerary.purchase_date ? formatDate(itinerary.purchase_date) : 'Recently sold'}
+                            </div>
+                            <div className="mt-1 flex items-center gap-2">
+                              <span className="text-[#00C48C] text-sm font-medium">{itinerary.currency} {itinerary.price}</span>
+                              <span className="text-gray-400">•</span>
+                              <span className="text-[#64748b] text-sm">{itinerary.duration} days</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {soldItineraries.length === 0 && (
+                        <div className="text-center py-8">
+                          <p className="text-gray-500 mb-4">No sales yet</p>
+                          <button
+                            onClick={() => navigate('/create-premium-itinerary')}
+                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#00C48C] hover:bg-[#00B380]"
+                          >
+                            Create Premium Itinerary
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1629,6 +1675,143 @@ const Dashboard = () => {
                     ))}
                   </div>
                 )}
+              </div>
+            ) : view === 'trips' || (view === 'countries' && selectedCountry) ? (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="relative flex-1 max-w-2xl">
+                    <input
+                      type="text"
+                      placeholder="Search itineraries..."
+                      className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-[15px] placeholder-gray-400 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
+                      onChange={(e) => {
+                        const searchTerm = e.target.value.toLowerCase();
+                        const filtered = itineraries.filter(itinerary =>
+                          itinerary.trip_name.toLowerCase().includes(searchTerm)
+                        );
+                        setFilteredItineraries(filtered);
+                      }}
+                    />
+                    <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 border-b border-gray-200">
+                  <button
+                    onClick={() => setActiveTab('all')}
+                    className={`px-4 py-2.5 text-[15px] font-medium ${activeTab === 'all' ? 'text-gray-900 border-b-2 border-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('upcoming')}
+                    className={`px-4 py-2.5 text-[15px] font-medium ${activeTab === 'upcoming' ? 'text-gray-900 border-b-2 border-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
+                  >
+                    Upcoming
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('draft')}
+                    className={`px-4 py-2.5 text-[15px] font-medium ${activeTab === 'draft' ? 'text-gray-900 border-b-2 border-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
+                  >
+                    Drafts
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('completed')}
+                    className={`px-4 py-2.5 text-[15px] font-medium ${activeTab === 'completed' ? 'text-gray-900 border-b-2 border-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
+                  >
+                    Completed
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {(filteredItineraries || (selectedCountry ? countryStats[selectedCountry]?.itineraries : itineraries))
+                    .filter(itinerary => {
+                      const startDate = new Date(itinerary.start_date);
+                      const today = new Date();
+
+                      switch (activeTab) {
+                        case 'upcoming':
+                          return startDate > today;
+                        case 'completed':
+                          return startDate <= today;
+                        case 'draft':
+                          return itinerary.status === 'draft';
+                        default:
+                          return true;
+                      }
+                    })
+                    .map((itinerary) => {
+                      const startDate = new Date(itinerary.start_date);
+                      const today = new Date();
+                      const status = startDate > today ? 'Upcoming' : 'Completed';
+                      const statusColor = status === 'Upcoming' ? 'bg-blue-50 text-blue-700' : 'bg-emerald-50 text-emerald-700';
+
+                      return (
+                        <div
+                          key={itinerary.id}
+                          onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                          className="group bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-all cursor-pointer"
+                        >
+                          <div className="flex gap-4">
+                            <div className="w-[200px] h-[140px] rounded-lg overflow-hidden bg-gray-100">
+                              <img
+                                src={getRandomImageForCountry(itinerary.country)}
+                                alt={itinerary.trip_name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-2">
+                                <MapPin className="w-4 h-4 text-gray-400" />
+                                <span className="text-gray-600 text-[13px]">{itinerary.country}</span>
+                              </div>
+                              <h3 className="text-xl font-semibold text-gray-900 mb-3 line-clamp-1">{itinerary.trip_name}</h3>
+                              <div className="flex items-center gap-6 text-[13px] text-gray-500">
+                                <div className="flex items-center gap-1.5">
+                                  <Calendar className="w-4 h-4" />
+                                  <span>{formatDate(itinerary.start_date)}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <Clock className="w-4 h-4" />
+                                  <span>{itinerary.duration} days</span>
+                                </div>
+                              </div>
+                              <div className="mt-4 flex items-center gap-2">
+                                <div className={`px-2.5 py-1 text-[13px] font-medium rounded ${statusColor}`}>
+                                  {status}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/create-itinerary?id=${itinerary.id}`);
+                                }}
+                                className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                              >
+                                <Edit className="w-[18px] h-[18px]" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(itinerary.id, e);
+                                }}
+                                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                              >
+                                <Trash2 className="w-[18px] h-[18px]" />
+                              </button>
+                              <div className="relative">
+                                <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                                  <MoreHorizontal className="w-[18px] h-[18px]" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
               </div>
             ) : (
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
