@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Search,
   Share2,
@@ -26,7 +26,9 @@ import {
   Copy,
   Eye,
   Sparkles,
-  ShoppingBag
+  ShoppingBag,
+  Star,
+  MessageCircle
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserItineraryService } from '../services/user-itinerary.service';
@@ -141,10 +143,12 @@ const Dashboard = () => {
   const [purchasedItineraries, setPurchasedItineraries] = useState<PurchasedItinerary[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [view, setView] = useState<'trips' | 'countries' | 'upcoming' | 'past' | 'liked' | 'aiItineraries' | 'premium' | 'purchases'>('trips');
+  const [view, setView] = useState<'overview' | 'trips' | 'countries' | 'upcoming' | 'past' | 'liked' | 'aiItineraries' | 'premium' | 'purchases'>('overview');
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [countryImages, setCountryImages] = useState<Record<string, string[]>>({});
   const [selectedImages, setSelectedImages] = useState<Record<string, string>>({});
+  const [showThankYou, setShowThankYou] = useState(false);
+  const [thankYouMessage, setThankYouMessage] = useState('');
   const [settings, setSettings] = useState<UserSettingsType>({
     user_id: '',
     username: '@user',
@@ -201,6 +205,112 @@ const Dashboard = () => {
   };
 
   const paymentService = new PaymentService();
+
+  const location = useLocation();
+
+  const formatTimeAgo = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    const weeks = Math.floor(days / 7);
+    const months = Math.floor(days / 30);
+
+    if (months > 0) return `${months} ${months === 1 ? 'month' : 'months'} ago`;
+    if (weeks > 0) return `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`;
+    if (days > 0) return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+    if (hours > 0) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+    if (minutes > 0) return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+    return 'Just now';
+  };
+
+  // Move getPastTrips function before it's used
+  const getPastTrips = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return itineraries
+      .filter(itinerary => {
+        const startDate = new Date(itinerary.start_date);
+        startDate.setHours(0, 0, 0, 0);
+        return startDate < today;
+      })
+      .sort((a, b) => {
+        const startDateA = new Date(a.start_date);
+        const startDateB = new Date(b.start_date);
+        return startDateB.getTime() - startDateA.getTime();
+      });
+  };
+
+  const [recentActivities, setRecentActivities] = useState<Array<{
+    type: 'completed' | 'saved' | 'published' | 'commented';
+    title: string;
+    entityId: string;
+    timestamp: string;
+    icon: React.ReactNode;
+  }>>([]);
+
+  const loadRecentActivities = useCallback(async () => {
+    if (!userId) return;
+
+    const activities: Array<{
+      type: 'completed' | 'saved' | 'published' | 'commented';
+      title: string;
+      entityId: string;
+      timestamp: string;
+      icon: React.ReactNode;
+    }> = [];
+
+    // Get completed trips (past trips)
+    const pastTrips = getPastTrips().slice(0, 3);
+    for (const trip of pastTrips) {
+      activities.push({
+        type: 'completed',
+        title: `You completed ${trip.trip_name}`,
+        entityId: trip.id,
+        timestamp: trip.start_date,
+        icon: <Star className="w-3.5 h-3.5 text-amber-500" />
+      });
+    }
+
+    // Get liked trips
+    const recentLikes = likedTrips.slice(0, 3);
+    for (const trip of recentLikes) {
+      activities.push({
+        type: 'saved',
+        title: `You saved ${trip.trip_name} in ${trip.country}`,
+        entityId: trip.id,
+        timestamp: trip.created_at,
+        icon: <Heart className="w-3.5 h-3.5 text-purple-500" />
+      });
+    }
+
+    // Get AI generated itineraries
+    for (const itinerary of aiItineraries.slice(0, 3)) {
+      activities.push({
+        type: 'published',
+        title: `You published ${itinerary.trip_name}`,
+        entityId: itinerary.id,
+        timestamp: itinerary.created_at,
+        icon: (
+          <svg className="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+          </svg>
+        )
+      });
+    }
+
+    // Sort by timestamp, most recent first
+    activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    setRecentActivities(activities.slice(0, 4)); // Keep only the 4 most recent activities
+  }, [userId, likedTrips, aiItineraries]);
+
+  useEffect(() => {
+    loadRecentActivities();
+  }, [loadRecentActivities]);
 
   const loadAllData = useCallback(async (forceRefresh = false) => {
     try {
@@ -314,7 +424,7 @@ const Dashboard = () => {
     }
   }, []);
 
-  const handleViewChange = (newView: 'trips' | 'countries' | 'upcoming' | 'past' | 'liked' | 'aiItineraries' | 'premium' | 'purchases') => {
+  const handleViewChange = (newView: 'overview' | 'trips' | 'countries' | 'upcoming' | 'past' | 'liked' | 'aiItineraries' | 'premium' | 'purchases') => {
     setView(newView);
     setSelectedCountry(null);
 
@@ -348,7 +458,8 @@ const Dashboard = () => {
             ...prev.counts,
             [id]: Math.max(0, (prev.counts[id] || 1) - 1)
           },
-          userLikes: newUserLikes
+          userLikes: newUserLikes,
+          error: null
         };
       });
 
@@ -664,23 +775,6 @@ const Dashboard = () => {
 
   const upcomingTrips = getUpcomingTrips();
 
-  const getPastTrips = () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    return itineraries
-      .filter(itinerary => {
-        const startDate = new Date(itinerary.start_date);
-        startDate.setHours(0, 0, 0, 0);
-        return startDate < today;
-      })
-      .sort((a, b) => {
-        const startDateA = new Date(a.start_date);
-        const startDateB = new Date(b.start_date);
-        return startDateB.getTime() - startDateA.getTime();
-      });
-  };
-
   const pastTrips = getPastTrips();
 
   const handleCopyTrip = async (id: string) => {
@@ -750,12 +844,30 @@ const Dashboard = () => {
     }
   };
 
+  useEffect(() => {
+    // Check if we have a thank you message in the location state
+    if (location.state?.showThankYou) {
+      setShowThankYou(true);
+      setThankYouMessage(location.state.message);
+      // Clear the message after 5 seconds
+      const timer = setTimeout(() => {
+        setShowThankYou(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+
+    // Set the view to purchases if specified in location state
+    if (location.state?.defaultView === 'purchases') {
+      setView('purchases');
+    }
+  }, [location]);
+
   return (
     <div className="min-h-screen">
       <TopNavigation />
 
       <div className="flex min-h-screen pt-[60px]">
-        <div className="w-[20%] bg-[#F0F8FF] border-r border-gray-300 min-h-screen fixed left-0 px-6 pt-0 flex flex-col overflow-hidden">
+        <div className="w-[20%] bg-white border-r border-gray-200 min-h-screen fixed left-0 px-6 pt-0 flex flex-col overflow-hidden">
           <div className="py-8">
             <div className="w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-[#00C48C] to-[#00B380] mb-4 shadow-md">
               <img
@@ -765,177 +877,178 @@ const Dashboard = () => {
               />
             </div>
             {settings.full_name && (
-              <p className="text-gray-700 font-medium mb-1">{settings.full_name}</p>
+              <p className="text-[#1e293b] text-[15px] font-medium mb-1">{settings.full_name}</p>
             )}
-            <Link to={`/${cleanDestination(settings.username.replace('@', ''))}`} className="text-[#00C48C] text-sm hover:underline mb-4 inline-block">
+            <Link to={`/${cleanDestination(settings.username.replace('@', ''))}`} className="text-[#64748b] text-[13px] hover:text-[#00C48C] mb-4 inline-block">
               {`localhost:3000/${cleanDestination(settings.username.replace('@', ''))}`}
             </Link>
-            {settings.bio && <p className="text-sm text-gray-600 mb-4">{settings.bio}</p>}
+            {settings.bio && <p className="text-[13px] text-[#64748b] mb-4">{settings.bio}</p>}
 
-            <div className="flex items-center gap-6 text-sm">
+            <div className="flex items-center gap-6 text-[13px]">
               <div className="text-center">
                 <div className="font-medium text-[#1e293b] mb-1">{stats.followers}</div>
-                <div className="text-gray-500">followers</div>
+                <div className="text-[#64748b]">followers</div>
               </div>
               <div className="text-center">
                 <div className="font-medium text-[#1e293b] mb-1">{stats.following}</div>
-                <div className="text-gray-500">following</div>
+                <div className="text-[#64748b]">following</div>
               </div>
               <div className="text-center">
                 <div className="font-medium text-[#1e293b] mb-1">{stats.countries}</div>
-                <div className="text-gray-500">countries</div>
+                <div className="text-[#64748b]">countries</div>
               </div>
             </div>
           </div>
 
           <div className="relative mb-6">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+            <Search className="w-4 h-4 text-[#64748b] absolute left-3 top-1/2 transform -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search.."
-              className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
+              className="w-full pl-9 pr-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg text-[13px] text-[#64748b] focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent transition-all"
             />
-            <button className="absolute right-2 top-1/2 transform -translate-y-1/2">
-              <ChevronDown className="w-4 h-4 text-gray-400" />
+          </div>
+
+          <div className="flex-1 overflow-y-auto space-y-1 pr-2">
+            <button
+              onClick={() => handleViewChange('overview')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${view === 'overview' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
+            >
+              <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5zM14 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5zM4 16a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3zM14 13a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-6z" />
+              </svg>
+              <span className="text-[14px] font-medium">Overview</span>
+            </button>
+
+            <button
+              onClick={() => handleViewChange('trips')}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${view === 'trips' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
+            >
+              <div className="flex items-center gap-3">
+                <Globe className="w-[18px] h-[18px]" />
+                <span className="text-[14px] font-medium">Trips</span>
+              </div>
+              <span className="bg-[#f1f5f9] text-[#64748b] px-2 py-0.5 rounded text-[13px]">
+                {itineraries.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => handleViewChange('purchases')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${view === 'purchases' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
+            >
+              <ShoppingBag className="w-[18px] h-[18px]" />
+              <span className="text-[14px] font-medium">Purchases</span>
+            </button>
+
+            <button
+              onClick={() => handleViewChange('aiItineraries')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${view === 'aiItineraries' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
+            >
+              <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
+              </svg>
+              <span className="text-[14px] font-medium">AI Itineraries</span>
+            </button>
+
+            <button
+              onClick={() => handleViewChange('premium')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${view === 'premium' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
+            >
+              <Star className="w-[18px] h-[18px]" />
+              <span className="text-[14px] font-medium">Premium Itineraries</span>
+            </button>
+
+            <button
+              onClick={() => handleViewChange('liked')}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${view === 'liked' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
+            >
+              <div className="flex items-center gap-3">
+                <Heart className="w-[18px] h-[18px]" />
+                <span className="text-[14px] font-medium">Liked Trips</span>
+              </div>
+              <span className="bg-[#f1f5f9] text-[#64748b] px-2 py-0.5 rounded text-[13px]">
+                {likedTrips.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => handleViewChange('upcoming')}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${view === 'upcoming' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
+            >
+              <div className="flex items-center gap-3">
+                <Clock className="w-[18px] h-[18px]" />
+                <span className="text-[14px] font-medium">Upcoming Trips</span>
+              </div>
+              <span className="bg-[#f1f5f9] text-[#64748b] px-2 py-0.5 rounded text-[13px]">
+                {upcomingTrips.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => handleViewChange('past')}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${view === 'past' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
+            >
+              <div className="flex items-center gap-3">
+                <Calendar className="w-[18px] h-[18px]" />
+                <span className="text-[14px] font-medium">Past Trips</span>
+              </div>
+              <span className="bg-[#f1f5f9] text-[#64748b] px-2 py-0.5 rounded text-[13px]">
+                {pastTrips.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => handleViewChange('countries')}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${view === 'countries' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
+            >
+              <div className="flex items-center gap-3">
+                <MapPin className="w-[18px] h-[18px]" />
+                <span className="text-[14px] font-medium">Countries</span>
+              </div>
+              <span className="bg-[#f1f5f9] text-[#64748b] px-2 py-0.5 rounded text-[13px]">
+                {Object.keys(countryStats).length}
+              </span>
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-            <div>
-              <button
-                onClick={() => handleViewChange('trips')}
-                className={`w-full flex items-center justify-between font-[600] font-['Inter_var'] p-2 rounded-lg transition-colors ${view === 'trips' ? 'bg-[#e5f8f3] text-[#13c892]' : 'text-[#1e293b] hover:bg-[#e5f8f3] hover:text-[#13c892]'}`}
-              >
-                <div className="flex items-center gap-2">
-                  <Globe className={`w-4 h-4 ${view === 'trips' ? 'text-[#13c892]' : 'text-[#00C48C]'}`} />
-                  <span>Trips</span>
-                </div>
-                <span className="bg-[#00C48C]/10 text-[#00C48C] px-2 py-0.5 rounded-full text-sm">
-                  {itineraries.length}
-                </span>
-              </button>
-            </div>
-            <div>
-              <button
-                onClick={() => handleViewChange('purchases')}
-                className={`w-full flex items-center gap-2 text-[#1e293b] font-[600] font-['Inter_var'] p-2 rounded-lg ${view === 'purchases' ? 'bg-[#e5f8f3] text-[#13c892]' : 'text-[#1e293b] hover:bg-[#e5f8f3] hover:text-[#13c892]'} transition-colors`}
-              >
-                <ShoppingBag className={`w-4 h-4 ${view === 'purchases' ? 'text-[#13c892]' : 'text-[#00C48C]'}`} />
-                <span>Purchases</span>
-              </button>
-            </div>
-            <div>
-              <button
-                onClick={() => handleViewChange('aiItineraries')}
-                className={`w-full flex items-center justify-between font-[600] font-['Inter_var'] p-2 rounded-lg transition-colors ${view === 'aiItineraries' ? 'bg-[#e5f8f3] text-[#13c892]' : 'text-[#1e293b] hover:bg-[#e5f8f3] hover:text-[#13c892]'}`}
-              >
-                <div className="flex items-center gap-2">
-                  <svg viewBox="0 0 24 24" className={`w-4 h-4 ${view === 'aiItineraries' ? 'text-[#13c892]' : 'text-[#00C48C]'}`} fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
-                  </svg>
-                  <span>AI Itineraries</span>
-                </div>
-              </button>
-            </div>
-            <div>
-              <button
-                onClick={() => handleViewChange('premium')}
-                className={`w-full flex items-center justify-between font-[600] font-['Inter_var'] p-2 rounded-lg transition-colors ${view === 'premium' ? 'bg-[#e5f8f3] text-[#13c892]' : 'text-[#1e293b] hover:bg-[#e5f8f3] hover:text-[#13c892]'}`}
-              >
-                <div className="flex items-center gap-2">
-                  <svg viewBox="0 0 24 24" className={`w-4 h-4 ${view === 'premium' ? 'text-[#13c892]' : 'text-[#00C48C]'}`} fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-                  </svg>
-                  <span>Premium Itineraries</span>
-                </div>
-              </button>
-            </div>
-            <div>
-              <button
-                onClick={() => handleViewChange('liked')}
-                className={`w-full flex items-center justify-between font-[600] font-['Inter_var'] p-2 rounded-lg transition-colors ${view === 'liked' ? 'bg-[#e5f8f3] text-[#13c892]' : 'text-[#1e293b] hover:bg-[#e5f8f3] hover:text-[#13c892]'}`}
-              >
-                <div className="flex items-center gap-2">
-                  <Heart className={`w-4 h-4 ${view === 'liked' ? 'text-[#13c892]' : 'text-[#00C48C]'}`} />
-                  <span>Liked Trips</span>
-                </div>
-                <span className="bg-[#00C48C]/10 text-[#00C48C] px-2 py-0.5 rounded-full text-sm">
-                  {likedTrips.length}
-                </span>
-              </button>
-            </div>
-            <div>
-              <button
-                onClick={() => handleViewChange('upcoming')}
-                className={`w-full flex items-center justify-between font-[600] font-['Inter_var'] p-2 rounded-lg transition-colors ${view === 'upcoming' ? 'bg-[#e5f8f3] text-[#13c892]' : 'text-[#1e293b] hover:bg-[#e5f8f3] hover:text-[#13c892]'}`}
-              >
-                <div className="flex items-center gap-2">
-                  <Clock className={`w-4 h-4 ${view === 'upcoming' ? 'text-[#13c892]' : 'text-[#00C48C]'}`} />
-                  <span>Upcoming Trips</span>
-                </div>
-                <span className="bg-[#00C48C]/10 text-[#00C48C] px-2 py-0.5 rounded-full text-sm">
-                  {upcomingTrips.length}
-                </span>
-              </button>
-            </div>
-            <div>
-              <button
-                onClick={() => handleViewChange('past')}
-                className={`w-full flex items-center justify-between font-[600] font-['Inter_var'] p-2 rounded-lg transition-colors ${view === 'past' ? 'bg-[#e5f8f3] text-[#13c892]' : 'text-[#1e293b] hover:bg-[#e5f8f3] hover:text-[#13c892]'}`}
-              >
-                <div className="flex items-center gap-2">
-                  <Calendar className={`w-4 h-4 ${view === 'past' ? 'text-[#13c892]' : 'text-[#00C48C]'}`} />
-                  <span>Past Trips</span>
-                </div>
-                <span className="bg-[#00C48C]/10 text-[#00C48C] px-2 py-0.5 rounded-full text-sm">
-                  {pastTrips.length}
-                </span>
-              </button>
-            </div>
-            <div>
-              <button
-                onClick={() => handleViewChange('countries')}
-                className={`w-full flex items-center justify-between font-[600] font-['Inter_var'] p-2 rounded-lg transition-colors ${view === 'countries' ? 'bg-[#e5f8f3] text-[#13c892]' : 'text-[#1e293b] hover:bg-[#e5f8f3] hover:text-[#13c892]'}`}
-              >
-                <div className="flex items-center gap-2">
-                  <MapPin className={`w-4 h-4 ${view === 'countries' ? 'text-[#13c892]' : 'text-[#00C48C]'}`} />
-                  <span>Countries</span>
-                </div>
-                <span className="bg-[#00C48C]/10 text-[#00C48C] px-2 py-0.5 rounded-full text-sm">
-                  {Object.keys(countryStats).length}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-auto pt-6 border-t border-gray-200 mb-8">
-            <div className="space-y-2">
-              <button
-                className="w-full flex items-center gap-2 text-[#1e293b] font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
-              >
-                <Share2 className="w-4 h-4 text-[#00C48C]" />
-                <span>Share profile</span>
-              </button>
-              <button
-                onClick={() => setIsSettingsOpen(true)}
-                className="w-full flex items-center gap-2 text-[#1e293b] font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
-              >
-                <Settings className="w-4 h-4 text-[#00C48C]" />
-                <span>Settings</span>
-              </button>
-              <button
-                onClick={handleSignOut}
-                className="w-full flex items-center gap-2 text-gray-500 font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
-              >
-                <LogOut className="w-4 h-4 text-[#00C48C]" />
-                <span>Sign out</span>
-              </button>
-            </div>
+          <div className="mt-auto pt-6 border-t border-[#f1f5f9] space-y-1 mb-8">
+            <button className="w-full flex items-center gap-3 px-3 py-2.5 text-[#64748b] rounded-lg hover:bg-[#f8fafc] transition-colors">
+              <Share2 className="w-[18px] h-[18px]" />
+              <span className="text-[14px] font-medium">Share profile</span>
+            </button>
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-[#64748b] rounded-lg hover:bg-[#f8fafc] transition-colors"
+            >
+              <Settings className="w-[18px] h-[18px]" />
+              <span className="text-[14px] font-medium">Settings</span>
+            </button>
+            <button
+              onClick={handleSignOut}
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-[#64748b] rounded-lg hover:bg-[#f8fafc] transition-colors"
+            >
+              <LogOut className="w-[18px] h-[18px]" />
+              <span className="text-[14px] font-medium">Sign out</span>
+            </button>
           </div>
         </div>
 
         <div className="w-[80%] ml-[20%]">
           <div className="max-w-[1400px] px-8 py-8">
+            {showThankYou && (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center justify-between">
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>{thankYouMessage}</span>
+                </div>
+                <button onClick={() => setShowThankYou(false)} className="text-green-700 hover:text-green-800">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 {view === 'trips' ? (
@@ -989,6 +1102,250 @@ const Dashboard = () => {
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#00C48C] border-t-transparent"></div>
+              </div>
+            ) : view === 'overview' ? (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h1 className="text-2xl font-semibold text-[#1e293b] mb-1">Welcome back, {settings.full_name || 'User'}</h1>
+                    <p className="text-[#64748b] text-sm">Here's what's happening with your travel journey</p>
+                  </div>
+                  <button
+                    onClick={() => navigate('/create-itinerary')}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#1e293b] text-white rounded-lg hover:bg-[#334155] transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>New Journey</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="bg-white rounded-xl p-4 border border-gray-100">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-[#64748b] text-sm">Countries Visited</h3>
+                      <div className="p-1.5 bg-blue-50 rounded-lg">
+                        <MapPin className="w-4 h-4 text-blue-500" />
+                      </div>
+                    </div>
+                    <p className="text-2xl font-semibold text-[#1e293b]">{Object.keys(countryStats).length}</p>
+                  </div>
+
+                  <div className="bg-white rounded-xl p-4 border border-gray-100">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-[#64748b] text-sm">Itineraries Created</h3>
+                      <div className="p-1.5 bg-amber-50 rounded-lg">
+                        <Star className="w-4 h-4 text-amber-500" />
+                      </div>
+                    </div>
+                    <p className="text-2xl font-semibold text-[#1e293b]">{itineraries.length}</p>
+                  </div>
+
+                  <div className="bg-white rounded-xl p-4 border border-gray-100">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-[#64748b] text-sm">Articles Published</h3>
+                      <div className="p-1.5 bg-emerald-50 rounded-lg">
+                        <svg className="w-4 h-4 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                        </svg>
+                      </div>
+                    </div>
+                    <p className="text-2xl font-semibold text-[#1e293b]">{aiItineraries.length}</p>
+                  </div>
+
+                  <div className="bg-white rounded-xl p-4 border border-gray-100">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-[#64748b] text-sm">Saved Places</h3>
+                      <div className="p-1.5 bg-rose-50 rounded-lg">
+                        <Heart className="w-4 h-4 text-rose-500" />
+                      </div>
+                    </div>
+                    <p className="text-2xl font-semibold text-[#1e293b]">{likedTrips.length}</p>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-gray-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <h2 className="text-[#1e293b] text-sm font-semibold">Quick Actions</h2>
+                      <p className="text-[#64748b] text-xs">Get started with these common tasks</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 mt-2">
+                    <button
+                      onClick={() => navigate('/create-itinerary')}
+                      className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50 transition-colors group"
+                    >
+                      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
+                        <MapPin className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-[#1e293b] font-medium text-[11px] text-center leading-tight">Create New Itinerary</span>
+                    </button>
+
+                    <button
+                      onClick={() => navigate('/schedule-trip')}
+                      className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50 transition-colors group"
+                    >
+                      <div className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
+                        <Calendar className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-[#1e293b] font-medium text-[11px] text-center leading-tight">Schedule a Trip</span>
+                    </button>
+
+                    <button
+                      onClick={() => navigate('/write-article')}
+                      className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50 transition-colors group"
+                    >
+                      <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
+                        <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                        </svg>
+                      </div>
+                      <span className="text-[#1e293b] font-medium text-[11px] text-center leading-tight">Write an Article</span>
+                    </button>
+
+                    <button
+                      onClick={() => navigate('/save-place')}
+                      className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50 transition-colors group"
+                    >
+                      <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
+                        <Heart className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-[#1e293b] font-medium text-[11px] text-center leading-tight">Save a Place</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white rounded-xl p-6 border border-gray-100">
+                    <div className="flex items-center justify-between mb-1">
+                      <h2 className="text-[#1e293b] text-base font-semibold">Upcoming Trips</h2>
+                      <button
+                        onClick={() => handleViewChange('upcoming')}
+                        className="text-[#00C48C] text-xs hover:underline"
+                      >
+                        View all
+                      </button>
+                    </div>
+                    <p className="text-[#64748b] text-xs mb-4">Your scheduled adventures</p>
+
+                    <div className="space-y-3">
+                      {upcomingTrips.slice(0, 2).map((trip) => (
+                        <div
+                          key={trip.id}
+                          onClick={() => navigate(`/viewmyitinerary/${trip.id}`)}
+                          className="flex items-center gap-3 cursor-pointer group"
+                        >
+                          <div className="w-16 h-16 rounded-lg overflow-hidden">
+                            <img
+                              src={getRandomImageForCountry(trip.country)}
+                              alt={trip.trip_name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          </div>
+                          <div>
+                            <h3 className="text-[#1e293b] text-sm font-medium mb-1">{trip.trip_name}</h3>
+                            <div className="flex items-center text-xs text-[#64748b]">
+                              <Calendar className="w-3.5 h-3.5 mr-1" />
+                              {formatDate(trip.start_date)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl p-6 border border-gray-100">
+                    <div className="flex items-center justify-between mb-1">
+                      <h2 className="text-[#1e293b] text-base font-semibold">Recent Activity</h2>
+                      <button className="text-[#00C48C] text-xs hover:underline">See all</button>
+                    </div>
+                    <p className="text-[#64748b] text-xs mb-4">Your latest travel updates</p>
+
+                    <div className="space-y-4">
+                      {recentActivities.map((activity, index) => (
+                        <div key={index} className="flex items-start gap-2">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${activity.type === 'completed' ? 'bg-amber-50' :
+                            activity.type === 'saved' ? 'bg-purple-50' :
+                              activity.type === 'published' ? 'bg-emerald-50' :
+                                'bg-blue-50'
+                            }`}>
+                            {activity.icon}
+                          </div>
+                          <div>
+                            <p className="text-[#1e293b] text-sm font-medium">
+                              {activity.title}
+                            </p>
+                            <p className="text-[#64748b] text-xs">
+                              {formatTimeAgo(activity.timestamp)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+
+                      {recentActivities.length === 0 && (
+                        <div className="text-center py-4">
+                          <p className="text-[#64748b] text-sm">No recent activity</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-6 border border-gray-100">
+                  <div className="flex items-center justify-between mb-1">
+                    <h2 className="text-[#1e293b] text-base font-semibold">Recent Purchases</h2>
+                    <button
+                      onClick={() => handleViewChange('purchases')}
+                      className="text-[#00C48C] text-xs hover:underline"
+                    >
+                      View all
+                    </button>
+                  </div>
+                  <p className="text-[#64748b] text-sm mb-6">Your recently purchased itineraries</p>
+
+                  <div className="space-y-4">
+                    {purchasedItineraries.slice(0, 2).map((itinerary) => (
+                      <div
+                        key={itinerary.id}
+                        onClick={() => navigate(`/viewmyitinerary/${itinerary.base_itinerary_id}`)}
+                        className="flex items-center gap-4 cursor-pointer group"
+                      >
+                        <div className="w-20 h-20 rounded-lg overflow-hidden">
+                          <img
+                            src={itinerary.featured_image_url || getRandomImageForCountry(itinerary.country)}
+                            alt={itinerary.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        </div>
+                        <div>
+                          <h3 className="text-[#1e293b] font-medium mb-1">{itinerary.title}</h3>
+                          <div className="flex items-center text-sm text-[#64748b]">
+                            <Calendar className="w-4 h-4 mr-1" />
+                            {formatDate(itinerary.purchase_date)}
+                          </div>
+                          <div className="mt-1 flex items-center gap-2">
+                            <span className="text-[#00C48C] text-sm font-medium">{itinerary.currency} {itinerary.price}</span>
+                            <span className="text-gray-400">•</span>
+                            <span className="text-[#64748b] text-sm">{itinerary.duration} days</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {purchasedItineraries.length === 0 && (
+                      <div className="text-center py-8">
+                        <p className="text-gray-500 mb-4">No purchases yet</p>
+                        <button
+                          onClick={() => navigate('/discover')}
+                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#00C48C] hover:bg-[#00B380]"
+                        >
+                          Discover Itineraries
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             ) : view === 'countries' && !selectedCountry ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1218,7 +1575,7 @@ const Dashboard = () => {
                     <p className="text-gray-500 mb-4">You haven't purchased any itineraries yet.</p>
                     <button
                       onClick={() => navigate('/discover')}
-                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#00C48C] hover:bg-[#00B380]"
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#00C48C] hover:bg-[#00B380]"
                     >
                       Discover Itineraries
                     </button>

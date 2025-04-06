@@ -74,11 +74,12 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ clientSecret, onSuccess, onCa
 
                     if (recorded) {
                         onSuccess();
-                        // Redirect to purchased itineraries page with success message
-                        navigate('/dashboard/purchased-itineraries', {
+                        // Redirect to dashboard with purchases section active
+                        navigate('/dashboard', {
                             state: {
                                 showThankYou: true,
-                                message: 'Thank you for your purchase! Your itinerary is now available.'
+                                message: 'Thank you for your purchase! Your itinerary is now available.',
+                                defaultView: 'purchases'
                             }
                         });
                     } else {
