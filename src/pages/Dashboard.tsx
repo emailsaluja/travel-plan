@@ -1669,6 +1669,26 @@ const Dashboard = () => {
                         currency: soldItineraries[0]?.currency || 'USD'
                       })}
                     </p>
+                    <div className="mt-2 space-y-1">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-500">Platform Fee (20%)</span>
+                        <span className="text-gray-700">
+                          {soldItineraries.reduce((total, sale) => total + (sale.price * 0.2), 0).toLocaleString('en-US', {
+                            style: 'currency',
+                            currency: soldItineraries[0]?.currency || 'USD'
+                          })}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-500">Your Earnings (80%)</span>
+                        <span className="text-[#00C48C] font-medium">
+                          {soldItineraries.reduce((total, sale) => total + (sale.price * 0.8), 0).toLocaleString('en-US', {
+                            style: 'currency',
+                            currency: soldItineraries[0]?.currency || 'USD'
+                          })}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="bg-white rounded-xl p-6 border border-gray-100">
@@ -1754,9 +1774,19 @@ const Dashboard = () => {
                               </span>
                             </td>
                             <td className="py-4 px-6">
-                              <span className="text-sm font-medium text-[#00C48C]">
-                                {sale.currency} {sale.price}
-                              </span>
+                              <div>
+                                <span className="text-sm font-medium text-[#00C48C] block">
+                                  {sale.currency} {sale.price}
+                                </span>
+                                <div className="flex flex-col text-xs mt-1">
+                                  <span className="text-gray-500">
+                                    Platform: {sale.currency} {(sale.price * 0.2).toFixed(2)}
+                                  </span>
+                                  <span className="text-[#00C48C]">
+                                    You: {sale.currency} {(sale.price * 0.8).toFixed(2)}
+                                  </span>
+                                </div>
+                              </div>
                             </td>
                             <td className="py-4 px-6">
                               <span className="text-sm text-gray-500">{sale.country}</span>
