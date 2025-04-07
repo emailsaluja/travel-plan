@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import {
     Table,
     Users,
@@ -17,6 +17,7 @@ import {
     Image
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import AdminLayout from '../components/AdminLayout';
 
 interface TableInfo {
     name: string;
@@ -176,187 +177,151 @@ const AdminDashboard = () => {
     };
 
     return (
-        <div className="container mx-auto px-4 py-8 mt-[80px]">
-            <div className="mb-8 border-b border-gray-200">
-                <nav className="-mb-px flex space-x-8">
-                    <Link
-                        to="/admin"
-                        className={`${location.pathname === '/admin'
-                            ? 'border-indigo-500 text-indigo-600'
-                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                            } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
-                    >
-                        Manage Data
-                    </Link>
-                    <Link
-                        to="/admin/country-images"
-                        className={`${location.pathname === '/admin/country-images'
-                            ? 'border-indigo-500 text-indigo-600'
-                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                            } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
-                    >
-                        Country Images
-                    </Link>
-                    <Link
-                        to="/admin/discover-sections"
-                        className={`${location.pathname === '/admin/discover-sections'
-                            ? 'border-indigo-500 text-indigo-600'
-                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                            } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
-                    >
-                        Discover Sections
-                    </Link>
-                </nav>
+        <AdminLayout>
+            <div className="mb-6">
+                <label htmlFor="table-select" className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Table
+                </label>
+                <select
+                    id="table-select"
+                    value={selectedTable}
+                    onChange={(e) => setSelectedTable(e.target.value)}
+                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                >
+                    {TABLES.map((table) => (
+                        <option key={table.name} value={table.name}>
+                            {table.name}
+                        </option>
+                    ))}
+                </select>
             </div>
 
-            {location.pathname === '/admin' && (
-                <>
-                    <div className="mb-6">
-                        <label htmlFor="table-select" className="block text-sm font-medium text-gray-700 mb-2">
-                            Select Table
-                        </label>
-                        <select
-                            id="table-select"
-                            value={selectedTable}
-                            onChange={(e) => setSelectedTable(e.target.value)}
-                            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                        >
-                            {TABLES.map((table) => (
-                                <option key={table.name} value={table.name}>
-                                    {table.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+            {error && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-600">{error}</p>
+                </div>
+            )}
 
-                    {error && (
-                        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                            <p className="text-red-600">{error}</p>
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                    {loading ? (
+                        <div className="flex items-center justify-center py-12">
+                            <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#00C48C] border-t-transparent"></div>
                         </div>
-                    )}
-
-                    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                        <div className="overflow-x-auto">
-                            {loading ? (
-                                <div className="flex items-center justify-center py-12">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#00C48C] border-t-transparent"></div>
-                                </div>
-                            ) : (
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            {columns.map((column) => (
-                                                <th
-                                                    key={column}
-                                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                                >
-                                                    {column}
-                                                </th>
-                                            ))}
-                                            <th className="px-6 py-3 text-right">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {newRow && (
-                                            <tr>
-                                                {columns.map((column) => (
-                                                    <td key={column} className="px-6 py-4 whitespace-nowrap">
-                                                        <input
-                                                            type="text"
-                                                            value={newRow[column] || ''}
-                                                            onChange={(e) => setNewRow({ ...newRow, [column]: e.target.value })}
-                                                            className="w-full px-2 py-1 border border-gray-300 rounded-md"
-                                                        />
-                                                    </td>
-                                                ))}
-                                                <td className="px-6 py-4 whitespace-nowrap text-right">
+                    ) : (
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    {columns.map((column) => (
+                                        <th
+                                            key={column}
+                                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                        >
+                                            {column}
+                                        </th>
+                                    ))}
+                                    <th className="px-6 py-3 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {newRow && (
+                                    <tr>
+                                        {columns.map((column) => (
+                                            <td key={column} className="px-6 py-4 whitespace-nowrap">
+                                                <input
+                                                    type="text"
+                                                    value={newRow[column] || ''}
+                                                    onChange={(e) => setNewRow({ ...newRow, [column]: e.target.value })}
+                                                    className="w-full px-2 py-1 border border-gray-300 rounded-md"
+                                                />
+                                            </td>
+                                        ))}
+                                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                                            <button
+                                                onClick={handleAdd}
+                                                className="text-[#00C48C] hover:text-[#00B380] mr-3"
+                                            >
+                                                <Save className="w-5 h-5" />
+                                            </button>
+                                            <button
+                                                onClick={() => setNewRow(null)}
+                                                className="text-gray-400 hover:text-gray-600"
+                                            >
+                                                <X className="w-5 h-5" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                )}
+                                {tableData.map((row) => (
+                                    <tr key={row.id}>
+                                        {columns.map((column) => (
+                                            <td key={column} className="px-6 py-4 whitespace-nowrap">
+                                                {editingRow?.id === row.id ? (
+                                                    <input
+                                                        type="text"
+                                                        value={editingRow[column] || ''}
+                                                        onChange={(e) => setEditingRow({ ...editingRow, [column]: e.target.value })}
+                                                        className="w-full px-2 py-1 border border-gray-300 rounded-md"
+                                                    />
+                                                ) : (
+                                                    <span className="text-sm text-gray-900">
+                                                        {typeof row[column] === 'object' ? JSON.stringify(row[column]) : row[column]}
+                                                    </span>
+                                                )}
+                                            </td>
+                                        ))}
+                                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                                            {editingRow?.id === row.id ? (
+                                                <>
                                                     <button
-                                                        onClick={handleAdd}
+                                                        onClick={handleSave}
                                                         className="text-[#00C48C] hover:text-[#00B380] mr-3"
                                                     >
                                                         <Save className="w-5 h-5" />
                                                     </button>
                                                     <button
-                                                        onClick={() => setNewRow(null)}
+                                                        onClick={() => setEditingRow(null)}
                                                         className="text-gray-400 hover:text-gray-600"
                                                     >
                                                         <X className="w-5 h-5" />
                                                     </button>
-                                                </td>
-                                            </tr>
-                                        )}
-                                        {tableData.map((row) => (
-                                            <tr key={row.id}>
-                                                {columns.map((column) => (
-                                                    <td key={column} className="px-6 py-4 whitespace-nowrap">
-                                                        {editingRow?.id === row.id ? (
-                                                            <input
-                                                                type="text"
-                                                                value={editingRow[column] || ''}
-                                                                onChange={(e) => setEditingRow({ ...editingRow, [column]: e.target.value })}
-                                                                className="w-full px-2 py-1 border border-gray-300 rounded-md"
-                                                            />
-                                                        ) : (
-                                                            <span className="text-sm text-gray-900">
-                                                                {typeof row[column] === 'object' ? JSON.stringify(row[column]) : row[column]}
-                                                            </span>
-                                                        )}
-                                                    </td>
-                                                ))}
-                                                <td className="px-6 py-4 whitespace-nowrap text-right">
-                                                    {editingRow?.id === row.id ? (
-                                                        <>
-                                                            <button
-                                                                onClick={handleSave}
-                                                                className="text-[#00C48C] hover:text-[#00B380] mr-3"
-                                                            >
-                                                                <Save className="w-5 h-5" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setEditingRow(null)}
-                                                                className="text-gray-400 hover:text-gray-600"
-                                                            >
-                                                                <X className="w-5 h-5" />
-                                                            </button>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <button
-                                                                onClick={() => handleEdit(row)}
-                                                                className="text-[#00C48C] hover:text-[#00B380] mr-3"
-                                                            >
-                                                                <Edit className="w-5 h-5" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDelete(row.id)}
-                                                                className="text-red-500 hover:text-red-600"
-                                                            >
-                                                                <Trash2 className="w-5 h-5" />
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )}
-                        </div>
-                        {!loading && !newRow && (
-                            <div className="p-4 border-t border-gray-200">
-                                <button
-                                    onClick={() => setNewRow({})}
-                                    className="flex items-center gap-2 text-[#00C48C] hover:text-[#00B380]"
-                                >
-                                    <Plus className="w-5 h-5" />
-                                    <span>Add New Record</span>
-                                </button>
-                            </div>
-                        )}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleEdit(row)}
+                                                        className="text-[#00C48C] hover:text-[#00B380] mr-3"
+                                                    >
+                                                        <Edit className="w-5 h-5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(row.id)}
+                                                        className="text-red-500 hover:text-red-600"
+                                                    >
+                                                        <Trash2 className="w-5 h-5" />
+                                                    </button>
+                                                </>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+                {!loading && !newRow && (
+                    <div className="p-4 border-t border-gray-200">
+                        <button
+                            onClick={() => setNewRow({})}
+                            className="flex items-center gap-2 text-[#00C48C] hover:text-[#00B380]"
+                        >
+                            <Plus className="w-5 h-5" />
+                            <span>Add New Record</span>
+                        </button>
                     </div>
-                </>
-            )}
-        </div>
+                )}
+            </div>
+        </AdminLayout>
     );
 };
 

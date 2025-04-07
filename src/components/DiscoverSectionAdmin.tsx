@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Trash2, Plus, Save } from 'lucide-react';
+import AdminLayout from './AdminLayout';
 
 interface Itinerary {
     id: string;
@@ -213,9 +214,11 @@ export const DiscoverSectionAdmin: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#00C48C] border-t-transparent"></div>
-            </div>
+            <AdminLayout>
+                <div className="flex items-center justify-center min-h-screen">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#00C48C] border-t-transparent"></div>
+                </div>
+            </AdminLayout>
         );
     }
 
@@ -223,133 +226,135 @@ export const DiscoverSectionAdmin: React.FC = () => {
     const unassignedItineraries = getUnassignedItineraries(selectedSection);
 
     return (
-        <div className="max-w-4xl mx-auto p-6">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-6">Discover Page Section Management</h2>
+        <AdminLayout>
+            <div className="max-w-4xl mx-auto p-6">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-6">Discover Page Section Management</h2>
 
-            {error && (
-                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-red-600">{error}</p>
+                {error && (
+                    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-red-600">{error}</p>
+                    </div>
+                )}
+
+                {/* Section Selection */}
+                <div className="mb-6">
+                    <label htmlFor="section-select" className="block text-sm font-medium text-gray-700 mb-2">
+                        Select Section
+                    </label>
+                    <select
+                        id="section-select"
+                        value={selectedSection}
+                        onChange={(e) => setSelectedSection(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
+                    >
+                        {DISCOVER_SECTIONS.map(section => (
+                            <option key={section} value={section}>
+                                {section}
+                            </option>
+                        ))}
+                    </select>
                 </div>
-            )}
 
-            {/* Section Selection */}
-            <div className="mb-6">
-                <label htmlFor="section-select" className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Section
-                </label>
-                <select
-                    id="section-select"
-                    value={selectedSection}
-                    onChange={(e) => setSelectedSection(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
-                >
-                    {DISCOVER_SECTIONS.map(section => (
-                        <option key={section} value={section}>
-                            {section}
-                        </option>
-                    ))}
-                </select>
-            </div>
-
-            {/* Assigned Itineraries */}
-            <div className="mb-8">
-                <h3 className="text-lg font-medium text-gray-800 mb-4">
-                    Assigned Itineraries
-                </h3>
-                <div className="space-y-4">
-                    {assignedItineraries.map((itinerary, index) => (
-                        <div
-                            key={itinerary.id}
-                            className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200"
-                        >
-                            <div>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <h4 className="font-medium">{itinerary.trip_name}</h4>
-                                    <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">
-                                        ID: {itinerary.id}
-                                    </span>
+                {/* Assigned Itineraries */}
+                <div className="mb-8">
+                    <h3 className="text-lg font-medium text-gray-800 mb-4">
+                        Assigned Itineraries
+                    </h3>
+                    <div className="space-y-4">
+                        {assignedItineraries.map((itinerary, index) => (
+                            <div
+                                key={itinerary.id}
+                                className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200"
+                            >
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <h4 className="font-medium">{itinerary.trip_name}</h4>
+                                        <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">
+                                            ID: {itinerary.id}
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-gray-600">
+                                        {itinerary.duration} days in {getTripDetails(itinerary)}
+                                    </p>
+                                    <p className="text-sm text-gray-500 mt-1">
+                                        By @{itinerary.user_profiles?.username || 'unknown'} •
+                                        Updated {formatDate(itinerary.updated_at)}
+                                    </p>
                                 </div>
-                                <p className="text-sm text-gray-600">
-                                    {itinerary.duration} days in {getTripDetails(itinerary)}
-                                </p>
-                                <p className="text-sm text-gray-500 mt-1">
-                                    By @{itinerary.user_profiles?.username || 'unknown'} •
-                                    Updated {formatDate(itinerary.updated_at)}
-                                </p>
+                                <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => handleReorderAssignment(
+                                                assignments.find(a => a.itinerary_id === itinerary.id)?.id || '',
+                                                index - 1
+                                            )}
+                                            disabled={index === 0}
+                                            className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                                        >
+                                            ↑
+                                        </button>
+                                        <button
+                                            onClick={() => handleReorderAssignment(
+                                                assignments.find(a => a.itinerary_id === itinerary.id)?.id || '',
+                                                index + 1
+                                            )}
+                                            disabled={index === assignedItineraries.length - 1}
+                                            className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                                        >
+                                            ↓
+                                        </button>
+                                    </div>
+                                    <button
+                                        onClick={() => handleRemoveAssignment(
+                                            assignments.find(a => a.itinerary_id === itinerary.id)?.id || ''
+                                        )}
+                                        className="p-2 text-red-500 hover:text-red-600"
+                                    >
+                                        <Trash2 className="w-5 h-5" />
+                                    </button>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => handleReorderAssignment(
-                                            assignments.find(a => a.itinerary_id === itinerary.id)?.id || '',
-                                            index - 1
-                                        )}
-                                        disabled={index === 0}
-                                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
-                                    >
-                                        ↑
-                                    </button>
-                                    <button
-                                        onClick={() => handleReorderAssignment(
-                                            assignments.find(a => a.itinerary_id === itinerary.id)?.id || '',
-                                            index + 1
-                                        )}
-                                        disabled={index === assignedItineraries.length - 1}
-                                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
-                                    >
-                                        ↓
-                                    </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Available Itineraries */}
+                <div>
+                    <h3 className="text-lg font-medium text-gray-800 mb-4">
+                        Available Itineraries
+                    </h3>
+                    <div className="space-y-4">
+                        {unassignedItineraries.map(itinerary => (
+                            <div
+                                key={itinerary.id}
+                                className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200"
+                            >
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <h4 className="font-medium">{itinerary.trip_name}</h4>
+                                        <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">
+                                            ID: {itinerary.id}
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-gray-600">
+                                        {itinerary.duration} days in {getTripDetails(itinerary)}
+                                    </p>
+                                    <p className="text-sm text-gray-500 mt-1">
+                                        By @{itinerary.user_profiles?.username || 'unknown'} •
+                                        Updated {formatDate(itinerary.updated_at)}
+                                    </p>
                                 </div>
                                 <button
-                                    onClick={() => handleRemoveAssignment(
-                                        assignments.find(a => a.itinerary_id === itinerary.id)?.id || ''
-                                    )}
-                                    className="p-2 text-red-500 hover:text-red-600"
+                                    onClick={() => handleAddAssignment(itinerary.id)}
+                                    className="p-2 text-[#00C48C] hover:text-[#00B380]"
                                 >
-                                    <Trash2 className="w-5 h-5" />
+                                    <Plus className="w-5 h-5" />
                                 </button>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             </div>
-
-            {/* Available Itineraries */}
-            <div>
-                <h3 className="text-lg font-medium text-gray-800 mb-4">
-                    Available Itineraries
-                </h3>
-                <div className="space-y-4">
-                    {unassignedItineraries.map(itinerary => (
-                        <div
-                            key={itinerary.id}
-                            className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200"
-                        >
-                            <div>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <h4 className="font-medium">{itinerary.trip_name}</h4>
-                                    <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">
-                                        ID: {itinerary.id}
-                                    </span>
-                                </div>
-                                <p className="text-sm text-gray-600">
-                                    {itinerary.duration} days in {getTripDetails(itinerary)}
-                                </p>
-                                <p className="text-sm text-gray-500 mt-1">
-                                    By @{itinerary.user_profiles?.username || 'unknown'} •
-                                    Updated {formatDate(itinerary.updated_at)}
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => handleAddAssignment(itinerary.id)}
-                                className="p-2 text-[#00C48C] hover:text-[#00B380]"
-                            >
-                                <Plus className="w-5 h-5" />
-                            </button>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
+        </AdminLayout>
     );
 }; 

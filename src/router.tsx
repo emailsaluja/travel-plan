@@ -23,6 +23,9 @@ import UserPublicDashboard from './pages/UserPublicDashboard';
 import PublicItineraryView from './pages/PublicItineraryView';
 import { CountryImagesAdmin } from './components/CountryImagesAdmin';
 import { DiscoverSectionAdmin } from './components/DiscoverSectionAdmin';
+import { UserDashboard as UserAnalyticsDashboard } from './components/UserDashboard';
+import { SalesDashboard } from './components/SalesDashboard';
+import { UserPayouts } from './components/UserPayouts';
 import Discover from './pages/Discover';
 import LikedTrips from './pages/LikedTrips';
 import AdminDashboard from './pages/AdminDashboard';
@@ -95,6 +98,18 @@ export const router = createBrowserRouter([
       {
         path: 'admin/discover-sections',
         element: <ProtectedRoute><DiscoverSectionAdmin /></ProtectedRoute>
+      },
+      {
+        path: 'admin/user-dashboard',
+        element: <ProtectedRoute><UserAnalyticsDashboard /></ProtectedRoute>
+      },
+      {
+        path: 'admin/sales-dashboard',
+        element: <ProtectedRoute><SalesDashboard /></ProtectedRoute>
+      },
+      {
+        path: 'admin/user-payouts',
+        element: <ProtectedRoute><UserPayouts /></ProtectedRoute>
       },
       {
         path: 'admin',
