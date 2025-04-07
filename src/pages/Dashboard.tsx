@@ -28,7 +28,9 @@ import {
   ShoppingBag,
   Star,
   MessageCircle,
-  Search
+  Search,
+  Pencil,
+  Trash
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserItineraryService } from '../services/user-itinerary.service';
@@ -57,6 +59,7 @@ interface Itinerary {
     nights: number;
   }[];
   likesCount?: number;
+  cover_image?: string;
 }
 
 interface PremiumItinerary {
@@ -135,6 +138,18 @@ interface DataCache {
   lastFetch: number;
 }
 
+type DashboardView =
+  | 'overview'
+  | 'trips'
+  | 'countries'
+  | 'upcoming'
+  | 'past'
+  | 'liked'
+  | 'aiItineraries'
+  | 'premium'
+  | 'purchases'
+  | 'sales';
+
 const Dashboard = () => {
   const { userEmail, user, signOut } = useAuth();
   const [userId, setUserId] = useState<string | null>(null);
@@ -148,7 +163,7 @@ const Dashboard = () => {
   const [soldItineraries, setSoldItineraries] = useState<PremiumItinerary[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [view, setView] = useState<'overview' | 'trips' | 'countries' | 'upcoming' | 'past' | 'liked' | 'aiItineraries' | 'premium' | 'purchases'>('overview');
+  const [view, setView] = useState<DashboardView>('overview');
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [countryImages, setCountryImages] = useState<Record<string, string[]>>({});
   const [selectedImages, setSelectedImages] = useState<Record<string, string>>({});
@@ -348,7 +363,7 @@ const Dashboard = () => {
       const { data: soldData } = await supabase
         .from('premium_itinerary_purchases')
         .select(`
-          premium_itineraries (
+          premium_itineraries!inner (
             id,
             title,
             description,
@@ -357,11 +372,12 @@ const Dashboard = () => {
             duration,
             featured_image_url,
             country,
-            base_itinerary_id
+            base_itinerary_id,
+            user_id
           ),
           purchase_date
         `)
-        .eq('seller_id', user.id)
+        .eq('premium_itineraries.user_id', user.id)
         .order('purchase_date', { ascending: false });
 
       if (soldData) {
@@ -459,7 +475,7 @@ const Dashboard = () => {
     }
   }, []);
 
-  const handleViewChange = (newView: 'overview' | 'trips' | 'countries' | 'upcoming' | 'past' | 'liked' | 'aiItineraries' | 'premium' | 'purchases') => {
+  const handleViewChange = (newView: DashboardView) => {
     setView(newView);
     setSelectedCountry(null);
 
@@ -969,6 +985,16 @@ const Dashboard = () => {
                   >
                     <Star className="w-[18px] h-[18px]" />
                     <span className="text-[14px] font-medium">Premium Itineraries</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleViewChange('sales')}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${view === 'sales' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
+                  >
+                    <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-[14px] font-medium">Sales & Earnings</span>
                   </button>
 
                   <button
@@ -1608,73 +1634,163 @@ const Dashboard = () => {
                   ))}
                 </div>
               </div>
-            ) : view === 'purchases' ? (
+            ) : view === 'sales' ? (
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-medium text-[#1e293b]">
-                    Purchased Itineraries
-                  </h2>
+                  <div>
+                    <h2 className="text-lg font-medium text-[#1e293b]">Sales & Earnings</h2>
+                    <p className="text-sm text-gray-500">Track your premium itinerary sales and revenue</p>
+                  </div>
                 </div>
 
-                {purchasedItineraries.length === 0 ? (
-                  <div className="text-center py-12">
-                    <p className="text-gray-500 mb-4">You haven't purchased any itineraries yet.</p>
-                    <button
-                      onClick={() => navigate('/discover')}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#00C48C] hover:bg-[#00B380]"
-                    >
-                      Discover Itineraries
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {purchasedItineraries.map((itinerary) => (
-                      <div
-                        key={itinerary.id}
-                        className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all overflow-hidden"
-                      >
-                        <div className="relative h-64">
-                          <img
-                            src={itinerary.featured_image_url || '/images/placeholder.jpg'}
-                            alt={itinerary.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                          <div className="absolute bottom-5 left-5 right-5">
-                            <div className="flex items-center gap-1.5 text-white/90 text-[15px] mb-1.5">
-                              <MapPin className="w-[18px] h-[18px]" />
-                              {itinerary.country}
-                            </div>
-                            <h3 className="text-[22px] font-medium text-white leading-tight">
-                              {itinerary.title}
-                            </h3>
-                          </div>
-                          <div className="absolute top-4 right-4">
-                            <div className="px-3 py-1.5 bg-[#00C48C] text-white text-[13px] font-medium rounded-full">
-                              {itinerary.duration} days
-                            </div>
-                          </div>
-                        </div>
-                        <div className="p-6">
-                          <p className="text-[15px] text-gray-600 mb-4 line-clamp-2">
-                            {itinerary.description}
-                          </p>
-                          <div className="flex items-center gap-2 text-[15px] text-gray-500 mb-4">
-                            <Calendar className="w-[18px] h-[18px] text-[#00C48C]" />
-                            Purchased on {new Date(itinerary.purchase_date).toLocaleDateString()}
-                          </div>
-                          <button
-                            onClick={() => navigate(`/viewmyitinerary/${itinerary.base_itinerary_id}`)}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#00C48C] text-white rounded-lg hover:bg-[#00B380] transition-colors"
-                          >
-                            <Eye className="w-4 h-4" />
-                            <span>View Itinerary</span>
-                          </button>
-                        </div>
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="bg-white rounded-xl p-6 border border-gray-100">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-[#64748b] text-sm">Total Sales</h3>
+                      <div className="p-1.5 bg-blue-50 rounded-lg">
+                        <ShoppingBag className="w-4 h-4 text-blue-500" />
                       </div>
-                    ))}
+                    </div>
+                    <p className="text-2xl font-semibold text-[#1e293b]">{soldItineraries.length}</p>
                   </div>
-                )}
+
+                  <div className="bg-white rounded-xl p-6 border border-gray-100">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-[#64748b] text-sm">Total Revenue</h3>
+                      <div className="p-1.5 bg-emerald-50 rounded-lg">
+                        <svg className="w-4 h-4 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                    </div>
+                    <p className="text-2xl font-semibold text-[#1e293b]">
+                      {soldItineraries.reduce((total, sale) => total + sale.price, 0).toLocaleString('en-US', {
+                        style: 'currency',
+                        currency: soldItineraries[0]?.currency || 'USD'
+                      })}
+                    </p>
+                  </div>
+
+                  <div className="bg-white rounded-xl p-6 border border-gray-100">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-[#64748b] text-sm">Avg. Price</h3>
+                      <div className="p-1.5 bg-amber-50 rounded-lg">
+                        <svg className="w-4 h-4 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    </div>
+                    <p className="text-2xl font-semibold text-[#1e293b]">
+                      {soldItineraries.length > 0
+                        ? (soldItineraries.reduce((total, sale) => total + sale.price, 0) / soldItineraries.length).toLocaleString('en-US', {
+                          style: 'currency',
+                          currency: soldItineraries[0]?.currency || 'USD'
+                        })
+                        : '-'
+                      }
+                    </p>
+                  </div>
+
+                  <div className="bg-white rounded-xl p-6 border border-gray-100">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-[#64748b] text-sm">This Month</h3>
+                      <div className="p-1.5 bg-purple-50 rounded-lg">
+                        <Calendar className="w-4 h-4 text-purple-500" />
+                      </div>
+                    </div>
+                    <p className="text-2xl font-semibold text-[#1e293b]">
+                      {(() => {
+                        const now = new Date();
+                        const thisMonth = soldItineraries.filter(sale => {
+                          if (!sale.purchase_date) return false;
+                          const saleDate = new Date(sale.purchase_date);
+                          return saleDate.getMonth() === now.getMonth() && saleDate.getFullYear() === now.getFullYear();
+                        });
+                        return thisMonth.reduce((total, sale) => total + sale.price, 0).toLocaleString('en-US', {
+                          style: 'currency',
+                          currency: soldItineraries[0]?.currency || 'USD'
+                        });
+                      })()}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-100">
+                  <div className="p-6 border-b border-gray-100">
+                    <h3 className="text-[#1e293b] font-medium">Sales History</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Itinerary</th>
+                          <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Date</th>
+                          <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Price</th>
+                          <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Country</th>
+                          <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Duration</th>
+                          <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {soldItineraries.map((sale) => (
+                          <tr key={sale.id} className="border-b border-gray-100">
+                            <td className="py-4 px-6">
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-lg overflow-hidden">
+                                  <img
+                                    src={sale.featured_image_url || getRandomImageForCountry(sale.country)}
+                                    alt={sale.title}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                                <div>
+                                  <h4 className="text-sm font-medium text-gray-900">{sale.title}</h4>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-4 px-6">
+                              <span className="text-sm text-gray-500">
+                                {sale.purchase_date ? formatDate(sale.purchase_date) : 'N/A'}
+                              </span>
+                            </td>
+                            <td className="py-4 px-6">
+                              <span className="text-sm font-medium text-[#00C48C]">
+                                {sale.currency} {sale.price}
+                              </span>
+                            </td>
+                            <td className="py-4 px-6">
+                              <span className="text-sm text-gray-500">{sale.country}</span>
+                            </td>
+                            <td className="py-4 px-6">
+                              <span className="text-sm text-gray-500">{sale.duration} days</span>
+                            </td>
+                            <td className="py-4 px-6">
+                              <button
+                                onClick={() => navigate(`/premium-itinerary/${sale.id}`)}
+                                className="text-[#00C48C] text-sm font-medium hover:text-[#00B380]"
+                              >
+                                View Details
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        {soldItineraries.length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="py-8 text-center text-gray-500">
+                              <p className="mb-4">No sales yet</p>
+                              <button
+                                onClick={() => navigate('/create-premium-itinerary')}
+                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#00C48C] hover:bg-[#00B380]"
+                              >
+                                Create Premium Itinerary
+                              </button>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             ) : view === 'trips' || (view === 'countries' && selectedCountry) ? (
               <div className="space-y-6">
@@ -1723,94 +1839,105 @@ const Dashboard = () => {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  {(filteredItineraries || (selectedCountry ? countryStats[selectedCountry]?.itineraries : itineraries))
-                    .filter(itinerary => {
-                      const startDate = new Date(itinerary.start_date);
-                      const today = new Date();
+                <div className="grid grid-cols-2 gap-6">
+                  {(() => {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
 
-                      switch (activeTab) {
-                        case 'upcoming':
-                          return startDate > today;
-                        case 'completed':
-                          return startDate <= today;
-                        case 'draft':
-                          return itinerary.status === 'draft';
-                        default:
-                          return true;
-                      }
-                    })
-                    .map((itinerary) => {
-                      const startDate = new Date(itinerary.start_date);
-                      const today = new Date();
-                      const status = startDate > today ? 'Upcoming' : 'Completed';
-                      const statusColor = status === 'Upcoming' ? 'bg-blue-50 text-blue-700' : 'bg-emerald-50 text-emerald-700';
+                    let displayItineraries = filteredItineraries || itineraries;
 
-                      return (
-                        <div
-                          key={itinerary.id}
-                          onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
-                          className="group bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-all cursor-pointer"
-                        >
-                          <div className="flex gap-4">
-                            <div className="w-[200px] h-[140px] rounded-lg overflow-hidden bg-gray-100">
-                              <img
-                                src={getRandomImageForCountry(itinerary.country)}
-                                alt={itinerary.trip_name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              />
+                    // Filter based on active tab
+                    if (activeTab !== 'all') {
+                      displayItineraries = displayItineraries.filter(itinerary => {
+                        const startDate = new Date(itinerary.start_date);
+                        startDate.setHours(0, 0, 0, 0);
+
+                        switch (activeTab) {
+                          case 'upcoming':
+                            return startDate > today;
+                          case 'completed':
+                            return startDate <= today;
+                          case 'draft':
+                            return itinerary.status === 'draft';
+                          default:
+                            return true;
+                        }
+                      });
+                    }
+
+                    return displayItineraries.map((itinerary) => (
+                      <div key={itinerary.id} className="flex bg-white rounded-xl overflow-hidden border border-gray-100">
+                        <div className="w-[200px] h-[140px] bg-gray-100">
+                          <img
+                            src={getRandomImageForCountry(itinerary.country)}
+                            alt={itinerary.trip_name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="flex-1 p-4">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <MapPin className="w-[14px] h-[14px] text-gray-500" />
+                            <span className="text-[13px] text-gray-600">{itinerary.country}</span>
+                          </div>
+                          <h3 className="text-[15px] font-semibold text-gray-900 mb-2">{itinerary.trip_name}</h3>
+                          <div className="flex items-center gap-1.5 text-[13px] text-gray-500">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="w-[14px] h-[14px]" />
+                              <span>{formatDate(itinerary.start_date)}</span>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-2">
-                                <MapPin className="w-4 h-4 text-gray-400" />
-                                <span className="text-gray-600 text-[13px]">{itinerary.country}</span>
-                              </div>
-                              <h3 className="text-xl font-semibold text-gray-900 mb-3 line-clamp-1">{itinerary.trip_name}</h3>
-                              <div className="flex items-center gap-6 text-[13px] text-gray-500">
-                                <div className="flex items-center gap-1.5">
-                                  <Calendar className="w-4 h-4" />
-                                  <span>{formatDate(itinerary.start_date)}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                  <Clock className="w-4 h-4" />
-                                  <span>{itinerary.duration} days</span>
-                                </div>
-                              </div>
-                              <div className="mt-4 flex items-center gap-2">
-                                <div className={`px-2.5 py-1 text-[13px] font-medium rounded ${statusColor}`}>
-                                  {status}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-start gap-1">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/create-itinerary?id=${itinerary.id}`);
-                                }}
-                                className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                              >
-                                <Edit className="w-[18px] h-[18px]" />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDelete(itinerary.id, e);
-                                }}
-                                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                              >
-                                <Trash2 className="w-[18px] h-[18px]" />
-                              </button>
-                              <div className="relative">
-                                <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-                                  <MoreHorizontal className="w-[18px] h-[18px]" />
-                                </button>
-                              </div>
-                            </div>
+                            <span className="mx-1.5">•</span>
+                            <span>{itinerary.duration} days</span>
+                          </div>
+                          <div className="mt-3">
+                            {(() => {
+                              const startDate = new Date(itinerary.start_date);
+                              const today = new Date();
+                              const isCompleted = startDate <= today;
+                              const isDraft = itinerary.status === 'draft';
+
+                              if (isDraft) {
+                                return (
+                                  <span className="inline-flex px-2 py-0.5 rounded-full text-[12px] font-medium bg-gray-50 text-gray-600">
+                                    Draft
+                                  </span>
+                                );
+                              }
+
+                              return (
+                                <span className={`inline-flex px-2 py-0.5 rounded-full text-[12px] font-medium ${isCompleted ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'
+                                  }`}>
+                                  {isCompleted ? 'Completed' : 'Upcoming'}
+                                </span>
+                              );
+                            })()}
                           </div>
                         </div>
-                      );
-                    })}
+                        <div className="flex flex-col items-center gap-1 p-2">
+                          <button className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(itinerary.id, e);
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            <Trash className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/create-itinerary?id=${itinerary.id}`);
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ));
+                  })()}
                 </div>
               </div>
             ) : (

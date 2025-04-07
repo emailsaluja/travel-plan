@@ -40,15 +40,6 @@ const TopNavigation = () => {
                                 <span>Discover</span>
                             </Link>
                         )}
-                        {user && (
-                            <Link
-                                to="/dashboard/purchased-itineraries"
-                                className="text-gray-500 font-['Inter_var'] font-[600] flex items-center gap-2"
-                            >
-                                <ShoppingBag className="w-4 h-4" />
-                                <span>My Purchases</span>
-                            </Link>
-                        )}
                     </div>
 
                     <div className="flex-shrink-0 relative">

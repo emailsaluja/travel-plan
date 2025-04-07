@@ -26,9 +26,8 @@ const How = () => {
     <div className="overflow-hidden">
       {/* Navigation */}
       <header
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          isScrolled ? "bg-white stippl-shadow py-4" : "bg-transparent py-6"
-        }`}
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? "bg-white stippl-shadow py-4" : "bg-transparent py-6"
+          }`}
       >
         <div className="stippl-container flex items-center justify-between">
           <div className="flex items-center">
@@ -53,7 +52,7 @@ const How = () => {
           </div>
           <div className="flex items-center space-x-4">
             <Link
-              to="/login"
+              to="/signin"
               className="hidden md:inline-flex text-sm font-medium text-black hover:text-stippl-green transition-colors"
             >
               Log in
@@ -70,12 +69,12 @@ const How = () => {
 
       {/* Hero Section */}
       <section className="pt-40 pb-20 relative overflow-hidden">
-        <div 
+        <div
           className="absolute inset-0 w-full h-full bg-no-repeat bg-center bg-cover z-0"
           style={{ backgroundImage: "url('https://www.stippl.io/assets/background_visual-85f87405.svg')" }}
         ></div>
         <div className="absolute left-0 bottom-0 w-1/3 h-2/3 pointer-events-none">
-          <motion.div 
+          <motion.div
             className="absolute left-0 bottom-0 w-full h-full bg-contain bg-no-repeat bg-left-bottom opacity-90"
             style={{ backgroundImage: "url('/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png')" }}
             initial={{ opacity: 0, y: 20 }}
@@ -84,7 +83,7 @@ const How = () => {
           />
         </div>
         <div className="absolute right-0 bottom-0 w-1/3 h-2/3 pointer-events-none">
-          <motion.div 
+          <motion.div
             className="absolute right-0 bottom-0 w-full h-full bg-contain bg-no-repeat bg-right-bottom opacity-90"
             style={{ backgroundImage: "url('/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png')" }}
             initial={{ opacity: 0, y: 20 }}
@@ -94,22 +93,22 @@ const How = () => {
         </div>
         <div className="stippl-container relative z-10">
           <div className="text-center max-w-3xl mx-auto">
-            <motion.h1 
+            <motion.h1
               className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              One travel apps<br /> 
+              One travel apps<br />
               <span className="text-stippl-green">to replace them all</span>
             </motion.h1>
-            <motion.p 
+            <motion.p
               className="text-lg md:text-xl text-gray-600 mb-8 max-w-2xl mx-auto"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              Create the perfect trip with AI, manage your bookings in one place, and get exclusive deals no one else can offer. 
+              Create the perfect trip with AI, manage your bookings in one place, and get exclusive deals no one else can offer.
               No more switching between apps.
             </motion.p>
             <motion.div
@@ -126,20 +125,20 @@ const How = () => {
             </motion.div>
           </div>
 
-          <motion.div 
+          <motion.div
             className="mt-16 relative"
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.3 }}
           >
             <div className="bg-white rounded-2xl stippl-shadow overflow-hidden">
-              <img 
-                src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png" 
-                alt="Stippl App Interface" 
+              <img
+                src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png"
+                alt="Stippl App Interface"
                 className="w-full"
               />
             </div>
-            
+
             <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-2">
               <div className="w-2 h-2 rounded-full bg-stippl-green"></div>
               <div className="w-2 h-2 rounded-full bg-gray-300"></div>
@@ -176,52 +175,52 @@ const How = () => {
                 <ArrowRight size={16} className="ml-2" />
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-6">
               <div className="bg-white rounded-2xl stippl-shadow p-6">
                 <div className="w-8 h-8 bg-stippl-purple/10 flex items-center justify-center rounded-full mb-3">
                   <div className="w-3 h-3 bg-stippl-purple rounded-full"></div>
                 </div>
                 <div className="font-medium mb-2">Explore</div>
-                <img 
-                  src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png" 
-                  alt="Explore Feature" 
+                <img
+                  src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png"
+                  alt="Explore Feature"
                   className="w-full rounded-lg mt-2"
                 />
               </div>
-              
+
               <div className="bg-white rounded-2xl stippl-shadow p-6">
                 <div className="w-8 h-8 bg-stippl-red/10 flex items-center justify-center rounded-full mb-3">
                   <div className="w-3 h-3 bg-stippl-red rounded-full"></div>
                 </div>
                 <div className="font-medium mb-2">Trips</div>
-                <img 
-                  src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png" 
-                  alt="Trips Feature" 
+                <img
+                  src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png"
+                  alt="Trips Feature"
                   className="w-full rounded-lg mt-2"
                 />
               </div>
-              
+
               <div className="bg-white rounded-2xl stippl-shadow p-6">
                 <div className="w-8 h-8 bg-stippl-yellow/10 flex items-center justify-center rounded-full mb-3">
                   <div className="w-3 h-3 bg-stippl-yellow rounded-full"></div>
                 </div>
                 <div className="font-medium mb-2">Map</div>
-                <img 
-                  src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png" 
-                  alt="Map Feature" 
+                <img
+                  src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png"
+                  alt="Map Feature"
                   className="w-full rounded-lg mt-2"
                 />
               </div>
-              
+
               <div className="bg-white rounded-2xl stippl-shadow p-6">
                 <div className="w-8 h-8 bg-stippl-green/10 flex items-center justify-center rounded-full mb-3">
                   <div className="w-3 h-3 bg-stippl-green rounded-full"></div>
                 </div>
                 <div className="font-medium mb-2">Conversations</div>
-                <img 
-                  src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png" 
-                  alt="Conversations Feature" 
+                <img
+                  src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png"
+                  alt="Conversations Feature"
                   className="w-full rounded-lg mt-2"
                 />
               </div>
@@ -262,11 +261,11 @@ const How = () => {
                   </button>
                 </div>
               </div>
-              
+
               <div className="md:col-span-3 border-l">
-                <img 
-                  src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png" 
-                  alt="AI Planner Interface" 
+                <img
+                  src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png"
+                  alt="AI Planner Interface"
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -317,8 +316,8 @@ const How = () => {
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="min-w-[280px] bg-white rounded-2xl stippl-shadow overflow-hidden">
                 <div className="relative h-48">
-                  <img 
-                    src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png" 
+                  <img
+                    src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png"
                     alt={`Featured Trip ${i}`}
                     className="w-full h-full object-cover"
                   />
@@ -331,8 +330,8 @@ const How = () => {
                   <p className="text-gray-600 text-sm mb-3">The perfect 5-day trip to discover the city of love</p>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center text-sm">
-                      <img 
-                        src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png" 
+                      <img
+                        src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png"
                         alt="User"
                         className="w-6 h-6 rounded-full mr-2"
                       />
@@ -350,14 +349,14 @@ const How = () => {
       {/* CTA Section */}
       <section className="section-padding relative overflow-hidden">
         <div className="absolute left-0 bottom-0 w-1/3 h-2/3 pointer-events-none">
-          <div className="absolute left-0 bottom-0 w-full h-full bg-contain bg-no-repeat bg-left-bottom opacity-90" 
+          <div className="absolute left-0 bottom-0 w-full h-full bg-contain bg-no-repeat bg-left-bottom opacity-90"
             style={{ backgroundImage: "url('/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png')" }}></div>
         </div>
         <div className="absolute right-0 bottom-0 w-1/3 h-2/3 pointer-events-none">
-          <div className="absolute right-0 bottom-0 w-full h-full bg-contain bg-no-repeat bg-right-bottom opacity-90" 
+          <div className="absolute right-0 bottom-0 w-full h-full bg-contain bg-no-repeat bg-right-bottom opacity-90"
             style={{ backgroundImage: "url('/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png')" }}></div>
         </div>
-        
+
         <div className="stippl-container relative z-10">
           <div className="text-center max-w-2xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold mb-6">
@@ -369,11 +368,11 @@ const How = () => {
             >
               Try for free
             </Link>
-            
+
             <div className="flex items-center justify-center space-x-4">
               <Link to="#" className="flex items-center justify-center bg-black text-white rounded-lg px-4 py-2.5">
-                <img 
-                  src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png" 
+                <img
+                  src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png"
                   alt="App Store"
                   className="h-5 mr-2"
                 />
@@ -382,10 +381,10 @@ const How = () => {
                   <span className="text-sm font-medium">App Store</span>
                 </div>
               </Link>
-              
+
               <Link to="#" className="flex items-center justify-center bg-black text-white rounded-lg px-4 py-2.5">
-                <img 
-                  src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png" 
+                <img
+                  src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png"
                   alt="Google Play"
                   className="h-5 mr-2"
                 />
@@ -429,7 +428,7 @@ const How = () => {
                 </a>
               </div>
             </div>
-            
+
             <div>
               <h3 className="font-medium mb-4">Product</h3>
               <ul className="space-y-3 text-sm">
@@ -439,7 +438,7 @@ const How = () => {
                 <li><a href="#" className="text-gray-600 hover:text-stippl-green">AI Trip Planner</a></li>
               </ul>
             </div>
-            
+
             <div>
               <h3 className="font-medium mb-4">Company</h3>
               <ul className="space-y-3 text-sm">
@@ -449,7 +448,7 @@ const How = () => {
                 <li><a href="#" className="text-gray-600 hover:text-stippl-green">Contact</a></li>
               </ul>
             </div>
-            
+
             <div>
               <h3 className="font-medium mb-4">Resources</h3>
               <ul className="space-y-3 text-sm">
@@ -459,13 +458,13 @@ const How = () => {
                 <li><a href="#" className="text-gray-600 hover:text-stippl-green">Webinars</a></li>
               </ul>
             </div>
-            
+
             <div>
               <h3 className="font-medium mb-4">Download</h3>
               <div className="space-y-4">
                 <a href="#" className="flex items-center justify-center bg-black text-white rounded-lg px-4 py-2.5">
-                  <img 
-                    src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png" 
+                  <img
+                    src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png"
                     alt="App Store"
                     className="h-5 mr-2"
                   />
@@ -474,10 +473,10 @@ const How = () => {
                     <span className="text-sm font-medium">App Store</span>
                   </div>
                 </a>
-                
+
                 <a href="#" className="flex items-center justify-center bg-black text-white rounded-lg px-4 py-2.5">
-                  <img 
-                    src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png" 
+                  <img
+                    src="/lovable-uploads/3a19faba-78cc-4457-b76f-20cd51c31b1e.png"
                     alt="Google Play"
                     className="h-5 mr-2"
                   />
@@ -489,7 +488,7 @@ const How = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="mt-12 pt-8 border-t border-gray-200">
             <div className="text-sm text-gray-500">
               © {new Date().getFullYear()} Stippl. All rights reserved.

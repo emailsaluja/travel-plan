@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthService } from '../services/auth.service';
 import { useAuth } from '../contexts/AuthContext';
 
 const SignIn = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { setIsAuthenticated, setUserEmail } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const message = location.state?.message;
+  const returnTo = location.state?.returnTo;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +35,7 @@ const SignIn = () => {
 
       setIsAuthenticated(true);
       setUserEmail(data.user.email || '');
-      navigate('/dashboard');
+      navigate(returnTo || '/dashboard');
     } catch (err: any) {
       setError(err?.message || 'Failed to sign in');
     } finally {
@@ -154,6 +158,12 @@ const SignIn = () => {
             </h2>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {message && (
+                <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg text-sm">
+                  {message}
+                </div>
+              )}
+
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
                   {error}

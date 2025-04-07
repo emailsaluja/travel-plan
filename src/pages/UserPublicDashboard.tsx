@@ -735,8 +735,13 @@ const UserPublicDashboard = () => {
 
     const handlePurchaseClick = (itineraryId: string) => {
         if (!user) {
-            // Redirect to login if user is not authenticated
-            navigate('/login', { state: { returnTo: location.pathname } });
+            // Redirect to signin if user is not authenticated
+            navigate('/signin', {
+                state: {
+                    returnTo: location.pathname,
+                    message: 'Please sign in or create an account to purchase premium itineraries.'
+                }
+            });
             return;
         }
         setSelectedItineraryId(itineraryId);
