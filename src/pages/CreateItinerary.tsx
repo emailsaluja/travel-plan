@@ -679,8 +679,41 @@ const CreateItinerary: React.FC = () => {
   };
 
   const handleSave = async () => {
+    if (loading) return;
+
+    // Validation logic
+    if (!tripSummary.tripName) {
+      toast.error('Please enter a trip name');
+      return;
+    }
+
+    if (!tripSummary.country) {
+      toast.error('Please select a country');
+      return;
+    }
+
+    if (itineraryDays.length === 0) {
+      toast.error('Please add at least one destination');
+      return;
+    }
+
+    for (const day of itineraryDays) {
+      if (!day.destination) {
+        toast.error('All destinations must have a name');
+        return;
+      }
+    }
+
+    setIsSaving(true);
+    setLoading(true);
+
     try {
-      setIsSaving(true);
+      // Show a loading notification
+      const loadingToastId = toast.loading(
+        itineraryId
+          ? 'Updating your itinerary...'
+          : 'Saving your itinerary...'
+      );
 
       if (!itineraryId) {
         throw new Error('No itinerary ID found');
@@ -761,15 +794,26 @@ const CreateItinerary: React.FC = () => {
 
       if (!result.success) {
         console.error('Error updating itinerary');
+        toast.dismiss(loadingToastId);
+        toast.error('Failed to update itinerary');
         throw new Error('Failed to update itinerary');
       }
 
       setIsSaving(false);
-      toast.success('Itinerary saved successfully!');
+      setLoading(false);
+
+      // Update the loading toast with success message
+      toast.dismiss(loadingToastId);
+      toast.success(
+        itineraryId
+          ? 'Your itinerary was updated successfully!'
+          : 'Your itinerary was saved successfully!'
+      );
     } catch (error) {
       console.error('Error saving itinerary:', error);
       setIsSaving(false);
-      toast.error('Failed to save itinerary');
+      setLoading(false);
+      toast.error('Failed to save itinerary. Please try again.');
     }
   };
 

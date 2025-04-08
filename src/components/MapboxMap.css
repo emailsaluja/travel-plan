@@ -69,6 +69,13 @@
     stroke-opacity: 0.8;
 }
 
+/* Style for map route layers */
+.mapboxgl-map .mapbox-layer-route {
+    line-color: #EC4899 !important;
+    line-width: 4px !important;
+    line-opacity: 0.8 !important;
+}
+
 /* Improve map attribution */
 .mapboxgl-ctrl-attrib {
     font-size: 10px;

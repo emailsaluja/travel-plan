@@ -681,8 +681,8 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ destinations, className = '', cou
                             'line-cap': 'round'
                         },
                         paint: {
-                            'line-color': '#0084ff',
-                            'line-width': 3,
+                            'line-color': '#EC4899',
+                            'line-width': 4,
                             'line-opacity': 0.8,
                             'line-dasharray': isLongDistance ? [2, 1] : [1]
                         }
