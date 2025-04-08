@@ -296,6 +296,11 @@ const CreateItinerary: React.FC = () => {
     dayOverview?: string;
   } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  // Add a new state for the feedback message at the top with other states
+  const [feedbackMessage, setFeedbackMessage] = useState<{ text: string; type: 'success' | 'error' | 'loading' | '' }>({
+    text: '',
+    type: ''
+  });
 
   // Add available tags constant
   const AVAILABLE_TAGS = [
@@ -683,23 +688,39 @@ const CreateItinerary: React.FC = () => {
 
     // Validation logic
     if (!tripSummary.tripName) {
-      toast.error('Please enter a trip name');
+      toast.error('Please enter a trip name', {
+        position: "top-center",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
       return;
     }
 
     if (!tripSummary.country) {
-      toast.error('Please select a country');
+      toast.error('Please select a country', {
+        position: "top-center",
+        autoClose: 5000,
+      });
       return;
     }
 
     if (itineraryDays.length === 0) {
-      toast.error('Please add at least one destination');
+      toast.error('Please add at least one destination', {
+        position: "top-center",
+        autoClose: 5000,
+      });
       return;
     }
 
     for (const day of itineraryDays) {
       if (!day.destination) {
-        toast.error('All destinations must have a name');
+        toast.error('All destinations must have a name', {
+          position: "top-center",
+          autoClose: 5000,
+        });
         return;
       }
     }
@@ -707,15 +728,43 @@ const CreateItinerary: React.FC = () => {
     setIsSaving(true);
     setLoading(true);
 
-    try {
-      // Show a loading notification
-      const loadingToastId = toast.loading(
-        itineraryId
-          ? 'Updating your itinerary...'
-          : 'Saving your itinerary...'
-      );
+    // Set loading feedback message
+    setFeedbackMessage({
+      text: 'Saving changes...',
+      type: 'loading'
+    });
 
+    // Show a clear initial notification
+    toast.info('Starting to save your itinerary...', {
+      position: "top-center",
+      autoClose: 3000,
+    });
+
+    // Create a toast ID for tracking the loading state
+    const toastId = toast.loading(
+      itineraryId
+        ? 'Updating your itinerary...'
+        : 'Saving your itinerary...',
+      {
+        position: "top-center",
+        autoClose: false,
+      }
+    );
+
+    try {
       if (!itineraryId) {
+        setFeedbackMessage({
+          text: 'Error: No itinerary ID found',
+          type: 'error'
+        });
+
+        toast.update(toastId, {
+          render: 'No itinerary ID found',
+          type: 'error',
+          isLoading: false,
+          autoClose: 5000,
+          position: "top-center",
+        });
         throw new Error('No itinerary ID found');
       }
 
@@ -794,26 +843,85 @@ const CreateItinerary: React.FC = () => {
 
       if (!result.success) {
         console.error('Error updating itinerary');
-        toast.dismiss(loadingToastId);
-        toast.error('Failed to update itinerary');
+
+        // Set error feedback message
+        setFeedbackMessage({
+          text: 'Failed to update itinerary',
+          type: 'error'
+        });
+
+        toast.update(toastId, {
+          render: 'Failed to update itinerary',
+          type: 'error',
+          isLoading: false,
+          autoClose: 5000,
+          position: "top-center",
+        });
         throw new Error('Failed to update itinerary');
       }
 
-      setIsSaving(false);
-      setLoading(false);
+      // Set success feedback message
+      setFeedbackMessage({
+        text: itineraryId
+          ? 'Your itinerary was updated successfully!'
+          : 'Your itinerary was saved successfully!',
+        type: 'success'
+      });
 
-      // Update the loading toast with success message
-      toast.dismiss(loadingToastId);
+      // Success case with a strong visible message
+      toast.update(toastId, {
+        render: itineraryId
+          ? 'Your itinerary was updated successfully!'
+          : 'Your itinerary was saved successfully!',
+        type: 'success',
+        isLoading: false,
+        autoClose: 5000,
+        position: "top-center",
+      });
+
+      // Add an additional direct success notification to ensure visibility
       toast.success(
         itineraryId
           ? 'Your itinerary was updated successfully!'
-          : 'Your itinerary was saved successfully!'
+          : 'Your itinerary was saved successfully!',
+        {
+          position: "top-center",
+          autoClose: 5000,
+        }
       );
+
     } catch (error) {
       console.error('Error saving itinerary:', error);
+
+      // Set error feedback message
+      setFeedbackMessage({
+        text: 'Failed to save itinerary. Please try again.',
+        type: 'error'
+      });
+
+      // Make sure we update the toast with the error
+      toast.update(toastId, {
+        render: 'Failed to save itinerary. Please try again.',
+        type: 'error',
+        isLoading: false,
+        autoClose: 5000,
+        position: "top-center",
+      });
+
+      // Add an additional direct error notification to ensure visibility
+      toast.error('Failed to save itinerary. Please try again.', {
+        position: "top-center",
+        autoClose: 5000
+      });
+    } finally {
+      // Always reset loading states
       setIsSaving(false);
       setLoading(false);
-      toast.error('Failed to save itinerary. Please try again.');
+
+      // Clear the feedback message after 5 seconds
+      setTimeout(() => {
+        setFeedbackMessage({ text: '', type: '' });
+      }, 5000);
     }
   };
 
@@ -1751,31 +1859,43 @@ const CreateItinerary: React.FC = () => {
                   })()}
                 </div>
                 <div>
-                  {day.notes ? (
-                    <div className="flex items-center justify-center">
-                      <button
-                        onClick={() => {
-                          setActiveDestinationForNotes(cleanDestination(day.destination));
-                          setShowDestinationNotes(true);
-                        }}
-                        className="font-['Inter_var'] font-[600] text-sm text-[#0f3e4a] hover:text-[#00C48C] transition-colors"
-                      >
-                        View Notes
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center">
-                      <button
-                        onClick={() => {
-                          setActiveDestinationForNotes(cleanDestination(day.destination));
-                          setShowDestinationNotes(true);
-                        }}
-                        className="notes-action column-action"
-                      >
-                        <Plus className="w-4 h-4" strokeWidth={2.5} />
-                      </button>
-                    </div>
-                  )}
+                  {(() => {
+                    // Debug log for content check
+                    console.log(`Destination: ${day.destination}, Notes: ${!!day.notes}, Overview: ${!!day.destination_overview}, ` +
+                      `YouTube videos: ${day.youtube_videos?.length || 0}, ` +
+                      `YouTube playlists: ${day.youtube_playlists?.length || 0}, ` +
+                      `Instagram videos: ${day.instagram_videos?.length || 0}`);
+
+                    return (day.notes ||
+                      (day.destination_overview && day.destination_overview.trim() !== '') ||
+                      (day.youtube_videos && day.youtube_videos.length > 0) ||
+                      (day.youtube_playlists && day.youtube_playlists.length > 0) ||
+                      (day.instagram_videos && day.instagram_videos.length > 0)) ? (
+                      <div className="flex items-center justify-center">
+                        <button
+                          onClick={() => {
+                            setActiveDestinationForNotes(cleanDestination(day.destination));
+                            setShowDestinationNotes(true);
+                          }}
+                          className="font-['Inter_var'] font-[600] text-sm text-[#0f3e4a] hover:text-[#00C48C] transition-colors"
+                        >
+                          View Notes
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center">
+                        <button
+                          onClick={() => {
+                            setActiveDestinationForNotes(cleanDestination(day.destination));
+                            setShowDestinationNotes(true);
+                          }}
+                          className="notes-action column-action"
+                        >
+                          <Plus className="w-4 h-4" strokeWidth={2.5} />
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div>
                   <div className="flex items-center justify-center gap-2">
@@ -1831,20 +1951,39 @@ const CreateItinerary: React.FC = () => {
             <Plus className="w-6 h-6" />
             Add new destination...
           </button>
-          <button
-            onClick={handleSave}
-            disabled={loading}
-            className="px-6 py-2 bg-[#00C48C] text-white rounded-lg hover:bg-[#00B380] transition-colors shadow-sm flex items-center gap-2 font-['Inter_var'] font-[600]"
-          >
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              <>
-                <span>{saveButtonText}</span>
-                <ChevronRight className="w-4 h-4" />
-              </>
+
+          <div className="flex flex-col items-end gap-2">
+            {feedbackMessage.text && (
+              <div
+                className={`text-sm font-medium px-3 py-2 rounded-md ${feedbackMessage.type === 'success'
+                  ? 'bg-green-100 text-green-700 border border-green-300'
+                  : feedbackMessage.type === 'error'
+                    ? 'bg-red-100 text-red-700 border border-red-300'
+                    : 'bg-blue-100 text-blue-700 border border-blue-300'
+                  }`}
+              >
+                {feedbackMessage.type === 'loading' && (
+                  <span className="inline-block mr-2 w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                )}
+                {feedbackMessage.text}
+              </div>
             )}
-          </button>
+
+            <button
+              onClick={handleSave}
+              disabled={loading}
+              className="px-6 py-2 bg-[#00C48C] text-white rounded-lg hover:bg-[#00B380] transition-colors shadow-sm flex items-center gap-2 font-['Inter_var'] font-[600]"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <>
+                  <span>{saveButtonText}</span>
+                  <ChevronRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     );

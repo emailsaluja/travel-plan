@@ -1,0 +1,62 @@
+/* Custom styles for react-toastify to ensure toasts are visible */
+.Toastify__toast-container {
+    z-index: 9999 !important;
+    font-family: 'Inter', sans-serif;
+    width: auto !important;
+    min-width: 320px !important;
+    max-width: 500px !important;
+}
+
+.Toastify__toast {
+    border-radius: 8px !important;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15) !important;
+    font-weight: 500 !important;
+    font-size: 16px !important;
+    padding: 16px !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+.Toastify__toast--success {
+    background-color: #00C48C !important;
+    color: white !important;
+}
+
+.Toastify__toast--error {
+    background-color: #FF4D4D !important;
+    color: white !important;
+}
+
+.Toastify__toast--info {
+    background-color: #3498db !important;
+    color: white !important;
+}
+
+.Toastify__toast--warning {
+    background-color: #f39c12 !important;
+    color: white !important;
+}
+
+.Toastify__progress-bar {
+    height: 4px !important;
+}
+
+.Toastify__toast-icon {
+    margin-right: 12px !important;
+}
+
+/* Animation to make the toast more noticeable */
+@keyframes toast-pop {
+    0% {
+        transform: scale(0.9) translateY(20px);
+        opacity: 0;
+    }
+
+    100% {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+}
+
+.Toastify__toast {
+    animation: toast-pop 0.3s ease-out forwards !important;
+}

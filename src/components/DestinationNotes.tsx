@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 interface DestinationNotesProps {
     isOpen: boolean;
     onClose: () => void;
-    destination: string;
+    destination: string | null;
     onSave: (notes: string, youtubeVideos: string[], youtubePlaylists: string[], instagramVideos: string[]) => void;
     initialNotes: string;
     initialYoutubeVideos?: string[];
@@ -91,24 +91,120 @@ const DestinationNotes: React.FC<DestinationNotesProps> = ({
     };
 
     const handleSave = async () => {
-        try {
-            setIsSaving(true);
+        if (isSaving) return;
+        setIsSaving(true);
 
-            const { error: dbError } = await supabase
+        try {
+            console.log('Saving overview for:', {
+                itineraryId,
+                destination,
+                destinationIndex,
+                notes,
+                youtubeVideos,
+                youtubePlaylists,
+                instagramVideos
+            });
+
+            // Process input with null checking
+            const destinationValue = destination || '';
+
+            // First try to find the existing record
+            const { data: existingData, error: findError } = await supabase
                 .from('user_itinerary_destinations')
-                .update({
-                    destination_overview: notes,
-                    youtube_videos: youtubeVideos,
-                    youtube_playlists: youtubePlaylists,
-                    instagram_videos: instagramVideos
-                })
+                .select('*')
+                .eq('itinerary_id', itineraryId)
+                .eq('destination', destinationValue);
+
+            if (findError) {
+                console.error('Error finding destination record:', findError);
+            }
+
+            console.log('Existing data by destination:', existingData);
+
+            // Try to find by order_index as a backup
+            const { data: existingByIndex, error: indexError } = await supabase
+                .from('user_itinerary_destinations')
+                .select('*')
                 .eq('itinerary_id', itineraryId)
                 .eq('order_index', destinationIndex);
 
-            if (dbError) {
-                throw dbError;
+            if (indexError) {
+                console.error('Error finding by index:', indexError);
             }
 
+            console.log('Existing data by index:', existingByIndex);
+
+            let success = false;
+            let error = null;
+
+            // Try updating by ID if we found a record
+            if (existingData && existingData.length > 0) {
+                const { error: updateError } = await supabase
+                    .from('user_itinerary_destinations')
+                    .update({
+                        destination_overview: notes,
+                        youtube_videos: youtubeVideos,
+                        youtube_playlists: youtubePlaylists,
+                        instagram_videos: instagramVideos
+                    })
+                    .eq('id', existingData[0].id);
+
+                if (updateError) {
+                    console.error('Error updating by destination name:', updateError);
+                    error = updateError;
+                } else {
+                    success = true;
+                }
+            }
+
+            // If first update failed, try updating by index
+            if (!success && existingByIndex && existingByIndex.length > 0) {
+                const { error: updateError } = await supabase
+                    .from('user_itinerary_destinations')
+                    .update({
+                        destination_overview: notes,
+                        youtube_videos: youtubeVideos,
+                        youtube_playlists: youtubePlaylists,
+                        instagram_videos: instagramVideos
+                    })
+                    .eq('id', existingByIndex[0].id);
+
+                if (updateError) {
+                    console.error('Error updating by index:', updateError);
+                    error = updateError;
+                } else {
+                    success = true;
+                }
+            }
+
+            // If both updates failed, try inserting a new record
+            if (!success) {
+                console.log('No existing record found or updates failed, attempting to insert');
+                const { error: insertError } = await supabase
+                    .from('user_itinerary_destinations')
+                    .insert({
+                        itinerary_id: itineraryId,
+                        destination: destinationValue,
+                        order_index: destinationIndex,
+                        destination_overview: notes,
+                        youtube_videos: youtubeVideos,
+                        youtube_playlists: youtubePlaylists,
+                        instagram_videos: instagramVideos
+                    });
+
+                if (insertError) {
+                    console.error('Error inserting new record:', insertError);
+                    error = insertError;
+                } else {
+                    success = true;
+                }
+            }
+
+            if (!success && error) {
+                throw error;
+            }
+
+            console.log('Save operation completed successfully');
             onSave(notes, youtubeVideos, youtubePlaylists, instagramVideos);
             toast.success('Overview saved successfully');
             onClose();
@@ -128,7 +224,7 @@ const DestinationNotes: React.FC<DestinationNotesProps> = ({
                 {/* Header */}
                 <div className="p-6 flex items-center justify-between border-b border-gray-200">
                     <div className="flex-1">
-                        <h2 className="text-xl font-semibold">Overview for {destination}</h2>
+                        <h2 className="text-xl font-semibold">Overview for {destination || 'Destination'}</h2>
                     </div>
                     <button
                         onClick={onClose}
