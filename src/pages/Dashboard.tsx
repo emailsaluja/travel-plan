@@ -1897,14 +1897,20 @@ const Dashboard = () => {
 
                     return displayItineraries.map((itinerary) => (
                       <div key={itinerary.id} className="flex bg-white rounded-xl overflow-hidden border border-gray-100">
-                        <div className="w-[200px] h-[140px] bg-gray-100">
+                        <div
+                          className="w-[200px] h-[140px] bg-gray-100 cursor-pointer"
+                          onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                        >
                           <img
                             src={getRandomImageForCountry(itinerary.country)}
                             alt={itinerary.trip_name}
                             className="w-full h-full object-cover"
                           />
                         </div>
-                        <div className="flex-1 p-4">
+                        <div
+                          className="flex-1 p-4 cursor-pointer"
+                          onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
+                        >
                           <div className="flex items-center gap-1.5 mb-1">
                             <MapPin className="w-[14px] h-[14px] text-gray-500" />
                             <span className="text-[13px] text-gray-600">{itinerary.country}</span>

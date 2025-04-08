@@ -5,7 +5,7 @@
  * 3. Removing extra spaces
  * 4. Trimming whitespace
  */
-export const cleanDestination = (destination: string | null | undefined): string => {
+export const cleanDestination = (destination: string): string => {
     if (!destination) return '';
 
     // First split by comma and take the first part

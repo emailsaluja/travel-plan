@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 interface DestinationNotesProps {
     isOpen: boolean;
     onClose: () => void;
-    destination: string | null;
+    destination: string;
     onSave: (notes: string, youtubeVideos: string[], youtubePlaylists: string[], instagramVideos: string[]) => void;
     initialNotes: string;
     initialYoutubeVideos?: string[];
@@ -105,15 +105,12 @@ const DestinationNotes: React.FC<DestinationNotesProps> = ({
                 instagramVideos
             });
 
-            // Process input with null checking
-            const destinationValue = destination || '';
-
             // First try to find the existing record
             const { data: existingData, error: findError } = await supabase
                 .from('user_itinerary_destinations')
                 .select('*')
                 .eq('itinerary_id', itineraryId)
-                .eq('destination', destinationValue);
+                .eq('destination', destination);
 
             if (findError) {
                 console.error('Error finding destination record:', findError);
@@ -184,7 +181,7 @@ const DestinationNotes: React.FC<DestinationNotesProps> = ({
                     .from('user_itinerary_destinations')
                     .insert({
                         itinerary_id: itineraryId,
-                        destination: destinationValue,
+                        destination: destination,
                         order_index: destinationIndex,
                         destination_overview: notes,
                         youtube_videos: youtubeVideos,
@@ -224,7 +221,7 @@ const DestinationNotes: React.FC<DestinationNotesProps> = ({
                 {/* Header */}
                 <div className="p-6 flex items-center justify-between border-b border-gray-200">
                     <div className="flex-1">
-                        <h2 className="text-xl font-semibold">Overview for {destination || 'Destination'}</h2>
+                        <h2 className="text-xl font-semibold">Overview for {destination}</h2>
                     </div>
                     <button
                         onClick={onClose}

@@ -1859,43 +1859,31 @@ const CreateItinerary: React.FC = () => {
                   })()}
                 </div>
                 <div>
-                  {(() => {
-                    // Debug log for content check
-                    console.log(`Destination: ${day.destination}, Notes: ${!!day.notes}, Overview: ${!!day.destination_overview}, ` +
-                      `YouTube videos: ${day.youtube_videos?.length || 0}, ` +
-                      `YouTube playlists: ${day.youtube_playlists?.length || 0}, ` +
-                      `Instagram videos: ${day.instagram_videos?.length || 0}`);
-
-                    return (day.notes ||
-                      (day.destination_overview && day.destination_overview.trim() !== '') ||
-                      (day.youtube_videos && day.youtube_videos.length > 0) ||
-                      (day.youtube_playlists && day.youtube_playlists.length > 0) ||
-                      (day.instagram_videos && day.instagram_videos.length > 0)) ? (
-                      <div className="flex items-center justify-center">
-                        <button
-                          onClick={() => {
-                            setActiveDestinationForNotes(cleanDestination(day.destination));
-                            setShowDestinationNotes(true);
-                          }}
-                          className="font-['Inter_var'] font-[600] text-sm text-[#0f3e4a] hover:text-[#00C48C] transition-colors"
-                        >
-                          View Notes
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center">
-                        <button
-                          onClick={() => {
-                            setActiveDestinationForNotes(cleanDestination(day.destination));
-                            setShowDestinationNotes(true);
-                          }}
-                          className="notes-action column-action"
-                        >
-                          <Plus className="w-4 h-4" strokeWidth={2.5} />
-                        </button>
-                      </div>
-                    );
-                  })()}
+                  {day.notes ? (
+                    <div className="flex items-center justify-center">
+                      <button
+                        onClick={() => {
+                          setActiveDestinationForNotes(cleanDestination(day.destination));
+                          setShowDestinationNotes(true);
+                        }}
+                        className="font-['Inter_var'] font-[600] text-sm text-[#0f3e4a] hover:text-[#00C48C] transition-colors"
+                      >
+                        View Notes
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      <button
+                        onClick={() => {
+                          setActiveDestinationForNotes(cleanDestination(day.destination));
+                          setShowDestinationNotes(true);
+                        }}
+                        className="notes-action column-action"
+                      >
+                        <Plus className="w-4 h-4" strokeWidth={2.5} />
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div className="flex items-center justify-center gap-2">
