@@ -535,8 +535,8 @@ const AdminDashboard = () => {
                                         onClick={() => setCurrentPage(prev => prev - 1)}
                                         disabled={!canPreviousPage}
                                         className={`inline-flex items-center px-2 py-1 rounded-l-md border text-sm font-medium ${canPreviousPage
-                                                ? 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50'
-                                                : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                                            ? 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50'
+                                            : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
                                             }`}
                                     >
                                         <ChevronLeft className="h-4 w-4" />
@@ -560,8 +560,8 @@ const AdminDashboard = () => {
                                                 key={pageNumber}
                                                 onClick={() => setCurrentPage(pageNumber)}
                                                 className={`inline-flex items-center px-3 py-1 border text-sm font-medium ${currentPage === pageNumber
-                                                        ? 'border-indigo-500 bg-indigo-50 text-indigo-600 z-10'
-                                                        : 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50'
+                                                    ? 'border-indigo-500 bg-indigo-50 text-indigo-600 z-10'
+                                                    : 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50'
                                                     }`}
                                             >
                                                 {pageNumber}
@@ -573,8 +573,8 @@ const AdminDashboard = () => {
                                         onClick={() => setCurrentPage(prev => prev + 1)}
                                         disabled={!canNextPage}
                                         className={`inline-flex items-center px-2 py-1 rounded-r-md border text-sm font-medium ${canNextPage
-                                                ? 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50'
-                                                : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                                            ? 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50'
+                                            : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
                                             }`}
                                     >
                                         <ChevronRight className="h-4 w-4" />

@@ -4,8 +4,8 @@
 }
 
 .mapbox-marker {
-    width: 24px;
-    height: 24px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     background-color: #00C48C;
     border: 2px solid white;
@@ -14,21 +14,41 @@
     justify-content: center;
     color: white;
     font-weight: bold;
-    font-size: 12px;
+    font-size: 14px;
     cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 2;
+    transform: translate(-50%, -50%);
+}
+
+/* Ensure the marker content is centered */
+.mapbox-marker>div {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Style for popup */
 .mapboxgl-popup {
-    max-width: 200px;
+    max-width: 240px;
+    z-index: 10;
 }
 
 .mapboxgl-popup-content {
-    padding: 10px;
+    padding: 12px;
     border-radius: 8px;
     font-family: 'Inter', sans-serif;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-left: 4px solid #00C48C;
+}
+
+.mapboxgl-popup-content strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #00C48C;
+    font-size: 14px;
 }
 
 /* Style for navigation controls */
@@ -41,4 +61,18 @@
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Style for route lines */
+.route-line {
+    stroke-width: 3px;
+    stroke-opacity: 0.8;
+}
+
+/* Improve map attribution */
+.mapboxgl-ctrl-attrib {
+    font-size: 10px;
+    background-color: rgba(255, 255, 255, 0.7);
+    border-radius: 4px;
+    padding: 2px 5px;
 }

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './MapboxMap.css';
-import { mapboxCacheService } from '../services/mapbox-cache.service';
+import mapboxCacheService from '../services/mapboxCacheService';
 
 interface Destination {
     destination: string;
@@ -13,9 +13,13 @@ interface MapboxMapProps {
     destinations: Destination[];
     className?: string;
     country: string;
+    onMapUpdate?: (
+        coordinates: Array<[number, number]>,
+        destinations: Destination[]
+    ) => void;
 }
 
-const MapboxMap: React.FC<MapboxMapProps> = ({ destinations, className = '', country }) => {
+const MapboxMap: React.FC<MapboxMapProps> = ({ destinations, className = '', country, onMapUpdate }) => {
     const mapContainer = useRef<HTMLDivElement>(null);
     const map = useRef<mapboxgl.Map | null>(null);
     const markers = useRef<mapboxgl.Marker[]>([]);
@@ -186,6 +190,17 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ destinations, className = '', cou
                 map.current.on('load', () => {
                     map.current?.resize();
 
+                    // Create an image for arrow markers on the route
+                    const arrowImage = new Image(20, 20);
+                    arrowImage.src = 'data:image/svg+xml;charset=utf-8,%3Csvg%20viewBox%3D%220%200%2020%2020%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M10%2020c5.523%200%2010-4.477%2010-10S15.523%200%2010%200%200%204.477%200%2010s4.477%2010%2010%2010zm1-15v4h3l-4%206-4-6h3V5h2z%22%20fill%3D%22%23EC4899%22%2F%3E%3C%2Fsvg%3E';
+
+                    arrowImage.onload = () => {
+                        if (map.current) {
+                            map.current.addImage('arrow', arrowImage);
+                            console.log("Arrow icon added to map");
+                        }
+                    };
+
                     // Add event listener for viewport changes
                     map.current?.on('moveend', () => {
                         if (map.current) {
@@ -229,6 +244,46 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ destinations, className = '', cou
             }
         };
     }, [country, getInitialMapCenter]);
+
+    // Geocode location with caching
+    const geocodeLocation = useCallback(async (location: string): Promise<[number, number] | null> => {
+        try {
+            console.log(`Geocoding location: ${location}`);
+
+            // Try to get from cache first
+            const cachedResult = await mapboxCacheService.getGeocodingResult(location);
+            if (cachedResult) {
+                console.log(`Using cached geocoding for ${location}:`, cachedResult);
+                return cachedResult;
+            }
+
+            // Perform geocoding API request
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(location)}.json?access_token=${mapboxgl.accessToken}&limit=1`;
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                throw new Error(`Geocoding API error: ${response.status} ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            if (data.features && data.features.length > 0) {
+                const [lng, lat] = data.features[0].center;
+                console.log(`Geocoded ${location} to [${lng.toFixed(4)}, ${lat.toFixed(4)}]`);
+
+                // Cache the result
+                await mapboxCacheService.saveGeocodingResult(location, [lng, lat]);
+
+                return [lng, lat];
+            } else {
+                console.warn(`No geocoding results found for "${location}"`);
+                return null;
+            }
+        } catch (error) {
+            console.error(`Error geocoding location "${location}":`, error);
+            return null;
+        }
+    }, []);
 
     // Memoize geocoding function with cache and batch processing
     const geocodeDestinations = useCallback(async (destinations: string[]): Promise<Map<string, [number, number]>> => {
@@ -447,26 +502,32 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ destinations, className = '', cou
     // Get route with cache
     const getRoute = useCallback(async (start: [number, number], end: [number, number]) => {
         try {
-            // Try to get from cache first
-            const cachedRoute = await mapboxCacheService.getRouteGeometry(start, end);
-            if (cachedRoute) {
-                return cachedRoute;
-            }
-
-            // Calculate the distance between points using the Haversine formula
+            // Calculate the distance to determine appropriate routing method
+            const [startLng, startLat] = start;
+            const [endLng, endLat] = end;
             const R = 6371e3; // Earth's radius in meters
-            const φ1 = start[1] * Math.PI / 180;
-            const φ2 = end[1] * Math.PI / 180;
-            const Δφ = (end[1] - start[1]) * Math.PI / 180;
-            const Δλ = (end[0] - start[0]) * Math.PI / 180;
+            const φ1 = startLat * Math.PI / 180;
+            const φ2 = endLat * Math.PI / 180;
+            const Δφ = (endLat - startLat) * Math.PI / 180;
+            const Δλ = (endLng - startLng) * Math.PI / 180;
             const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
                 Math.cos(φ1) * Math.cos(φ2) *
                 Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             const distance = R * c / 1000; // Distance in kilometers
 
-            // If distance is greater than 2000km, create a great circle route instead
+            console.log(`Calculating route from [${startLng.toFixed(4)}, ${startLat.toFixed(4)}] to [${endLng.toFixed(4)}, ${endLat.toFixed(4)}], distance: ${distance.toFixed(1)} km`);
+
+            // Check cache first
+            const cachedRoute = await mapboxCacheService.getRouteGeometry(start, end);
+            if (cachedRoute) {
+                console.log('Route found in cache');
+                return cachedRoute;
+            }
+
+            // If distance is greater than 2000km, create a great circle route instead of driving
             if (distance > 2000) {
+                console.log('Creating great circle route for long distance');
                 // Create a great circle line
                 const numPoints = 100;
                 const coordinates = [];
@@ -474,48 +535,65 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ destinations, className = '', cou
                     const f = i / numPoints;
                     const A = Math.sin((1 - f) * c) / Math.sin(c);
                     const B = Math.sin(f * c) / Math.sin(c);
-                    const x = A * Math.cos(φ1) * Math.cos(start[0]) + B * Math.cos(φ2) * Math.cos(end[0]);
-                    const y = A * Math.cos(φ1) * Math.sin(start[0]) + B * Math.cos(φ2) * Math.sin(end[0]);
+                    const x = A * Math.cos(φ1) * Math.cos(startLng) + B * Math.cos(φ2) * Math.cos(endLng);
+                    const y = A * Math.cos(φ1) * Math.sin(startLng) + B * Math.cos(φ2) * Math.sin(endLng);
                     const z = A * Math.sin(φ1) + B * Math.sin(φ2);
                     const lat = Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI;
-                    const lon = Math.atan2(y, x) * 180 / Math.PI;
-                    coordinates.push([lon, lat]);
+                    const lng = Math.atan2(y, x) * 180 / Math.PI;
+                    coordinates.push([lng, lat]);
                 }
 
-                return {
+                const geometry = {
                     type: 'LineString',
                     coordinates: coordinates
                 };
-            }
 
-            // If distance is less than 2000km, try to get a driving route
-            const response = await fetch(
-                `https://api.mapbox.com/directions/v5/mapbox/driving/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`
-            );
-
-            if (!response.ok) {
-                // If driving route fails, create a direct line
-                return {
-                    type: 'LineString',
-                    coordinates: [start, end]
-                };
-            }
-
-            const data = await response.json();
-            if (data.routes && data.routes[0]) {
-                const geometry = data.routes[0].geometry;
+                // Save to cache
                 await mapboxCacheService.saveRouteGeometry(start, end, geometry);
                 return geometry;
             }
 
-            // Fallback to direct line if no route found
-            return {
-                type: 'LineString',
-                coordinates: [start, end]
-            };
+            // For shorter distances, try to get a driving route
+            try {
+                console.log('Fetching driving route from Mapbox API');
+                const response = await fetch(
+                    `https://api.mapbox.com/directions/v5/mapbox/driving/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`
+                );
+
+                if (!response.ok) {
+                    throw new Error(`API request failed with status ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.routes && data.routes.length > 0) {
+                    const geometry = data.routes[0].geometry;
+                    console.log('Driving route found and cached');
+                    await mapboxCacheService.saveRouteGeometry(start, end, geometry);
+                    return geometry;
+                } else {
+                    console.log('No routes found, falling back to direct line');
+                    // Fallback to direct line if no route found
+                    const directLine = {
+                        type: 'LineString',
+                        coordinates: [start, end]
+                    };
+                    await mapboxCacheService.saveRouteGeometry(start, end, directLine);
+                    return directLine;
+                }
+            } catch (error) {
+                console.error('Error fetching driving route:', error);
+                // Fallback to direct line in case of error
+                const directLine = {
+                    type: 'LineString',
+                    coordinates: [start, end]
+                };
+                await mapboxCacheService.saveRouteGeometry(start, end, directLine);
+                return directLine;
+            }
         } catch (error) {
-            console.error('Error fetching route:', error);
-            // Fallback to direct line in case of error
+            console.error('Error in getRoute:', error);
+            // Fallback to direct line
             return {
                 type: 'LineString',
                 coordinates: [start, end]
@@ -523,53 +601,78 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ destinations, className = '', cou
         }
     }, []);
 
-    // Update route layer with memoization
-    const updateRouteLayer = useCallback(async (coords: [number, number][]) => {
-        if (!map.current || coords.length < 2) return;
+    // Update route layer with new coordinates
+    const updateRouteLayer = useCallback(async (coordinates: Array<[number, number]>) => {
+        if (!map.current || coordinates.length < 2) {
+            console.log('Map not ready or insufficient coordinates for route');
+            return;
+        }
 
-        cleanupRoutes();
+        try {
+            const mapInstance = map.current;
+            console.log('Updating route layer with coordinates:', coordinates);
 
-        // Wait for the map to process the cleanup
-        await new Promise(resolve => setTimeout(resolve, 0));
+            // Clean up existing routes if they exist
+            const mapStyle = mapInstance.getStyle();
+            const existingLayers = mapStyle?.layers || [];
+            existingLayers.forEach(layer => {
+                if (layer.id.startsWith('route-') || layer.id.startsWith('route-arrows-')) {
+                    mapInstance.removeLayer(layer.id);
+                }
+            });
 
-        // Get and display routes between consecutive points
-        for (let i = 0; i < coords.length - 1; i++) {
-            const start = coords[i];
-            const end = coords[i + 1];
-            const routeGeometry = await getRoute(start, end);
+            // Remove existing sources
+            const sources = mapStyle?.sources || {};
+            Object.keys(sources).forEach(sourceId => {
+                if (sourceId.startsWith('route-')) {
+                    mapInstance.removeSource(sourceId);
+                }
+            });
 
-            if (routeGeometry && map.current) {
-                const sourceId = `route-segment-${i}`;
-                const layerId = `route-segment-${i}`;
+            // Process routes between consecutive points
+            for (let i = 0; i < coordinates.length - 1; i++) {
+                const start = coordinates[i];
+                const end = coordinates[i + 1];
 
                 try {
-                    map.current.addSource(sourceId, {
+                    // Get route between these points
+                    const geometry = await getRoute(start, end);
+                    if (!geometry) continue;
+
+                    // Calculate distance between points
+                    const [startLng, startLat] = start;
+                    const [endLng, endLat] = end;
+                    const R = 6371e3; // Earth's radius in meters
+                    const φ1 = startLat * Math.PI / 180;
+                    const φ2 = endLat * Math.PI / 180;
+                    const Δφ = (endLat - startLat) * Math.PI / 180;
+                    const Δλ = (endLng - startLng) * Math.PI / 180;
+                    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                        Math.cos(φ1) * Math.cos(φ2) *
+                        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                    const distance = R * c / 1000; // Distance in kilometers
+
+                    // Determine if this is a long-distance route (use dashed line if so)
+                    const isLongDistance = distance > 2000;
+
+                    // Create source ID and layer ID
+                    const sourceId = `route-${i}`;
+                    const layerId = `route-${i}`;
+                    const arrowsLayerId = `route-arrows-${i}`;
+
+                    // Add source for this route segment
+                    mapInstance.addSource(sourceId, {
                         type: 'geojson',
                         data: {
                             type: 'Feature',
                             properties: {},
-                            geometry: routeGeometry
+                            geometry: geometry
                         }
                     });
 
-                    // Calculate if this is a great circle route based on distance
-                    const isGreatCircle = routeGeometry.coordinates.length > 2 && (() => {
-                        const [startLng, startLat] = start;
-                        const [endLng, endLat] = end;
-                        const R = 6371e3; // Earth's radius in meters
-                        const φ1 = startLat * Math.PI / 180;
-                        const φ2 = endLat * Math.PI / 180;
-                        const Δφ = (endLat - startLat) * Math.PI / 180;
-                        const Δλ = (endLng - startLng) * Math.PI / 180;
-                        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                            Math.cos(φ1) * Math.cos(φ2) *
-                            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-                        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                        const distance = R * c / 1000; // Distance in kilometers
-                        return distance > 2000;
-                    })();
-
-                    map.current.addLayer({
+                    // Add the line layer for this route segment
+                    mapInstance.addLayer({
                         id: layerId,
                         type: 'line',
                         source: sourceId,
@@ -578,18 +681,37 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ destinations, className = '', cou
                             'line-cap': 'round'
                         },
                         paint: {
-                            'line-color': '#EC4899', // Always use pink color
+                            'line-color': '#0084ff',
                             'line-width': 3,
                             'line-opacity': 0.8,
-                            'line-dasharray': isGreatCircle ? [2, 2] : [1, 0] // Dashed for air routes, solid for driving
+                            'line-dasharray': isLongDistance ? [2, 1] : [1]
                         }
                     });
+
+                    // Add directional arrows for this route
+                    mapInstance.addLayer({
+                        id: arrowsLayerId,
+                        type: 'symbol',
+                        source: sourceId,
+                        layout: {
+                            'symbol-placement': 'line',
+                            'symbol-spacing': 100,
+                            'icon-image': 'arrow',
+                            'icon-size': 0.5,
+                            'icon-allow-overlap': true,
+                            'symbol-avoid-edges': false
+                        }
+                    });
+
+                    console.log(`Added route segment ${i} from ${start} to ${end}`);
                 } catch (error) {
                     console.error(`Error adding route segment ${i}:`, error);
                 }
             }
+        } catch (error) {
+            console.error('Error updating route layer:', error);
         }
-    }, [cleanupRoutes, getRoute]);
+    }, [map, getRoute]);
 
     // Memoize the destinations array to prevent unnecessary updates
     const memoizedDestinations = useMemo(() => {
@@ -599,65 +721,120 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ destinations, className = '', cou
     // Update markers and route when destinations change with debouncing
     useEffect(() => {
         const updateMap = async () => {
-            if (!map.current || !memoizedDestinations.length) return;
-
-            // Check if destinations have actually changed
-            const currentDestinationsString = JSON.stringify(memoizedDestinations.map(d => d.destination));
-            if (currentDestinationsString === previousDestinations.current) {
+            if (!map.current || !destinations || destinations.length === 0) {
+                console.log('Map not ready or no destinations');
                 return;
             }
-            previousDestinations.current = currentDestinationsString;
 
-            // Clear existing markers
-            markers.current.forEach(marker => marker.remove());
-            markers.current = [];
-            coordinates.current = [];
+            console.log('Updating map with destinations:', destinations);
 
-            // Create a bounds object to fit all markers
-            const bounds = new mapboxgl.LngLatBounds();
-            let hasValidBounds = false;
-
-            // Process each destination sequentially
-            for (let i = 0; i < memoizedDestinations.length; i++) {
-                const dest = memoizedDestinations[i];
-                if (!dest.destination) continue;
-
-                const coordsMap = await geocodeDestinations([dest.destination]);
-                const coords = coordsMap.get(dest.destination);
-                if (coords) {
-                    const [lng, lat] = coords;
-                    coordinates.current.push(coords);
-                    bounds.extend(coords);
-                    hasValidBounds = true;
-
-                    // Create marker element
-                    const el = document.createElement('div');
-                    el.className = 'mapbox-marker';
-                    el.textContent = `${i + 1}`;
-
-                    // Add marker to map
-                    const marker = new mapboxgl.Marker(el)
-                        .setLngLat([lng, lat])
-                        .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(`<strong>${dest.destination}</strong>`))
-                        .addTo(map.current);
-
-                    markers.current.push(marker);
-                }
+            // Clear existing markers and popups
+            if (markers.current.length > 0) {
+                console.log('Clearing existing markers');
+                markers.current.forEach(marker => marker.remove());
+                markers.current = [];
             }
 
-            // Fit bounds with padding if we have coordinates
-            if (hasValidBounds) {
-                map.current.fitBounds(bounds, {
-                    padding: { top: 50, bottom: 50, left: 50, right: 50 },
-                    duration: 1000,
-                    maxZoom: 10 // Prevent excessive zoom for single destinations
-                });
+            // Geocode all destinations in parallel with better error handling
+            const coordinates: Array<[number, number]> = [];
+            const validDestinations: Destination[] = [];
 
-                // Wait for the map to finish moving before adding routes
-                map.current.once('moveend', async () => {
-                    // Update route layer after all coordinates are collected
-                    await updateRouteLayer(coordinates.current);
-                });
+            await Promise.all(
+                destinations.map(async (destination, index) => {
+                    try {
+                        const coords = await geocodeLocation(destination.destination);
+
+                        if (coords) {
+                            coordinates[index] = coords;
+                            validDestinations[index] = destination;
+
+                            // Create marker with improved styling
+                            const markerElement = document.createElement('div');
+                            markerElement.className = 'mapbox-marker';
+
+                            // Add day number to marker
+                            const dayElement = document.createElement('div');
+                            dayElement.className = 'day-number';
+                            dayElement.textContent = (index + 1).toString();
+                            markerElement.appendChild(dayElement);
+
+                            // Create popup with destination info
+                            const popup = new mapboxgl.Popup({
+                                offset: 25,
+                                closeButton: false,
+                                className: 'destination-popup'
+                            }).setHTML(`
+                                <div class="popup-content">
+                                    <h3>Day ${index + 1}: ${destination.destination}</h3>
+                                    <p>${destination.nights ? `${destination.nights} nights` : ''}</p>
+                                </div>
+                            `);
+
+                            // Add marker to map
+                            const marker = new mapboxgl.Marker(markerElement)
+                                .setLngLat(coords)
+                                .setPopup(popup);
+
+                            // Only add to map if it exists
+                            if (map.current) {
+                                marker.addTo(map.current);
+                            }
+
+                            // Show popup on hover
+                            markerElement.addEventListener('mouseenter', () => {
+                                const popup = marker.getPopup();
+                                if (map.current && popup) {
+                                    popup.addTo(map.current);
+                                }
+                            });
+
+                            markerElement.addEventListener('mouseleave', () => {
+                                const popup = marker.getPopup();
+                                if (popup) {
+                                    popup.remove();
+                                }
+                            });
+
+                            // Add to markers array for cleanup
+                            markers.current.push(marker);
+                        } else {
+                            console.warn(`Failed to geocode destination: ${destination.destination}`);
+                        }
+                    } catch (error) {
+                        console.error(`Error processing destination ${index}:`, error);
+                    }
+                })
+            );
+
+            // Filter out any empty slots from failed geocoding
+            const filteredCoords = coordinates.filter(coord => coord !== undefined);
+            const filteredDestinations = validDestinations.filter(dest => dest !== undefined);
+
+            if (filteredCoords.length > 0) {
+                console.log('Setting coordinates for route:', filteredCoords);
+
+                // Update route if we have at least 2 points
+                if (filteredCoords.length > 1 && map.current) {
+                    updateRouteLayer(filteredCoords);
+                }
+
+                // Fit map to bounds of all markers
+                const bounds = new mapboxgl.LngLatBounds();
+                filteredCoords.forEach(coord => bounds.extend(coord));
+
+                if (map.current) {
+                    map.current.fitBounds(bounds, {
+                        padding: { top: 100, bottom: 100, left: 100, right: 100 },
+                        maxZoom: 10
+                    });
+                }
+
+                // Save the result to callback if provided
+                if (onMapUpdate) {
+                    onMapUpdate(filteredCoords, filteredDestinations);
+                }
+            } else {
+                console.warn('No valid coordinates after geocoding');
             }
         };
 
@@ -666,17 +843,18 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ destinations, className = '', cou
             clearTimeout(updateTimeout.current);
         }
 
-        // Set a new timeout for the update
+        // Set a new timeout for the update to ensure the map is fully loaded
         updateTimeout.current = setTimeout(() => {
             // Only update the map if it's fully loaded
             if (map.current && map.current.loaded()) {
                 updateMap();
             } else if (map.current) {
+                // Wait for map to load if not already loaded
                 map.current.once('load', () => {
                     updateMap();
                 });
             }
-        }, 500); // 500ms debounce
+        }, 300); // Reduced timeout for faster updates
 
         // Cleanup timeout on unmount
         return () => {
@@ -684,7 +862,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ destinations, className = '', cou
                 clearTimeout(updateTimeout.current);
             }
         };
-    }, [memoizedDestinations, geocodeDestinations, updateRouteLayer]);
+    }, [map, destinations, markers, geocodeLocation, updateRouteLayer, onMapUpdate]);
 
     return (
         <div ref={mapContainer} className={`mapbox-container ${className}`} />
