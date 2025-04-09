@@ -1859,7 +1859,7 @@ const CreateItinerary: React.FC = () => {
                   })()}
                 </div>
                 <div>
-                  {day.notes ? (
+                  {day.destination_overview ? (
                     <div className="flex items-center justify-center">
                       <button
                         onClick={() => {

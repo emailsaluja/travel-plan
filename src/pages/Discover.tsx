@@ -537,6 +537,15 @@ const Discover: React.FC = () => {
         target.src = fallbackUrl;
     };
 
+    // Add this function to calculate the end date
+    const calculateEndDate = (startDateStr: string, duration: number): string => {
+        if (!startDateStr) return '';
+        const startDate = new Date(startDateStr);
+        const endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + duration - 1); // -1 because duration includes the start day
+        return endDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-white pt-16">
@@ -728,7 +737,7 @@ const Discover: React.FC = () => {
                 </div>
 
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         {countryData.itineraries.map((itinerary) => (
                             <div
                                 key={itinerary.id}
@@ -748,6 +757,9 @@ const Discover: React.FC = () => {
                                     )}
                                     createdAt={itinerary.created_at}
                                     loading="lazy"
+                                    startDate={itinerary.start_date}
+                                    endDate={calculateEndDate(itinerary.start_date, itinerary.duration)}
+                                    country={itinerary.country}
                                 />
                             </div>
                         ))}
@@ -821,7 +833,7 @@ const Discover: React.FC = () => {
                 {/* Featured Destinations Section */}
                 <div className="mb-12">
                     <h2 className="text-3xl font-bold mb-8">Featured Destinations</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         {itineraries
                             .filter(itinerary => sectionAssignments['Featured Destinations']?.includes(itinerary.id))
                             .map((itinerary) => (
@@ -885,7 +897,7 @@ const Discover: React.FC = () => {
                             View all →
                         </button>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                         {itineraries
                             .filter(itinerary => sectionAssignments['Trending Destinations']?.includes(itinerary.id))
                             .slice(0, 4)
@@ -932,14 +944,14 @@ const Discover: React.FC = () => {
                             View all →
                         </button>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         {itineraries
                             .filter(itinerary => sectionAssignments['Unique Experiences']?.includes(itinerary.id))
                             .map((itinerary) => (
                                 <div
                                     key={itinerary.id}
                                     onClick={() => navigate(`/viewmyitinerary/${itinerary.id}`)}
-                                    className="cursor-pointer"
+                                    className="cursor-pointer w-[320px]"
                                 >
                                     <ItineraryTile
                                         id={itinerary.id}
@@ -954,6 +966,9 @@ const Discover: React.FC = () => {
                                         )}
                                         createdAt={itinerary.created_at}
                                         loading="lazy"
+                                        startDate={itinerary.start_date}
+                                        endDate={calculateEndDate(itinerary.start_date, itinerary.duration)}
+                                        country={itinerary.country}
                                     />
                                 </div>
                             ))}
@@ -1001,7 +1016,7 @@ const Discover: React.FC = () => {
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         {itineraries
                             .filter(itinerary => sectionAssignments[activeSeason]?.includes(itinerary.id))
                             .map((itinerary) => (
@@ -1023,6 +1038,9 @@ const Discover: React.FC = () => {
                                         )}
                                         createdAt={itinerary.created_at}
                                         loading="lazy"
+                                        startDate={itinerary.start_date}
+                                        endDate={calculateEndDate(itinerary.start_date, itinerary.duration)}
+                                        country={itinerary.country}
                                     />
                                 </div>
                             ))}
@@ -1034,7 +1052,7 @@ const Discover: React.FC = () => {
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">Travel Mood Boards</h2>
                     <p className="text-gray-600 mb-6">Visual inspiration for your next adventure based on the atmosphere you seek</p>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {/* Tropical Escape Card */}
                         <div className="bg-white rounded-2xl border border-gray-100 p-6">
                             <div className="flex justify-between items-start mb-4">
@@ -1342,7 +1360,7 @@ const Discover: React.FC = () => {
                         </button>
                     </div>
                     <div className="overflow-x-auto">
-                        <div className="flex gap-4">
+                        <div className="flex gap-2">
                             {itineraries
                                 .filter(itinerary => itinerary.tags?.includes('short'))
                                 .map((itinerary) => (
@@ -1364,6 +1382,9 @@ const Discover: React.FC = () => {
                                             )}
                                             createdAt={itinerary.created_at}
                                             loading="lazy"
+                                            startDate={itinerary.start_date}
+                                            endDate={calculateEndDate(itinerary.start_date, itinerary.duration)}
+                                            country={itinerary.country}
                                         />
                                     </div>
                                 ))}
@@ -1380,7 +1401,7 @@ const Discover: React.FC = () => {
                         These lesser-known destinations offer authentic experiences away from the crowds
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         {itineraries
                             .filter(itinerary => sectionAssignments['Hidden Gems']?.includes(itinerary.id))
                             .slice(0, 3)
@@ -1439,7 +1460,7 @@ const Discover: React.FC = () => {
                             View all →
                         </button>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         {topTravellers.map((traveller) => (
                             <div key={traveller.id} className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col h-full">
                                 <div className="relative h-48">

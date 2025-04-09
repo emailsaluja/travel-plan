@@ -1,36 +1,37 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
-  Share2,
-  MoreHorizontal,
-  Settings,
+  Bell,
+  Calendar,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Bell,
-  ChevronDown,
-  Calendar,
-  Users,
-  MapPin,
-  Trash2,
-  Plus,
-  Globe,
   Clock,
-  Edit,
-  LogOut,
-  X,
-  User,
-  Image,
-  Upload,
-  Heart,
   Copy,
+  Edit,
+  Edit2,
   Eye,
-  Sparkles,
-  ShoppingBag,
-  Star,
+  Globe,
+  Heart,
+  Image,
+  LogOut,
+  MapPin,
   MessageCircle,
-  Search,
+  MoreHorizontal,
   Pencil,
-  Trash
+  Plus,
+  Search,
+  Settings,
+  Share2,
+  ShoppingBag,
+  Sparkles,
+  Star,
+  Trash,
+  Trash2,
+  Upload,
+  User,
+  Users,
+  X
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserItineraryService } from '../services/user-itinerary.service';
@@ -1198,13 +1199,13 @@ const Dashboard = () => {
                     </button>
 
                     <button
-                      onClick={() => navigate('/schedule-trip')}
+                      onClick={() => navigate('/create-ai-itinerary')}
                       className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50 transition-colors group"
                     >
                       <div className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
-                        <Calendar className="w-4 h-4 text-white" />
+                        <Sparkles className="w-4 h-4 text-white" />
                       </div>
-                      <span className="text-[#1e293b] font-medium text-[11px] text-center leading-tight">Schedule a Trip</span>
+                      <span className="text-[#1e293b] font-medium text-[11px] text-center leading-tight">Create AI Itinerary</span>
                     </button>
 
                     <button
@@ -1220,13 +1221,13 @@ const Dashboard = () => {
                     </button>
 
                     <button
-                      onClick={() => navigate('/save-place')}
+                      onClick={() => navigate('/create-premium-itinerary')}
                       className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50 transition-colors group"
                     >
                       <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
-                        <Heart className="w-4 h-4 text-white" />
+                        <Star className="w-4 h-4 text-white" />
                       </div>
-                      <span className="text-[#1e293b] font-medium text-[11px] text-center leading-tight">Save a Place</span>
+                      <span className="text-[#1e293b] font-medium text-[11px] text-center leading-tight">Create Premium Itinerary</span>
                     </button>
                   </div>
                 </div>
@@ -1338,7 +1339,7 @@ const Dashboard = () => {
                             <h3 className="text-[#1e293b] font-medium mb-1">{itinerary.title}</h3>
                             <div className="flex items-center text-sm text-[#64748b]">
                               <Calendar className="w-4 h-4 mr-1" />
-                              {itinerary.purchase_date ? formatDate(itinerary.purchase_date) : formatDate(itinerary.created_at)}
+                              <span>Purchased: {formatDate(itinerary.purchase_date)}</span>
                             </div>
                             <div className="mt-1 flex items-center gap-2">
                               <span className="text-[#00C48C] text-sm font-medium">{itinerary.currency} {itinerary.price}</span>
@@ -1821,6 +1822,74 @@ const Dashboard = () => {
                     </table>
                   </div>
                 </div>
+              </div>
+            ) : view === 'purchases' ? (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-gray-900">My Purchases</h2>
+                  <div className="relative flex-1 max-w-md ml-4">
+                    <input
+                      type="text"
+                      placeholder="Search purchases..."
+                      className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm placeholder-gray-400 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#00C48C] focus:border-transparent"
+                      onChange={(e) => {
+                        // Search functionality can be added here
+                      }}
+                    />
+                    <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                  </div>
+                </div>
+
+                {purchasedItineraries.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {purchasedItineraries.map((itinerary) => (
+                      <div
+                        key={itinerary.id}
+                        className="bg-white rounded-xl overflow-hidden border border-gray-200 hover:shadow-md transition-all cursor-pointer"
+                        onClick={() => navigate(`/viewmyitinerary/${itinerary.base_itinerary_id}`)}
+                      >
+                        <div className="relative h-40 overflow-hidden">
+                          <img
+                            src={itinerary.featured_image_url || getRandomImageForCountry(itinerary.country)}
+                            alt={itinerary.title}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                          <div className="absolute bottom-3 left-3 text-white">
+                            <span className="text-xs font-medium">{itinerary.country}</span>
+                          </div>
+                        </div>
+                        <div className="p-4">
+                          <h3 className="font-semibold text-gray-900 mb-1">{itinerary.title}</h3>
+                          <div className="flex items-center mb-2 text-sm text-gray-500">
+                            <Calendar className="w-4 h-4 mr-1" />
+                            <span>Purchased: {formatDate(itinerary.purchase_date)}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[#00C48C] font-medium">
+                              {itinerary.currency} {itinerary.price}
+                            </span>
+                            <span className="text-gray-500 text-sm">{itinerary.duration} days</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-xl p-8 border border-gray-200 text-center">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <ShoppingBag className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No purchases yet</h3>
+                    <p className="text-gray-500 mb-6">You haven't purchased any premium itineraries yet.</p>
+                    <button
+                      onClick={() => navigate('/discover')}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#00C48C] hover:bg-[#00B380]"
+                    >
+                      Discover Premium Itineraries
+                    </button>
+                  </div>
+                )}
               </div>
             ) : view === 'trips' || (view === 'countries' && selectedCountry) ? (
               <div className="space-y-6">
