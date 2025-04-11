@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { MapPin, Calendar, Clock, Users, Search, X, Globe, MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CountryImagesService } from '../services/country-images.service';
@@ -7,6 +7,7 @@ import { cleanDestination } from '../utils/stringUtils';
 import StaticWorldMap from '../components/StaticWorldMap';
 import { PaymentModal } from '../components/PaymentModal';
 import { useUser } from '../hooks/useUser';
+import DirectMessage from '../components/DirectMessage';
 
 // Add country code mapping
 const COUNTRY_CODES: { [key: string]: string } = {
@@ -256,6 +257,10 @@ const UserPublicDashboard = () => {
     const { user } = useUser();
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [selectedItineraryId, setSelectedItineraryId] = useState<string | null>(null);
+    // Questions state
+    const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
+    const [selectedItineraryForQuestion, setSelectedItineraryForQuestion] = useState<string | null>(null);
+    const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
 
     // Add this constant for regions
     const REGIONS: Record<RegionKey, string> = {
@@ -755,7 +760,7 @@ const UserPublicDashboard = () => {
                 const { data: premiumData } = await supabase
                     .from('premium_itineraries')
                     .select('*')
-                    .eq('user_id', profile.user_id)
+                    .eq('user_id', profile?.user_id)
                     .eq('status', 'published')
                     .order('created_at', { ascending: false });
 
@@ -771,7 +776,27 @@ const UserPublicDashboard = () => {
             } catch (error) {
                 console.error('Error handling payment success:', error);
             }
+
         }
+    };
+
+    const location = useLocation();
+
+    // Handle asking questions about an itinerary
+    const handleAskQuestionClick = (itineraryId: string, sellerId: string) => {
+        if (!user) {
+            // Redirect to signin if user is not authenticated
+            navigate('/signin', {
+                state: {
+                    returnTo: location.pathname,
+                    message: 'Please sign in or create an account to ask questions about itineraries.'
+                }
+            });
+            return;
+        }
+        setSelectedItineraryForQuestion(itineraryId);
+        setSelectedSellerId(sellerId);
+        setIsQuestionModalOpen(true);
     };
 
     if (loading) {
@@ -1194,9 +1219,22 @@ const UserPublicDashboard = () => {
                                     )}
 
                                     <div className="mt-6">
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => handleAskQuestionClick(itinerary.id, itinerary.user_id)}
+                                                className="flex-1 px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition-colors"
+                                            >
+                                                <span className="flex items-center justify-center gap-2">
+                                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                        <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" strokeLinecap="round" strokeLinejoin="round" />
+                                                    </svg>
+                                                    Ask Question
+                                                </span>
+                                            </button>
+                                        </div>
                                         <button
                                             onClick={() => handlePurchaseClick(itinerary.id)}
-                                            className="w-full px-4 py-2 bg-[#EAB308] hover:bg-[#CA8A04] text-white text-sm font-medium rounded-lg transition-colors"
+                                            className="w-full px-4 py-2 bg-[#EAB308] hover:bg-[#CA8A04] text-white text-sm font-medium rounded-lg transition-colors mt-2"
                                         >
                                             Purchase
                                         </button>
@@ -2068,6 +2106,16 @@ const UserPublicDashboard = () => {
                     </div>
                 )}
             </div>
+
+            {/* Questions Modal */}
+            {isQuestionModalOpen && selectedItineraryForQuestion && selectedSellerId && (
+                <DirectMessage
+                    itineraryId={selectedItineraryForQuestion}
+                    sellerId={selectedSellerId}
+                    onClose={() => setIsQuestionModalOpen(false)}
+                />
+            )}
+
             {isPaymentModalOpen && selectedItineraryId && user && (
                 <PaymentModal
                     isOpen={isPaymentModalOpen}

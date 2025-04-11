@@ -45,6 +45,12 @@ const Navigation1: React.FC = () => {
                   Dashboard
                 </Link>
                 <Link
+                  to="/dashboard?view=messages"
+                  className="text-gray-500 hover:text-[#1e293b] px-3 py-2 text-[15px] font-medium"
+                >
+                  Messages
+                </Link>
+                <Link
                   to="/dashboard#liked"
                   className="text-gray-500 hover:text-[#1e293b] px-3 py-2 text-[15px] font-medium"
                 >
@@ -142,6 +148,12 @@ const Navigation1: React.FC = () => {
                   className="block px-3 py-2 rounded-md text-base font-medium text-[#1e293b]"
                 >
                   Dashboard
+                </Link>
+                <Link
+                  to="/dashboard?view=messages"
+                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-500 hover:text-[#1e293b]"
+                >
+                  Messages
                 </Link>
                 <Link
                   to="/dashboard#liked"

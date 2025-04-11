@@ -31,7 +31,8 @@ import {
   Upload,
   User,
   Users,
-  X
+  X,
+  MessageSquare
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserItineraryService } from '../services/user-itinerary.service';
@@ -45,6 +46,7 @@ import { LikesService } from '../services/likes.service';
 import TopNavigation from '../components/TopNavigation';
 import { aiItineraryService, SavedAIItinerary } from '../services/ai-itinerary.service';
 import { PaymentService, PurchasedItinerary } from '../services/payment.service';
+import MessageInbox from '../components/MessageInbox';
 
 interface Itinerary {
   id: string;
@@ -149,7 +151,8 @@ type DashboardView =
   | 'aiItineraries'
   | 'premium'
   | 'purchases'
-  | 'sales';
+  | 'sales'
+  | 'messages';
 
 const Dashboard = () => {
   const { userEmail, user, signOut } = useAuth();
@@ -912,6 +915,29 @@ const Dashboard = () => {
     if (location.state?.defaultView === 'purchases') {
       setView('purchases');
     }
+
+    // Check URL parameters for view
+    const searchParams = new URLSearchParams(location.search);
+    const viewParam = searchParams.get('view');
+    if (viewParam) {
+      if (viewParam === 'messages') {
+        setView('messages');
+      } else if (viewParam === 'trips') {
+        setView('trips');
+      } else if (viewParam === 'liked') {
+        setView('liked');
+      } else if (viewParam === 'purchases') {
+        setView('purchases');
+      } else if (viewParam === 'countries') {
+        setView('countries');
+      } else if (viewParam === 'premium') {
+        setView('premium');
+      } else if (viewParam === 'sales') {
+        setView('sales');
+      } else if (viewParam === 'aiItineraries') {
+        setView('aiItineraries');
+      }
+    }
   }, [location]);
 
   return (
@@ -947,6 +973,14 @@ const Dashboard = () => {
                       <path d="M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5zM14 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5zM4 16a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3zM14 13a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-6z" />
                     </svg>
                     <span className="text-[14px] font-medium">Overview</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleViewChange('messages')}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${view === 'messages' ? 'bg-[#00C48C] bg-opacity-10 text-[#00C48C]' : 'text-[#64748b] hover:bg-[#f8fafc]'}`}
+                  >
+                    <MessageSquare className="w-[18px] h-[18px]" />
+                    <span className="text-[14px] font-medium">Messages</span>
                   </button>
 
                   <button
@@ -1118,6 +1152,18 @@ const Dashboard = () => {
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#00C48C] border-t-transparent"></div>
+              </div>
+            ) : view === 'messages' ? (
+              <div className="space-y-4">
+                <div className="flex items-center mb-6">
+                  <div className="mr-3 p-2 rounded-lg bg-[#00C48C]/10">
+                    <MessageSquare className="w-5 h-5 text-[#00C48C]" />
+                  </div>
+                  <h1 className="text-2xl font-medium text-gray-900">Messages</h1>
+                </div>
+                <div className="bg-white rounded-xl overflow-hidden shadow-sm">
+                  <MessageInbox />
+                </div>
               </div>
             ) : view === 'overview' ? (
               <div className="space-y-4">
@@ -2048,7 +2094,21 @@ const Dashboard = () => {
             ) : (
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
-                  {(view === 'trips' || (view === 'countries' && selectedCountry)) && (
+                  {/* Render the create new trip button for trips view or countries view with a selected country */}
+                  {view === 'trips' && (
+                    <div
+                      onClick={() => navigate('/create-itinerary')}
+                      className="cursor-pointer group"
+                    >
+                      <div className="relative rounded-xl overflow-hidden border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 transition-colors h-48 flex items-center justify-center">
+                        <div className="text-center">
+                          <Plus className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-gray-600 font-medium">Create New Trip</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {view === 'countries' && selectedCountry !== null && (
                     <div
                       onClick={() => navigate('/create-itinerary')}
                       className="cursor-pointer group"

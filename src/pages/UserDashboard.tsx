@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Settings, LogOut, Plus, Sparkles, ShoppingBag, Globe, Star } from 'lucide-react';
+import { User, Settings, LogOut, Plus, Sparkles, ShoppingBag, Globe, Star, MessageSquare } from 'lucide-react';
 import { cleanDestination } from '../utils/stringUtils';
 import AIItineraryGenerator from '../components/AIItineraryGenerator';
 import { AIItineraryService } from '../services/ai-itinerary.service';
@@ -157,6 +157,15 @@ const UserDashboard: React.FC = () => {
               >
                 <Globe className="w-4 h-4 text-[#00C48C]" />
                 <span>My Trips</span>
+              </button>
+            </div>
+            <div>
+              <button
+                onClick={() => navigate('/messages')}
+                className="w-full flex items-center gap-2 text-[#1e293b] font-[600] font-['Inter_var'] p-2 rounded-lg hover:bg-[#e5f8f3] hover:text-[#13c892] transition-colors"
+              >
+                <MessageSquare className="w-4 h-4 text-[#00C48C]" />
+                <span>Messages</span>
               </button>
             </div>
             <div>
